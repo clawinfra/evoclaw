@@ -176,6 +176,12 @@ func (m *MemoryStore) Save(agentID string) error {
 		return fmt.Errorf("no memory for agent: %s", agentID)
 	}
 
+	return m.saveMemory(agentID, mem)
+}
+
+// saveMemory is an internal helper that saves a memory without calling Get
+// This avoids deadlocks when called while holding locks
+func (m *MemoryStore) saveMemory(agentID string, mem *ConversationMemory) error {
 	mem.mu.RLock()
 	defer mem.mu.RUnlock()
 
@@ -248,8 +254,8 @@ func (m *MemoryStore) Cleanup(maxAgeHours int) error {
 		mem.mu.RUnlock()
 
 		if lastAccess.Before(threshold) {
-			// Save before removing
-			if err := m.Save(agentID); err != nil {
+			// Save before removing (using internal helper to avoid deadlock)
+			if err := m.saveMemory(agentID, mem); err != nil {
 				m.logger.Error("failed to save memory during cleanup", "agent", agentID, "error", err)
 			}
 			delete(m.cache, agentID)

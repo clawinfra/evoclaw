@@ -630,3 +630,47 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 		t.Errorf("expected 10 total actions, got %d", agent.Metrics.TotalActions)
 	}
 }
+
+func TestLoadWithInvalidJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	
+	// Write an invalid JSON file
+	invalidPath := tmpDir + "/invalid.json"
+	os.WriteFile(invalidPath, []byte("not valid json"), 0644)
+	
+	r, err := NewRegistry(tmpDir, logger)
+	if err != nil {
+		t.Fatalf("failed to create registry: %v", err)
+	}
+	
+	// Should not error, but should log and skip the invalid file
+	// Registry should have no agents loaded
+	agents := r.List()
+	if len(agents) != 0 {
+		t.Errorf("expected 0 agents after loading invalid JSON, got %d", len(agents))
+	}
+}
+
+func TestSaveError(t *testing.T) {
+	r := newTestRegistry(t)
+	
+	def := config.AgentDef{ID: "test-agent", Name: "Test"}
+	agent, err := r.Create(def)
+	if err != nil {
+		t.Fatalf("failed to create agent: %v", err)
+	}
+	
+	// Make the data directory read-only to force a save error
+	os.Chmod(r.dataDir, 0444)
+	defer os.Chmod(r.dataDir, 0755)
+	
+	// SaveAll should continue despite errors
+	err = r.SaveAll()
+	// It returns nil even if individual saves fail (logs errors instead)
+	if err != nil {
+		t.Errorf("SaveAll should not return error, got: %v", err)
+	}
+	
+	_ = agent
+}

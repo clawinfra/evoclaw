@@ -282,6 +282,253 @@ func TestRespondJSON(t *testing.T) {
 	}
 }
 
+func TestHandleAgentDetail(t *testing.T) {
+	s := newTestServer(t)
+	
+	// Create test agent
+	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
+	s.registry.Create(def)
+	
+	// Test GET /api/agents/{id}
+	req := httptest.NewRequest(http.MethodGet, "/api/agents/test-agent", nil)
+	w := httptest.NewRecorder()
+	
+	s.handleAgentDetail(w, req)
+	
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+	
+	var response map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	
+	if response["id"] != "test-agent" {
+		t.Errorf("expected agent id test-agent, got %v", response["id"])
+	}
+}
+
+func TestHandleAgentDetailNotFound(t *testing.T) {
+	s := newTestServer(t)
+	
+	req := httptest.NewRequest(http.MethodGet, "/api/agents/nonexistent", nil)
+	w := httptest.NewRecorder()
+	
+	s.handleAgentDetail(w, req)
+	
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
+func TestHandleAgentDetailInvalidPath(t *testing.T) {
+	s := newTestServer(t)
+	
+	// Empty agent ID will cause a "not found" error when looking up the agent
+	req := httptest.NewRequest(http.MethodGet, "/api/agents/", nil)
+	w := httptest.NewRecorder()
+	
+	s.handleAgentDetail(w, req)
+	
+	// Empty string as agentID will result in agent not found (404)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
+func TestHandleAgentMetrics(t *testing.T) {
+	s := newTestServer(t)
+	
+	// Create test agent
+	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
+	s.registry.Create(def)
+	
+	// Test GET /api/agents/{id}/metrics
+	req := httptest.NewRequest(http.MethodGet, "/api/agents/test-agent/metrics", nil)
+	w := httptest.NewRecorder()
+	
+	s.handleAgentDetail(w, req)
+	
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+	
+	var response map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	
+	if response["agent_id"] != "test-agent" {
+		t.Errorf("expected agent_id test-agent, got %v", response["agent_id"])
+	}
+	
+	if _, ok := response["metrics"]; !ok {
+		t.Error("expected metrics field in response")
+	}
+}
+
+func TestHandleAgentEvolve(t *testing.T) {
+	s := newTestServer(t)
+	
+	// Create test agent
+	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
+	s.registry.Create(def)
+	
+	// Test POST /api/agents/{id}/evolve
+	req := httptest.NewRequest(http.MethodPost, "/api/agents/test-agent/evolve", nil)
+	w := httptest.NewRecorder()
+	
+	s.handleAgentDetail(w, req)
+	
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+	
+	var response map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	
+	if response["message"] != "evolution triggered" {
+		t.Errorf("expected evolution triggered message, got %v", response["message"])
+	}
+}
+
+func TestHandleAgentMemory(t *testing.T) {
+	s := newTestServer(t)
+	
+	// Create test agent
+	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
+	s.registry.Create(def)
+	
+	// Add some memory
+	mem := s.memory.Get("test-agent")
+	mem.Add("user", "Hello")
+	mem.Add("assistant", "Hi there!")
+	
+	// Test GET /api/agents/{id}/memory
+	req := httptest.NewRequest(http.MethodGet, "/api/agents/test-agent/memory", nil)
+	w := httptest.NewRecorder()
+	
+	s.handleAgentDetail(w, req)
+	
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+	
+	var response map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	
+	if response["agent_id"] != "test-agent" {
+		t.Errorf("expected agent_id test-agent, got %v", response["agent_id"])
+	}
+	
+	messageCount := response["message_count"].(float64)
+	if messageCount != 2 {
+		t.Errorf("expected 2 messages, got %v", messageCount)
+	}
+}
+
+func TestHandleClearMemory(t *testing.T) {
+	s := newTestServer(t)
+	
+	// Create test agent
+	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
+	s.registry.Create(def)
+	
+	// Add some memory
+	mem := s.memory.Get("test-agent")
+	mem.Add("user", "Hello")
+	mem.Add("assistant", "Hi there!")
+	
+	// Test DELETE /api/agents/{id}/memory
+	req := httptest.NewRequest(http.MethodDelete, "/api/agents/test-agent/memory", nil)
+	w := httptest.NewRecorder()
+	
+	s.handleAgentDetail(w, req)
+	
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+	
+	var response map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	
+	if response["message"] != "memory cleared" {
+		t.Errorf("expected memory cleared message, got %v", response["message"])
+	}
+	
+	// Verify memory was cleared
+	messages := mem.GetMessages()
+	if len(messages) != 0 {
+		t.Errorf("expected 0 messages after clear, got %d", len(messages))
+	}
+}
+
+func TestHandleAgentMemoryNotFound(t *testing.T) {
+	s := newTestServer(t)
+	
+	// Test GET memory for nonexistent agent (but with valid ID format)
+	// Note: memory.Get creates a new memory if it doesn't exist,
+	// so we can't actually test "not found" easily. Test the handler path instead.
+	
+	req := httptest.NewRequest(http.MethodGet, "/api/agents/nonexistent/memory", nil)
+	w := httptest.NewRecorder()
+	
+	s.handleAgentDetail(w, req)
+	
+	// Should return 404 because agent doesn't exist in registry
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
+func TestRespondJSONError(t *testing.T) {
+	s := newTestServer(t)
+	
+	w := httptest.NewRecorder()
+	// Create a value that can't be marshaled to JSON
+	data := make(chan int)
+	
+	s.respondJSON(w, data)
+	
+	// Should return 500 for marshal errors
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status 500, got %d", w.Code)
+	}
+}
+
+func TestLoggingMiddleware(t *testing.T) {
+	s := newTestServer(t)
+	
+	called := false
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("test response"))
+	})
+	
+	wrapped := s.loggingMiddleware(handler)
+	
+	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+	w := httptest.NewRecorder()
+	
+	wrapped.ServeHTTP(w, req)
+	
+	if !called {
+		t.Error("handler was not called")
+	}
+	
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+}
+
 // mockProvider implements ModelProvider for testing
 type mockProvider struct {
 	name    string

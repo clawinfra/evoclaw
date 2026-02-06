@@ -350,3 +350,19 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 		t.Errorf("expected default MQTT port 1883, got %d", loaded.MQTT.Port)
 	}
 }
+
+func TestSaveConfigReadOnlyDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	
+	// Make directory read-only
+	os.Chmod(tmpDir, 0444)
+	defer os.Chmod(tmpDir, 0755)
+	
+	configPath := filepath.Join(tmpDir, "config.json")
+	cfg := DefaultConfig()
+	
+	err := cfg.Save(configPath)
+	if err == nil {
+		t.Error("expected error when saving to read-only directory")
+	}
+}
