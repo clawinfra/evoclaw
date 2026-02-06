@@ -1,0 +1,95 @@
+# EvoClaw — Docker Compose (Development with Hot Reload)
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up
+#
+# Features:
+#   - Source code mounted for hot reload
+#   - Debug logging enabled
+#   - Go: uses air for hot reload (install: go install github.com/air-verse/air@latest)
+#   - Rust: uses cargo-watch for hot reload (install: cargo install cargo-watch)
+
+services:
+  # ─── MQTT Broker ──────────────────────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: evoclaw-mqtt-dev
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+
+  # ─── Go Orchestrator (Dev) ────────────────────────────────────
+  orchestrator:
+    image: golang:1.24-alpine
+    container_name: evoclaw-orchestrator-dev
+    working_dir: /src
+    command: >
+      sh -c "
+        go install github.com/air-verse/air@latest 2>/dev/null;
+        if command -v air >/dev/null 2>&1; then
+          air -c /dev/stdin <<'EOF'
+      root = '/src'
+      [build]
+        cmd = 'go build -o /tmp/evoclaw ./cmd/evoclaw'
+        bin = '/tmp/evoclaw --config /src/evoclaw.json'
+        include_ext = ['go', 'json']
+        exclude_dir = ['edge-agent', 'integration', 'data']
+      EOF
+        else
+          echo 'air not available, using go run';
+          go run ./cmd/evoclaw --config /src/evoclaw.json;
+        fi
+      "
+    ports:
+      - "8420:8420"
+    volumes:
+      - .:/src
+      - go-cache:/root/go
+      - go-mod-cache:/go/pkg/mod
+    environment:
+      - LOG_LEVEL=debug
+      - GOFLAGS=-buildvcs=false
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+
+  # ─── Rust Edge Agent (Dev) ────────────────────────────────────
+  edge-agent:
+    image: rust:1.84-alpine
+    container_name: evoclaw-edge-agent-dev
+    working_dir: /src
+    command: >
+      sh -c "
+        apk add --no-cache musl-dev pkgconfig openssl-dev 2>/dev/null;
+        cargo install cargo-watch 2>/dev/null;
+        if command -v cargo-watch >/dev/null 2>&1; then
+          cargo watch -x 'run -- --config /src/agent.toml';
+        else
+          echo 'cargo-watch not available, using cargo run';
+          cargo run -- --config /src/agent.toml;
+        fi
+      "
+    volumes:
+      - ./edge-agent:/src
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-target:/src/target
+    environment:
+      - RUST_LOG=debug
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      orchestrator:
+        condition: service_started
+
+volumes:
+  go-cache:
+  go-mod-cache:
+  cargo-cache:
+  cargo-target:

@@ -1,0 +1,75 @@
+# EvoClaw — Docker Compose (Production-like)
+#
+# Usage:
+#   docker compose up -d
+#   docker compose logs -f
+#   docker compose down
+#
+# Prerequisites:
+#   cp evoclaw.example.json evoclaw.json  (edit with your API keys)
+#   cp edge-agent/agent.example.toml edge-agent/agent.toml
+
+services:
+  # ─── MQTT Broker ──────────────────────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: evoclaw-mqtt
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # ─── Go Orchestrator ──────────────────────────────────────────
+  orchestrator:
+    build:
+      context: .
+      dockerfile: orchestrator.Dockerfile
+    container_name: evoclaw-orchestrator
+    ports:
+      - "8420:8420"
+    volumes:
+      - ./evoclaw.json:/app/evoclaw.json:ro
+      - orchestrator-data:/app/data
+    environment:
+      - LOG_LEVEL=info
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8420/api/status"]
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+
+  # ─── Rust Edge Agent ──────────────────────────────────────────
+  edge-agent:
+    build:
+      context: ./edge-agent
+      dockerfile: Dockerfile
+    container_name: evoclaw-edge-agent
+    volumes:
+      - ./edge-agent/agent.toml:/app/agent.toml:ro
+      - agent-keys:/app/keys
+    environment:
+      - RUST_LOG=info
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      orchestrator:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mosquitto-data:
+  orchestrator-data:
+  agent-keys:
