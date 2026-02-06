@@ -4,6 +4,7 @@ mod config;
 mod metrics;
 mod monitor;
 mod mqtt;
+mod strategy;
 mod trading;
 
 use clap::Parser;

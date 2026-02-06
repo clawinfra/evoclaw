@@ -5,6 +5,7 @@ use crate::config::Config;
 use crate::metrics::Metrics;
 use crate::monitor::Monitor;
 use crate::mqtt::{parse_command, MqttClient};
+use crate::strategy::StrategyEngine;
 use crate::trading::{HyperliquidClient, PnLTracker};
 
 pub struct EdgeAgent {
@@ -14,6 +15,7 @@ pub struct EdgeAgent {
     pub trading_client: Option<HyperliquidClient>,
     pub pnl_tracker: PnLTracker,
     pub monitor: Option<Monitor>,
+    pub strategy_engine: StrategyEngine,
 }
 
 impl EdgeAgent {
@@ -35,6 +37,9 @@ impl EdgeAgent {
         // Initialize monitor if this is a monitor agent
         let monitor = config.monitor.as_ref().map(|mc| Monitor::new(mc.clone()));
 
+        // Initialize strategy engine (for trader agents)
+        let strategy_engine = StrategyEngine::new();
+
         let agent = Self {
             config,
             mqtt,
@@ -42,6 +47,7 @@ impl EdgeAgent {
             trading_client,
             pnl_tracker: PnLTracker::new(),
             monitor,
+            strategy_engine,
         };
 
         Ok((agent, eventloop))

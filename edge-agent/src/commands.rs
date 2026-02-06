@@ -3,6 +3,7 @@ use tracing::{info, warn};
 
 use crate::agent::EdgeAgent;
 use crate::mqtt::AgentCommand;
+use crate::strategy::{FundingArbitrage, MeanReversion};
 
 /// Command handler result
 pub type CommandResult = Result<Value, Box<dyn std::error::Error>>;
@@ -207,11 +208,107 @@ impl EdgeAgent {
 
     async fn handle_update_strategy(&mut self, cmd: &AgentCommand) -> CommandResult {
         info!("strategy update received - applying");
-        // TODO: Apply new strategy from evolution engine
-        Ok(serde_json::json!({
-            "status": "strategy_updated",
-            "payload": cmd.payload
-        }))
+
+        let action = cmd.payload.get("action").and_then(|v| v.as_str());
+
+        match action {
+            Some("add_funding_arbitrage") => {
+                let threshold = cmd
+                    .payload
+                    .get("funding_threshold")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(-0.1);
+                let exit = cmd
+                    .payload
+                    .get("exit_funding")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                let size = cmd
+                    .payload
+                    .get("position_size_usd")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(1000.0);
+
+                let strategy = FundingArbitrage::new(threshold, exit, size);
+                self.strategy_engine.add_strategy(Box::new(strategy));
+
+                Ok(serde_json::json!({
+                    "status": "strategy_added",
+                    "strategy": "FundingArbitrage",
+                    "params": {
+                        "funding_threshold": threshold,
+                        "exit_funding": exit,
+                        "position_size_usd": size
+                    }
+                }))
+            }
+            Some("add_mean_reversion") => {
+                let support = cmd
+                    .payload
+                    .get("support_level")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(2.0);
+                let resistance = cmd
+                    .payload
+                    .get("resistance_level")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(2.0);
+                let size = cmd
+                    .payload
+                    .get("position_size_usd")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(1000.0);
+
+                let strategy = MeanReversion::new(support, resistance, size);
+                self.strategy_engine.add_strategy(Box::new(strategy));
+
+                Ok(serde_json::json!({
+                    "status": "strategy_added",
+                    "strategy": "MeanReversion",
+                    "params": {
+                        "support_level": support,
+                        "resistance_level": resistance,
+                        "position_size_usd": size
+                    }
+                }))
+            }
+            Some("update_params") => {
+                let strategy_name = cmd
+                    .payload
+                    .get("strategy")
+                    .and_then(|v| v.as_str())
+                    .ok_or("missing strategy name")?;
+                let params = cmd.payload.get("params").ok_or("missing params")?.clone();
+
+                self.strategy_engine
+                    .update_strategy_params(strategy_name, params.clone())?;
+
+                Ok(serde_json::json!({
+                    "status": "strategy_updated",
+                    "strategy": strategy_name,
+                    "new_params": params
+                }))
+            }
+            Some("get_params") => {
+                let all_params = self.strategy_engine.get_all_params();
+                Ok(serde_json::json!({
+                    "status": "success",
+                    "strategies": all_params,
+                    "count": self.strategy_engine.strategy_count()
+                }))
+            }
+            Some("reset") => {
+                self.strategy_engine.reset_all();
+                Ok(serde_json::json!({
+                    "status": "strategies_reset"
+                }))
+            }
+            _ => Ok(serde_json::json!({
+                "status": "strategy_update_received",
+                "payload": cmd.payload,
+                "note": "specify action: add_funding_arbitrage, add_mean_reversion, update_params, get_params, reset"
+            })),
+        }
     }
 
     async fn handle_get_metrics(&self, _cmd: &AgentCommand) -> CommandResult {
