@@ -5,6 +5,9 @@ mod evolution;
 mod metrics;
 mod monitor;
 mod mqtt;
+mod paper;
+mod risk;
+mod signing;
 mod strategy;
 mod trading;
 

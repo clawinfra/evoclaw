@@ -13,11 +13,21 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
-rumqttc = "0.24"          # MQTT client
+rumqttc = "0.24"
 reqwest = { version = "0.12", features = ["json"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 clap = { version = "4", features = ["derive"] }
+alloy-primitives = "0.8"
+alloy-sol-types = "0.8"
+alloy-signer = "0.6"
+alloy-signer-local = "0.6"
+k256 = { version = "0.13", features = ["ecdsa"] }
+tiny-keccak = { version = "2", features = ["keccak"] }
+rmp-serde = "1"
+hex = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 mockall = "0.13"
@@ -25,8 +35,8 @@ tokio-test = "0.4"
 tempfile = "3"
 
 [profile.release]
-opt-level = "s"     # Optimize for size
-lto = true           # Link-time optimization
-codegen-units = 1    # Better optimization
-strip = true         # Strip debug symbols
-panic = "abort"      # Smaller binary
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

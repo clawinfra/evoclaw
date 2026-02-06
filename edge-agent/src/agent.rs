@@ -6,6 +6,8 @@ use crate::evolution::EvolutionTracker;
 use crate::metrics::Metrics;
 use crate::monitor::Monitor;
 use crate::mqtt::{parse_command, MqttClient};
+use crate::paper::PaperTrader;
+use crate::risk::RiskManager;
 use crate::strategy::StrategyEngine;
 use crate::trading::{HyperliquidClient, PnLTracker};
 
@@ -18,6 +20,8 @@ pub struct EdgeAgent {
     pub monitor: Option<Monitor>,
     pub strategy_engine: StrategyEngine,
     pub evolution_tracker: EvolutionTracker,
+    pub paper_trader: Option<PaperTrader>,
+    pub risk_manager: Option<RiskManager>,
 }
 
 impl EdgeAgent {
@@ -45,6 +49,18 @@ impl EdgeAgent {
         // Initialize evolution tracker
         let evolution_tracker = EvolutionTracker::default();
 
+        // Initialize paper trader if in paper mode
+        let paper_trader = config.trading.as_ref().and_then(|tc| {
+            if tc.trading_mode == crate::config::TradingMode::Paper {
+                Some(PaperTrader::new(10000.0, tc.paper_log_path.clone()))
+            } else {
+                None
+            }
+        });
+
+        // Initialize risk manager
+        let risk_manager = config.risk.as_ref().map(|rc| RiskManager::new(rc.clone()));
+
         let agent = Self {
             config,
             mqtt,
@@ -54,6 +70,8 @@ impl EdgeAgent {
             monitor,
             strategy_engine,
             evolution_tracker,
+            paper_trader,
+            risk_manager,
         };
 
         Ok((agent, eventloop))
@@ -133,6 +151,8 @@ mod tests {
         assert_eq!(agent.config.agent_id, "test_agent");
         assert_eq!(agent.config.agent_type, "trader");
         assert_eq!(agent.metrics.actions_total, 0);
+        assert!(agent.paper_trader.is_some()); // Default paper mode
+        assert!(agent.risk_manager.is_some());
     }
 
     #[tokio::test]
@@ -154,7 +174,7 @@ mod tests {
         let initial_uptime = agent.metrics.uptime_sec;
         
         // Heartbeat should increment uptime
-        let result = agent.heartbeat().await;
+        let _result = agent.heartbeat().await;
         // May fail if MQTT not running, but shouldn't panic
         
         // Uptime should be incremented regardless
@@ -171,6 +191,9 @@ mod tests {
             private_key_path: "test.key".to_string(),
             max_position_size_usd: 5000.0,
             max_leverage: 5.0,
+            network_mode: crate::config::NetworkMode::Testnet,
+            trading_mode: crate::config::TradingMode::Live,
+            paper_log_path: "test.jsonl".to_string(),
         });
         
         let result = EdgeAgent::new(config).await;
@@ -178,6 +201,7 @@ mod tests {
         
         let (agent, _) = result.unwrap();
         assert!(agent.trading_client.is_some());
+        assert!(agent.paper_trader.is_none()); // Live mode
         assert!(agent.monitor.is_none());
     }
 

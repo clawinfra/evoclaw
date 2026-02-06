@@ -5,5 +5,8 @@ pub mod evolution;
 pub mod metrics;
 pub mod monitor;
 pub mod mqtt;
+pub mod paper;
+pub mod risk;
+pub mod signing;
 pub mod strategy;
 pub mod trading;
