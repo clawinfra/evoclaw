@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/clawinfra/evoclaw/internal/agents"
+	"github.com/clawinfra/evoclaw/internal/cloud"
 	"github.com/clawinfra/evoclaw/internal/models"
 	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/saas"
 )
 
 // Server is the HTTP API server
@@ -23,6 +25,8 @@ type Server struct {
 	router     *models.Router
 	logger     *slog.Logger
 	httpServer *http.Server
+	cloudMgr   *cloud.Manager
+	saasSvc    *saas.Service
 }
 
 // NewServer creates a new API server
@@ -54,6 +58,12 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/agents/", s.handleAgentDetail)
 	mux.HandleFunc("/api/models", s.handleModels)
 	mux.HandleFunc("/api/costs", s.handleCosts)
+
+	// Cloud API routes (E2B sandbox management)
+	s.registerCloudRoutes(mux)
+
+	// SaaS API routes (multi-tenant agent-as-a-service)
+	s.registerSaaSRoutes(mux)
 
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.port),
