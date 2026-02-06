@@ -3,6 +3,7 @@ mod commands;
 mod config;
 mod metrics;
 mod mqtt;
+mod trading;
 
 use clap::Parser;
 use tracing::info;

@@ -49,15 +49,75 @@ impl EdgeAgent {
         Ok(serde_json::json!({"pong": true}))
     }
 
-    async fn handle_execute(&mut self, _cmd: &AgentCommand) -> CommandResult {
+    async fn handle_execute(&mut self, cmd: &AgentCommand) -> CommandResult {
         match self.config.agent_type.as_str() {
             "trader" => {
-                // TODO: Execute trading task
-                Ok(serde_json::json!({
-                    "status": "executed",
-                    "type": "trade",
-                    "agent_type": "trader"
-                }))
+                // Execute trading task
+                if let Some(ref client) = self.trading_client {
+                    let action = cmd.payload.get("action").and_then(|v| v.as_str());
+
+                    match action {
+                        Some("get_prices") => {
+                            let prices = client.get_prices().await?;
+                            Ok(serde_json::json!({
+                                "status": "success",
+                                "prices": prices
+                            }))
+                        }
+                        Some("get_positions") => {
+                            let positions = client.get_positions().await?;
+                            Ok(serde_json::json!({
+                                "status": "success",
+                                "positions": positions
+                            }))
+                        }
+                        Some("place_order") => {
+                            let asset =
+                                cmd.payload
+                                    .get("asset")
+                                    .and_then(|v| v.as_u64())
+                                    .ok_or("missing asset")? as u32;
+                            let is_buy = cmd
+                                .payload
+                                .get("is_buy")
+                                .and_then(|v| v.as_bool())
+                                .ok_or("missing is_buy")?;
+                            let price = cmd
+                                .payload
+                                .get("price")
+                                .and_then(|v| v.as_f64())
+                                .ok_or("missing price")?;
+                            let size = cmd
+                                .payload
+                                .get("size")
+                                .and_then(|v| v.as_f64())
+                                .ok_or("missing size")?;
+
+                            let response = client
+                                .place_limit_order(asset, is_buy, price, size, false)
+                                .await?;
+                            Ok(serde_json::json!({
+                                "status": "success",
+                                "order_response": response
+                            }))
+                        }
+                        Some("monitor_positions") => {
+                            client.monitor_positions(&mut self.pnl_tracker).await?;
+                            Ok(serde_json::json!({
+                                "status": "success",
+                                "pnl": self.pnl_tracker
+                            }))
+                        }
+                        _ => Ok(serde_json::json!({
+                            "status": "executed",
+                            "type": "trade",
+                            "agent_type": "trader",
+                            "note": "specify action: get_prices, get_positions, place_order, monitor_positions"
+                        })),
+                    }
+                } else {
+                    Err("trading client not initialized".into())
+                }
             }
             "monitor" => {
                 // TODO: Execute monitoring task

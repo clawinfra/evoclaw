@@ -52,7 +52,7 @@ impl Metrics {
     pub fn set_custom(&mut self, key: impl Into<String>, value: f64) {
         self.custom.insert(key.into(), value);
     }
-    
+
     /// Get success rate as percentage
     #[allow(dead_code)]
     pub fn success_rate(&self) -> f64 {

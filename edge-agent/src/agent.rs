@@ -4,11 +4,14 @@ use tracing::{error, info, warn};
 use crate::config::Config;
 use crate::metrics::Metrics;
 use crate::mqtt::{parse_command, MqttClient};
+use crate::trading::{HyperliquidClient, PnLTracker};
 
 pub struct EdgeAgent {
     pub config: Config,
     pub mqtt: MqttClient,
     pub metrics: Metrics,
+    pub trading_client: Option<HyperliquidClient>,
+    pub pnl_tracker: PnLTracker,
 }
 
 impl EdgeAgent {
@@ -21,10 +24,18 @@ impl EdgeAgent {
 
         let (mqtt, eventloop) = MqttClient::new(&config.mqtt, agent_id, agent_type)?;
 
+        // Initialize trading client if this is a trader agent
+        let trading_client = config
+            .trading
+            .as_ref()
+            .map(|tc| HyperliquidClient::new(tc.clone()));
+
         let agent = Self {
             config,
             mqtt,
             metrics: Metrics::new(),
+            trading_client,
+            pnl_tracker: PnLTracker::new(),
         };
 
         Ok((agent, eventloop))
