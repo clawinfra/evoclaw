@@ -1,26 +1,35 @@
 {
+  "_comment": "EvoClaw Configuration — Copy to evoclaw.json and fill in your values",
+
   "server": {
+    "_comment": "HTTP API server settings",
     "port": 8420,
     "dataDir": "./data",
     "logLevel": "info"
   },
+
   "mqtt": {
+    "_comment": "MQTT broker for orchestrator ↔ edge-agent communication. Use localhost for docker-compose, or your broker's address.",
     "port": 1883,
-    "host": "0.0.0.0",
+    "host": "localhost",
     "username": "",
     "password": ""
   },
+
   "channels": {
     "telegram": {
+      "_comment": "Telegram bot for human ↔ orchestrator interaction. Create a bot via @BotFather.",
       "enabled": false,
-      "botToken": "YOUR_BOT_TOKEN_HERE"
+      "botToken": "YOUR_TELEGRAM_BOT_TOKEN"
     }
   },
+
   "models": {
+    "_comment": "LLM provider configuration. Add API keys for providers you want to use.",
     "providers": {
       "anthropic": {
         "baseUrl": "https://api.anthropic.com",
-        "apiKey": "YOUR_ANTHROPIC_KEY",
+        "apiKey": "sk-ant-REPLACE_WITH_YOUR_ANTHROPIC_API_KEY",
         "models": [
           {
             "id": "claude-opus-4-20250514",
@@ -40,7 +49,22 @@
           }
         ]
       },
+      "openai": {
+        "baseUrl": "https://api.openai.com/v1",
+        "apiKey": "sk-REPLACE_WITH_YOUR_OPENAI_API_KEY",
+        "models": [
+          {
+            "id": "gpt-4o",
+            "name": "GPT-4o",
+            "contextWindow": 128000,
+            "costInput": 2.5,
+            "costOutput": 10.0,
+            "capabilities": ["reasoning", "code", "vision"]
+          }
+        ]
+      },
       "ollama": {
+        "_comment": "Local model via Ollama — free, no API key needed. Run: ollama pull llama3.2:3b",
         "baseUrl": "http://localhost:11434",
         "apiKey": "",
         "models": [
@@ -53,36 +77,27 @@
             "capabilities": ["reasoning"]
           }
         ]
-      },
-      "openai": {
-        "baseUrl": "https://api.openai.com/v1",
-        "apiKey": "YOUR_OPENAI_KEY",
-        "models": [
-          {
-            "id": "gpt-4o",
-            "name": "GPT-4o",
-            "contextWindow": 128000,
-            "costInput": 2.5,
-            "costOutput": 10.0,
-            "capabilities": ["reasoning", "code", "vision"]
-          }
-        ]
       }
     },
     "routing": {
+      "_comment": "Model selection by task complexity. Format: provider/model-id",
       "simple": "ollama/llama3.2:3b",
       "complex": "anthropic/claude-sonnet-4-20250514",
       "critical": "anthropic/claude-opus-4-20250514"
     }
   },
+
   "evolution": {
+    "_comment": "Evolution engine — agents self-improve based on performance metrics",
     "enabled": true,
     "evalIntervalSec": 3600,
     "minSamplesForEval": 10,
     "maxMutationRate": 0.2
   },
+
   "agents": [
     {
+      "_comment": "General-purpose assistant agent — handles chat, search, analysis",
       "id": "assistant-1",
       "name": "General Assistant",
       "type": "orchestrator",
@@ -93,6 +108,51 @@
         "enabled": false,
         "memoryMb": 512,
         "cpuShares": 512,
+        "allowNet": true
+      }
+    },
+    {
+      "_comment": "Hyperliquid trading agent — runs on edge device, executes strategies. Configure the edge-agent's TOML config separately (see edge-agent/README.md).",
+      "id": "hl-trader-1",
+      "name": "Hyperliquid Trader",
+      "type": "trader",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are a quantitative trading agent on Hyperliquid. Analyze funding rates, order flow, and price action. Be cautious with position sizing.",
+      "skills": ["trading", "analysis", "risk-management"],
+      "config": {
+        "_comment_exchange": "Hyperliquid perpetual futures exchange",
+        "exchange": "hyperliquid",
+        "api_url": "https://api.hyperliquid.xyz",
+        "wallet_address": "0xYOUR_WALLET_ADDRESS_HERE",
+        "max_position_size_usd": "5000",
+        "max_leverage": "5",
+        "default_assets": "BTC,ETH,SOL,ARB"
+      },
+      "container": {
+        "enabled": false,
+        "memoryMb": 256,
+        "cpuShares": 256,
+        "allowNet": true
+      }
+    },
+    {
+      "_comment": "Market monitor agent — watches prices, funding rates, triggers alerts",
+      "id": "market-monitor-1",
+      "name": "Market Monitor",
+      "type": "monitor",
+      "model": "ollama/llama3.2:3b",
+      "systemPrompt": "You are a market monitoring agent. Track price movements, funding rates, and open interest. Alert on significant changes.",
+      "skills": ["monitoring", "alerts"],
+      "config": {
+        "check_interval_secs": "60",
+        "price_alert_threshold_pct": "5.0",
+        "funding_rate_threshold_pct": "0.1",
+        "watched_assets": "BTC,ETH,SOL,ARB,DOGE"
+      },
+      "container": {
+        "enabled": false,
+        "memoryMb": 128,
+        "cpuShares": 128,
         "allowNet": true
       }
     }

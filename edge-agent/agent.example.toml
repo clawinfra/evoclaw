@@ -1,0 +1,49 @@
+# EvoClaw Edge Agent Configuration
+# Copy to agent.toml and fill in your values.
+#
+# This configures a Rust edge agent that connects to the Go orchestrator
+# via MQTT and executes trading/monitoring strategies on edge devices.
+
+# ─── Agent Identity ───────────────────────────────────────────────
+# Unique agent ID — must match the agent ID registered in the orchestrator
+agent_id = "hl-trader-1"
+
+# Agent type: "trader", "monitor", "sensor", "governance"
+agent_type = "trader"
+
+# ─── MQTT Broker ──────────────────────────────────────────────────
+# Connection to the MQTT broker (shared with orchestrator)
+[mqtt]
+broker = "localhost"       # Use "mosquitto" if running in docker-compose
+port = 1883
+keep_alive_secs = 30       # Heartbeat interval to maintain connection
+
+# ─── Orchestrator API ─────────────────────────────────────────────
+# HTTP API endpoint of the Go orchestrator (for direct REST calls)
+[orchestrator]
+url = "http://localhost:8420"
+
+# ─── Trading Configuration (trader agents only) ──────────────────
+# Hyperliquid perpetual futures exchange settings.
+# IMPORTANT: Never commit real private keys! Use a path to a key file.
+[trading]
+hyperliquid_api = "https://api.hyperliquid.xyz"
+
+# Your Hyperliquid wallet address (0x...)
+wallet_address = "0xYOUR_WALLET_ADDRESS_HERE"
+
+# Path to your private key file (NOT the key itself!)
+# Generate with: python3 edge-agent/scripts/hl_sign.py --generate
+private_key_path = "keys/private.key"
+
+# Risk management limits
+max_position_size_usd = 5000.0   # Maximum position size in USD
+max_leverage = 5.0                # Maximum leverage multiplier
+
+# ─── Monitor Configuration (monitor agents only) ─────────────────
+# Uncomment this section and comment out [trading] for monitor agents.
+#
+# [monitor]
+# price_alert_threshold_pct = 5.0     # Alert on >5% price moves
+# funding_rate_threshold_pct = 0.1    # Alert on >0.1% funding rate
+# check_interval_secs = 60            # Check every 60 seconds
