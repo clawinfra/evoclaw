@@ -745,3 +745,99 @@ func TestMQTTBroadcast_Error(t *testing.T) {
 		t.Fatal("expected error for broadcast failure")
 	}
 }
+
+func TestTelegramVerifyToken_OKFalse(t *testing.T) {
+	mockClient := &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			resp := map[string]interface{}{
+				"ok": false,
+			}
+			body, _ := json.Marshal(resp)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader(body)),
+			}, nil
+		},
+	}
+
+	tg := NewTelegramWithClient("test-token", testLogger(), mockClient)
+
+	err := tg.verifyToken()
+	if err == nil {
+		t.Fatal("expected error when API returns ok=false")
+	}
+}
+
+func TestTelegramPollOnce_OKFalse(t *testing.T) {
+	mockClient := &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			resp := map[string]interface{}{
+				"ok": false,
+			}
+			body, _ := json.Marshal(resp)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader(body)),
+			}, nil
+		},
+	}
+
+	tg := NewTelegramWithClient("test-token", testLogger(), mockClient)
+	tg.ctx = context.Background()
+
+	err := tg.pollOnce()
+	if err == nil {
+		t.Fatal("expected error when API returns ok=false")
+	}
+}
+
+func TestTelegramPollOnce_EmptyText(t *testing.T) {
+	mockClient := &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			resp := map[string]interface{}{
+				"ok": true,
+				"result": []interface{}{
+					map[string]interface{}{
+						"update_id": 123,
+						"message": map[string]interface{}{
+							"message_id": 456,
+							"from": map[string]interface{}{
+								"id": int64(111),
+							},
+							"chat": map[string]interface{}{
+								"id": int64(222),
+							},
+							"date": time.Now().Unix(),
+							"text": "", // Empty text
+						},
+					},
+				},
+			}
+			body, _ := json.Marshal(resp)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader(body)),
+			}, nil
+		},
+	}
+
+	tg := NewTelegramWithClient("test-token", testLogger(), mockClient)
+	tg.ctx = context.Background()
+
+	err := tg.pollOnce()
+	if err != nil {
+		t.Fatalf("pollOnce failed: %v", err)
+	}
+
+	// Offset should be updated but no message in inbox
+	if tg.offset != 124 {
+		t.Errorf("expected offset 124, got %d", tg.offset)
+	}
+
+	select {
+	case <-tg.inbox:
+		t.Fatal("didn't expect message in inbox for empty text")
+	case <-time.After(10 * time.Millisecond):
+		// Good
+	}
+}

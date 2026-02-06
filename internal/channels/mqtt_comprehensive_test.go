@@ -591,3 +591,30 @@ func TestMQTTStop_WhenNotConnected(t *testing.T) {
 		t.Fatalf("Stop failed: %v", err)
 	}
 }
+
+// These tests exercise the DefaultMQTTClient wrapper methods
+// They don't connect to a real MQTT broker but verify the interface works
+
+func TestDefaultMQTTClient_WrapperMethods(t *testing.T) {
+	// Create actual paho client (won't connect)
+	opts := mqtt.NewClientOptions()
+	opts.AddBroker("tcp://localhost:1883")
+	opts.SetClientID("test-client")
+	opts.SetAutoReconnect(false)
+	
+	pahoClient := mqtt.NewClient(opts)
+	wrapper := &DefaultMQTTClient{client: pahoClient}
+
+	// Test IsConnected (should be false without connecting)
+	if wrapper.IsConnected() {
+		t.Error("expected IsConnected to be false")
+	}
+
+	// Test Disconnect (should not panic even when not connected)
+	wrapper.Disconnect(0)
+
+	// These would require actual broker:
+	// - Connect()
+	// - Publish()
+	// - Subscribe()
+}
