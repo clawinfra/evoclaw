@@ -26,6 +26,20 @@ type Config struct {
 
 	// Agent definitions
 	Agents []AgentDef `json:"agents"`
+
+	// E2B cloud sandbox settings
+	Cloud CloudConfig `json:"cloud,omitempty"`
+}
+
+type CloudConfig struct {
+	Enabled                bool    `json:"enabled"`
+	E2BAPIKey              string  `json:"e2bApiKey,omitempty"`
+	DefaultTemplate        string  `json:"defaultTemplate"`
+	DefaultTimeoutSec      int     `json:"defaultTimeoutSec"`
+	MaxAgents              int     `json:"maxAgents"`
+	HealthCheckIntervalSec int     `json:"healthCheckIntervalSec"`
+	KeepAliveIntervalSec   int     `json:"keepAliveIntervalSec"`
+	CreditBudgetUSD        float64 `json:"creditBudgetUsd"`
 }
 
 type ServerConfig struct {
@@ -148,6 +162,15 @@ func DefaultConfig() *Config {
 				Complex:  "anthropic/claude-sonnet",
 				Critical: "anthropic/claude-opus",
 			},
+		},
+		Cloud: CloudConfig{
+			Enabled:                false,
+			DefaultTemplate:        "evoclaw-agent",
+			DefaultTimeoutSec:      300,
+			MaxAgents:              10,
+			HealthCheckIntervalSec: 60,
+			KeepAliveIntervalSec:   120,
+			CreditBudgetUSD:        50.0,
 		},
 	}
 }

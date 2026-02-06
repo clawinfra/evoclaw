@@ -1,0 +1,28 @@
+# E2B sandbox template configuration for EvoClaw edge agent
+#
+# This defines the sandbox template that E2B uses to create
+# Firecracker microVMs running the EvoClaw edge agent.
+#
+# Build: e2b template build
+# Docs:  https://e2b.dev/docs/template/quickstart
+
+# Template identity
+name = "evoclaw-agent"
+dockerfile = "e2b.Dockerfile"
+
+# Start command — runs when sandbox boots
+# The entrypoint handles config injection from environment variables
+start_cmd = "/opt/evoclaw/entrypoint.sh"
+
+# Resource allocation — keep minimal for cost efficiency
+[resources]
+cpu_count = 1
+memory_mb = 256
+
+# Default environment variables (overridable at spawn time)
+[environment]
+EVOCLAW_AGENT_TYPE = "trader"
+EVOCLAW_LOG_LEVEL = "info"
+MQTT_BROKER = "broker.evoclaw.io"
+MQTT_PORT = "1883"
+ORCHESTRATOR_URL = "https://api.evoclaw.io:8420"

@@ -1,0 +1,52 @@
+# EvoClaw Edge Agent — Default E2B sandbox configuration
+#
+# Environment variables override these values at spawn time.
+# The entrypoint.sh script patches this file before starting the agent.
+
+[agent]
+# Overridden by E2B metadata at spawn time
+id = "e2b-agent-default"
+type = "trader"
+
+[mqtt]
+broker = "broker.evoclaw.io"
+port = 1883
+username = ""
+password = ""
+# Topics the agent subscribes to
+topics = ["evoclaw/agents/+/commands", "evoclaw/broadcast"]
+# Topic prefix for publishing
+publish_prefix = "evoclaw/agents"
+
+[orchestrator]
+url = "https://api.evoclaw.io:8420"
+heartbeat_interval_sec = 30
+reconnect_delay_sec = 5
+
+[trading]
+# Hyperliquid connection (injected via env at spawn time)
+api_url = "https://api.hyperliquid.xyz"
+api_key = ""
+api_secret = ""
+# Conservative defaults for cloud agents
+max_position_usd = 100.0
+max_leverage = 2.0
+paper_mode = true
+
+[strategy]
+# Default strategy parameters (evolved by the orchestrator)
+type = "momentum"
+lookback_periods = 20
+entry_threshold = 0.02
+exit_threshold = 0.01
+stop_loss_pct = 0.05
+
+[evolution]
+# Local fitness tracking
+enabled = true
+min_samples = 10
+mutation_rate = 0.1
+
+[logging]
+level = "info"
+format = "json"

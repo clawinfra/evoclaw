@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/clawinfra/evoclaw/internal/agents"
+	"github.com/clawinfra/evoclaw/internal/cloud"
 	"github.com/clawinfra/evoclaw/internal/models"
 	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/saas"
 )
 
 // Server is the HTTP API server
@@ -25,6 +27,8 @@ type Server struct {
 	logger     *slog.Logger
 	httpServer *http.Server
 	webFS      fs.FS // embedded web dashboard assets (optional)
+	cloudMgr   *cloud.Manager
+	saasSvc    *saas.Service
 }
 
 // NewServer creates a new API server
@@ -70,6 +74,12 @@ func (s *Server) Start(ctx context.Context) error {
 		mux.Handle("/", fileServer)
 		s.logger.Info("web dashboard enabled at /")
 	}
+
+	// Cloud API routes (E2B sandbox management)
+	s.registerCloudRoutes(mux)
+
+	// SaaS API routes (multi-tenant agent-as-a-service)
+	s.registerSaaSRoutes(mux)
 
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.port),
