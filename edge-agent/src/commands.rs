@@ -4,7 +4,9 @@ use tracing::{info, warn};
 use crate::agent::EdgeAgent;
 use crate::evolution::TradeRecord;
 use crate::mqtt::AgentCommand;
+use crate::risk::RiskDecision;
 use crate::strategy::{FundingArbitrage, MeanReversion};
+use crate::trading::{CancelOrderRequest, ModifyOrderRequest, PlaceOrderRequest, TimeInForce};
 
 /// Command handler result
 pub type CommandResult = Result<Value, Box<dyn std::error::Error>>;
@@ -24,6 +26,8 @@ impl EdgeAgent {
             "update_strategy" => self.handle_update_strategy(&cmd).await,
             "get_metrics" => self.handle_get_metrics(&cmd).await,
             "evolution" => self.handle_evolution(&cmd).await,
+            "trade" => self.handle_trade(&cmd).await,
+            "risk" => self.handle_risk(&cmd).await,
             "shutdown" => self.handle_shutdown(&cmd).await,
             _ => {
                 warn!(command = %cmd.command, "unknown command");
@@ -75,30 +79,16 @@ impl EdgeAgent {
                             }))
                         }
                         Some("place_order") => {
-                            let asset =
-                                cmd.payload
-                                    .get("asset")
-                                    .and_then(|v| v.as_u64())
-                                    .ok_or("missing asset")? as u32;
-                            let is_buy = cmd
-                                .payload
-                                .get("is_buy")
-                                .and_then(|v| v.as_bool())
-                                .ok_or("missing is_buy")?;
-                            let price = cmd
-                                .payload
-                                .get("price")
-                                .and_then(|v| v.as_f64())
-                                .ok_or("missing price")?;
-                            let size = cmd
-                                .payload
-                                .get("size")
-                                .and_then(|v| v.as_f64())
-                                .ok_or("missing size")?;
+                            let coin = cmd.payload.get("coin").and_then(|v| v.as_str()).ok_or("missing coin")?;
+                            let is_buy = cmd.payload.get("is_buy").and_then(|v| v.as_bool()).ok_or("missing is_buy")?;
+                            let price = cmd.payload.get("price").and_then(|v| v.as_str()).ok_or("missing price")?;
+                            let size = cmd.payload.get("size").and_then(|v| v.as_str()).ok_or("missing size")?;
 
-                            let response = client
-                                .place_limit_order(asset, is_buy, price, size, false)
-                                .await?;
+                            let req = PlaceOrderRequest {
+                                coin: coin.to_string(), is_buy, price: price.to_string(), size: size.to_string(),
+                                reduce_only: false, tif: TimeInForce::Gtc, cloid: None,
+                            };
+                            let response = client.place_order(&req).await?;
                             Ok(serde_json::json!({
                                 "status": "success",
                                 "order_response": response
@@ -405,6 +395,157 @@ impl EdgeAgent {
         }
     }
 
+    async fn handle_trade(&mut self, cmd: &AgentCommand) -> CommandResult {
+        let action = cmd.payload.get("action").and_then(|v| v.as_str()).ok_or("missing action")?;
+        match action {
+            "order" => {
+                let coin = cmd.payload.get("coin").and_then(|v| v.as_str()).ok_or("missing coin")?;
+                let is_buy = cmd.payload.get("is_buy").and_then(|v| v.as_bool()).ok_or("missing is_buy")?;
+                let price = cmd.payload.get("price").and_then(|v| v.as_str()).ok_or("missing price")?;
+                let size = cmd.payload.get("size").and_then(|v| v.as_str()).ok_or("missing size")?;
+                let tif = match cmd.payload.get("tif").and_then(|v| v.as_str()) {
+                    Some("Alo") | Some("alo") => TimeInForce::Alo,
+                    Some("Ioc") | Some("ioc") => TimeInForce::Ioc,
+                    _ => TimeInForce::Gtc,
+                };
+                let reduce_only = cmd.payload.get("reduce_only").and_then(|v| v.as_bool()).unwrap_or(false);
+                // Risk check
+                if let Some(ref mut rm) = self.risk_manager {
+                    let price_f: f64 = price.parse().unwrap_or(0.0);
+                    let size_f: f64 = size.parse().unwrap_or(0.0);
+                    match rm.check_order(price_f * size_f, !reduce_only) {
+                        RiskDecision::Allowed => {}
+                        RiskDecision::Rejected(reason) => {
+                            return Ok(serde_json::json!({"status": "rejected", "reason": reason}));
+                        }
+                    }
+                }
+                // Paper mode
+                if let Some(ref mut paper) = self.paper_trader {
+                    let price_f: f64 = price.parse()?;
+                    let size_f: f64 = size.parse()?;
+                    let oid = if tif == TimeInForce::Ioc {
+                        paper.place_market_order(coin, is_buy, size_f, price_f)
+                    } else {
+                        paper.place_order(coin, is_buy, price_f, size_f, reduce_only)
+                    };
+                    return Ok(serde_json::json!({"status": "success", "mode": "paper", "oid": oid, "balance": paper.balance()}));
+                }
+                // Live
+                if let Some(ref client) = self.trading_client {
+                    let req = PlaceOrderRequest { coin: coin.to_string(), is_buy, price: price.to_string(), size: size.to_string(), reduce_only, tif, cloid: None };
+                    let resp = client.place_order(&req).await?;
+                    Ok(serde_json::json!({"status": "success", "mode": "live", "order_response": resp}))
+                } else { Err("no trading client".into()) }
+            }
+            "cancel" => {
+                let coin = cmd.payload.get("coin").and_then(|v| v.as_str()).ok_or("missing coin")?;
+                let oid = cmd.payload.get("oid").and_then(|v| v.as_u64()).ok_or("missing oid")?;
+                if let Some(ref mut paper) = self.paper_trader {
+                    let ok = paper.cancel_order(oid);
+                    return Ok(serde_json::json!({"status": if ok {"success"} else {"not_found"}, "mode": "paper"}));
+                }
+                if let Some(ref client) = self.trading_client {
+                    let resp = client.cancel_order(&CancelOrderRequest { coin: coin.to_string(), oid }).await?;
+                    Ok(serde_json::json!({"status": "success", "mode": "live", "cancel_response": resp}))
+                } else { Err("no trading client".into()) }
+            }
+            "positions" => {
+                if let Some(ref paper) = self.paper_trader {
+                    let positions: Vec<_> = paper.get_positions().into_iter().cloned().collect();
+                    return Ok(serde_json::json!({"status": "success", "mode": "paper", "positions": positions, "count": positions.len()}));
+                }
+                if let Some(ref client) = self.trading_client {
+                    let positions = client.get_positions().await?;
+                    Ok(serde_json::json!({"status": "success", "mode": "live", "positions": positions, "count": positions.len()}))
+                } else { Err("no trading client".into()) }
+            }
+            "pnl" => {
+                let mut resp = serde_json::json!({"status": "success", "pnl_tracker": self.pnl_tracker});
+                if let Some(ref paper) = self.paper_trader {
+                    resp["paper_balance"] = serde_json::json!(paper.balance());
+                    resp["paper_total_pnl"] = serde_json::json!(paper.total_pnl());
+                    resp["mode"] = serde_json::json!("paper");
+                }
+                if let Some(ref rm) = self.risk_manager {
+                    resp["risk_status"] = serde_json::to_value(rm.status())?;
+                }
+                Ok(resp)
+            }
+            "balance" => {
+                if let Some(ref paper) = self.paper_trader {
+                    return Ok(serde_json::json!({"status": "success", "mode": "paper", "balance": paper.balance(), "total_pnl": paper.total_pnl()}));
+                }
+                if let Some(ref client) = self.trading_client {
+                    let balance = client.get_account_balance().await?;
+                    Ok(serde_json::json!({"status": "success", "mode": "live", "balance": balance}))
+                } else { Err("no trading client".into()) }
+            }
+            "open_orders" => {
+                if let Some(ref paper) = self.paper_trader {
+                    let orders: Vec<_> = paper.get_open_orders().into_iter().cloned().collect();
+                    return Ok(serde_json::json!({"status": "success", "mode": "paper", "orders": orders, "count": orders.len()}));
+                }
+                if let Some(ref client) = self.trading_client {
+                    let orders = client.get_open_orders().await?;
+                    Ok(serde_json::json!({"status": "success", "mode": "live", "orders": orders, "count": orders.len()}))
+                } else { Err("no trading client".into()) }
+            }
+            "fills" => {
+                if let Some(ref paper) = self.paper_trader {
+                    let fills = paper.get_fills();
+                    return Ok(serde_json::json!({"status": "success", "mode": "paper", "fills": fills, "count": fills.len()}));
+                }
+                if let Some(ref client) = self.trading_client {
+                    let fills = client.get_fills().await?;
+                    Ok(serde_json::json!({"status": "success", "mode": "live", "fills": fills, "count": fills.len()}))
+                } else { Err("no trading client".into()) }
+            }
+            "cancel_all" => {
+                if let Some(ref mut paper) = self.paper_trader {
+                    let n = paper.cancel_all_orders();
+                    return Ok(serde_json::json!({"status": "success", "mode": "paper", "canceled": n}));
+                }
+                if let Some(ref client) = self.trading_client {
+                    let results = client.cancel_all_orders().await?;
+                    Ok(serde_json::json!({"status": "success", "mode": "live", "canceled": results.len()}))
+                } else { Err("no trading client".into()) }
+            }
+            _ => Err(format!("unknown trade action: {}", action).into()),
+        }
+    }
+
+    async fn handle_risk(&mut self, cmd: &AgentCommand) -> CommandResult {
+        let action = cmd.payload.get("action").and_then(|v| v.as_str()).ok_or("missing action")?;
+        match action {
+            "status" => {
+                if let Some(ref rm) = self.risk_manager {
+                    Ok(serde_json::json!({"status": "success", "risk_status": rm.status()}))
+                } else { Err("risk manager not initialized".into()) }
+            }
+            "emergency_stop" => {
+                if let Some(ref mut rm) = self.risk_manager {
+                    rm.emergency_stop();
+                    if let Some(ref mut paper) = self.paper_trader { paper.cancel_all_orders(); }
+                    else if let Some(ref client) = self.trading_client { let _ = client.cancel_all_orders().await; }
+                    Ok(serde_json::json!({"status": "success", "action": "emergency_stop_activated"}))
+                } else { Err("risk manager not initialized".into()) }
+            }
+            "clear_stop" => {
+                if let Some(ref mut rm) = self.risk_manager {
+                    rm.clear_emergency_stop();
+                    Ok(serde_json::json!({"status": "success", "action": "emergency_stop_cleared"}))
+                } else { Err("risk manager not initialized".into()) }
+            }
+            "events" => {
+                if let Some(ref rm) = self.risk_manager {
+                    Ok(serde_json::json!({"status": "success", "events": rm.events(), "count": rm.events().len()}))
+                } else { Err("risk manager not initialized".into()) }
+            }
+            _ => Err(format!("unknown risk action: {}", action).into()),
+        }
+    }
+
     async fn handle_shutdown(&self, _cmd: &AgentCommand) -> CommandResult {
         warn!("shutdown command received");
         std::process::exit(0);
@@ -414,7 +555,7 @@ impl EdgeAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Config, MonitorConfig, TradingConfig};
+    use crate::config::{Config, MonitorConfig, TradingConfig, RiskConfig};
     use crate::mqtt::AgentCommand;
 
     fn create_test_agent_config(agent_type: &str) -> Config {
@@ -427,7 +568,11 @@ mod tests {
                 private_key_path: "test.key".to_string(),
                 max_position_size_usd: 1000.0,
                 max_leverage: 3.0,
+                network_mode: crate::config::NetworkMode::Testnet,
+                trading_mode: crate::config::TradingMode::Paper,
+                paper_log_path: "/tmp/evoclaw_test_paper.jsonl".to_string(),
             });
+            config.risk = Some(RiskConfig::default());
         } else if agent_type == "monitor" {
             config.monitor = Some(MonitorConfig {
                 price_alert_threshold_pct: 5.0,
