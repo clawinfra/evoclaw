@@ -120,12 +120,76 @@ impl EdgeAgent {
                 }
             }
             "monitor" => {
-                // TODO: Execute monitoring task
-                Ok(serde_json::json!({
-                    "status": "executed",
-                    "type": "monitor",
-                    "agent_type": "monitor"
-                }))
+                // Execute monitoring task
+                if let Some(ref mut monitor) = self.monitor {
+                    let action = cmd.payload.get("action").and_then(|v| v.as_str());
+
+                    match action {
+                        Some("add_price_alert") => {
+                            let coin = cmd
+                                .payload
+                                .get("coin")
+                                .and_then(|v| v.as_str())
+                                .ok_or("missing coin")?
+                                .to_string();
+                            let target_price = cmd
+                                .payload
+                                .get("target_price")
+                                .and_then(|v| v.as_f64())
+                                .ok_or("missing target_price")?;
+                            let alert_type_str = cmd
+                                .payload
+                                .get("alert_type")
+                                .and_then(|v| v.as_str())
+                                .ok_or("missing alert_type")?;
+
+                            let alert_type = match alert_type_str {
+                                "above" => crate::monitor::AlertType::Above,
+                                "below" => crate::monitor::AlertType::Below,
+                                _ => {
+                                    return Err("invalid alert_type (use 'above' or 'below')".into())
+                                }
+                            };
+
+                            monitor.add_price_alert(coin.clone(), target_price, alert_type);
+
+                            Ok(serde_json::json!({
+                                "status": "success",
+                                "coin": coin,
+                                "target_price": target_price
+                            }))
+                        }
+                        Some("status") => {
+                            let status = monitor.status();
+                            Ok(serde_json::json!({
+                                "status": "success",
+                                "monitor_status": status
+                            }))
+                        }
+                        Some("reset_alerts") => {
+                            monitor.reset_alerts();
+                            Ok(serde_json::json!({
+                                "status": "success",
+                                "action": "alerts_reset"
+                            }))
+                        }
+                        Some("clear_alerts") => {
+                            monitor.clear_alerts();
+                            Ok(serde_json::json!({
+                                "status": "success",
+                                "action": "alerts_cleared"
+                            }))
+                        }
+                        _ => Ok(serde_json::json!({
+                            "status": "executed",
+                            "type": "monitor",
+                            "agent_type": "monitor",
+                            "note": "specify action: add_price_alert, status, reset_alerts, clear_alerts"
+                        })),
+                    }
+                } else {
+                    Err("monitor not initialized".into())
+                }
             }
             "sensor" => Ok(serde_json::json!({
                 "status": "executed",
