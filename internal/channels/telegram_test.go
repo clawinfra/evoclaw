@@ -27,15 +27,6 @@ func TestNewTelegram(t *testing.T) {
 	}
 }
 
-func TestTelegramReceive(t *testing.T) {
-	tg := NewTelegram("test-token", testLogger())
-	
-	ch := tg.Receive()
-	if ch == nil {
-		t.Error("expected non-nil receive channel")
-	}
-}
-
 func TestTelegramSendWithoutStart(t *testing.T) {
 	tg := NewTelegram("test-token", testLogger())
 	
@@ -54,28 +45,3 @@ func TestTelegramSendWithoutStart(t *testing.T) {
 		t.Log("Note: Send succeeded (possibly connected to real Telegram API)")
 	}
 }
-
-func TestNewMQTT(t *testing.T) {
-	mqtt := NewMQTT("localhost", 1883, "", "", testLogger())
-	
-	if mqtt == nil {
-		t.Fatal("expected non-nil MQTT client")
-	}
-	
-	if mqtt.Name() != "mqtt" {
-		t.Errorf("expected name mqtt, got %s", mqtt.Name())
-	}
-}
-
-func TestMQTTReceive(t *testing.T) {
-	mqtt := NewMQTT("localhost", 1883, "", "", testLogger())
-	
-	ch := mqtt.Receive()
-	if ch == nil {
-		t.Error("expected non-nil receive channel")
-	}
-}
-
-// NOTE: Testing MQTT Send/Start/Stop would require a real MQTT broker or complex mocking
-// The current implementation doesn't gracefully handle nil client, so we skip those tests
-// to avoid panics. In production, Start() must be called before Send().

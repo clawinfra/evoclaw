@@ -555,3 +555,96 @@ func (m *mockProvider) Chat(ctx context.Context, req orchestrator.ChatRequest) (
 		TokensOutput: 50,
 	}, nil
 }
+
+
+func TestHandleAgentDetail_WrongMethodForMemory(t *testing.T) {
+	s := newTestServer(t)
+
+	def := config.AgentDef{
+		ID:   "test-agent",
+		Name: "Test",
+		Type: "monitor",
+		Model: "test",
+	}
+	s.registry.Create(def)
+
+	// POST to memory (only GET and DELETE allowed)
+	req := httptest.NewRequest(http.MethodPost, "/api/agents/test-agent/memory", nil)
+	w := httptest.NewRecorder()
+
+	s.handleAgentDetail(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestHandleAgentDetail_WrongMethodForMetrics(t *testing.T) {
+	s := newTestServer(t)
+
+	def := config.AgentDef{
+		ID:   "test-agent",
+		Name: "Test",
+		Type: "monitor",
+		Model: "test",
+	}
+	s.registry.Create(def)
+
+	// POST to metrics (only GET allowed)
+	req := httptest.NewRequest(http.MethodPost, "/api/agents/test-agent/metrics", nil)
+	w := httptest.NewRecorder()
+
+	s.handleAgentDetail(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestHandleAgentDetail_WrongMethodForEvolve(t *testing.T) {
+	s := newTestServer(t)
+
+	def := config.AgentDef{
+		ID:   "test-agent",
+		Name: "Test",
+		Type: "monitor",
+		Model: "test",
+	}
+	s.registry.Create(def)
+
+	// GET to evolve (only POST allowed)
+	req := httptest.NewRequest(http.MethodGet, "/api/agents/test-agent/evolve", nil)
+	w := httptest.NewRecorder()
+
+	s.handleAgentDetail(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", w.Code)
+	}
+}
+
+func TestHandleModels_MethodNotAllowed(t *testing.T) {
+	s := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/models", nil)
+	w := httptest.NewRecorder()
+
+	s.handleModels(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected status 405, got %d", w.Code)
+	}
+}
+
+func TestHandleCosts_MethodNotAllowed(t *testing.T) {
+	s := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/costs", nil)
+	w := httptest.NewRecorder()
+
+	s.handleCosts(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected status 405, got %d", w.Code)
+	}
+}

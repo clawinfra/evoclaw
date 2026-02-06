@@ -28,19 +28,26 @@ type TelegramChannel struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
-	client   *http.Client
+	client   HTTPClient
 	offset   int64 // for long polling
 }
 
 // NewTelegram creates a new Telegram channel adapter
 func NewTelegram(botToken string, logger *slog.Logger) *TelegramChannel {
+	return NewTelegramWithClient(botToken, logger, &DefaultHTTPClient{
+		client: &http.Client{
+			Timeout: time.Second * 70, // slightly longer than pollTimeout
+		},
+	})
+}
+
+// NewTelegramWithClient creates a Telegram channel with a custom HTTP client (for testing)
+func NewTelegramWithClient(botToken string, logger *slog.Logger, client HTTPClient) *TelegramChannel {
 	return &TelegramChannel{
 		botToken: botToken,
 		logger:   logger.With("channel", "telegram"),
 		inbox:    make(chan orchestrator.Message, 100),
-		client: &http.Client{
-			Timeout: time.Second * 70, // slightly longer than pollTimeout
-		},
+		client:   client,
 	}
 }
 
@@ -113,7 +120,12 @@ func (t *TelegramChannel) Receive() <-chan orchestrator.Message {
 // verifyToken checks that the bot token is valid
 func (t *TelegramChannel) verifyToken() error {
 	apiURL := fmt.Sprintf("%s%s/getMe", telegramAPIURL, t.botToken)
-	resp, err := t.client.Get(apiURL)
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	
+	resp, err := t.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("get bot info: %w", err)
 	}

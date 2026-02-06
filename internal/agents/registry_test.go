@@ -3,11 +3,16 @@ package agents
 import (
 	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/clawinfra/evoclaw/internal/config"
 )
+
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+}
 
 func newTestRegistry(t *testing.T) *Registry {
 	tmpDir := t.TempDir()
@@ -673,4 +678,119 @@ func TestSaveError(t *testing.T) {
 	}
 	
 	_ = agent
+}
+
+func TestRegistry_LoadErrorHandling(t *testing.T) {
+	tmpDir := t.TempDir()
+	logger := testLogger()
+
+	registry, _ := NewRegistry(tmpDir, logger)
+
+	// Create an agent
+	def := config.AgentDef{
+		ID:   "test-agent",
+		Name: "Test",
+		Type: "monitor",
+		Model: "test",
+	}
+	registry.Create(def)
+
+	// Save it
+	registry.SaveAll()
+
+	// Create corrupted file
+	agentPath := filepath.Join(tmpDir, "agents", "test-agent.json")
+	os.WriteFile(agentPath, []byte("invalid json{{{"), 0644)
+
+	// Try to load - should handle error gracefully
+	newRegistry, _ := NewRegistry(tmpDir, logger)
+	err := newRegistry.Load()
+	// Should log error but not fail completely
+	if err != nil {
+		t.Logf("Load with corrupted file returned error (acceptable): %v", err)
+	}
+}
+
+func TestRegistry_SaveErrorHandling(t *testing.T) {
+	tmpDir := t.TempDir()
+	logger := testLogger()
+
+	registry, _ := NewRegistry(tmpDir, logger)
+
+	def := config.AgentDef{
+		ID:   "test-agent",
+		Name: "Test",
+		Type: "monitor",
+		Model: "test",
+	}
+	registry.Create(def)
+
+	// Make directory read-only to trigger save error
+	agentDir := filepath.Join(tmpDir, "agents")
+	os.MkdirAll(agentDir, 0755)
+	os.Chmod(agentDir, 0444)
+
+	err := registry.SaveAll()
+	if err != nil {
+		t.Logf("SaveAll with read-only dir returned error (expected): %v", err)
+	}
+
+	// Restore permissions
+	os.Chmod(agentDir, 0755)
+}
+
+func TestMemoryStore_LoadErrorHandling(t *testing.T) {
+	tmpDir := t.TempDir()
+	logger := testLogger()
+
+	memory, _ := NewMemoryStore(tmpDir, logger)
+
+	// Create memory and save
+	mem := memory.Get("test-agent")
+	mem.Add("user", "Hello")
+	memory.Save("test-agent")
+
+	// Corrupt the file
+	memPath := filepath.Join(tmpDir, "memory", "test-agent.json")
+	os.WriteFile(memPath, []byte("invalid json{{{"), 0644)
+
+	// Create new memory store and try to load
+	newMemory, _ := NewMemoryStore(tmpDir, logger)
+	newMem := newMemory.Get("test-agent")
+	// Should handle corrupted file gracefully
+	if len(newMem.GetMessages()) > 0 {
+		t.Log("Memory loaded despite corruption")
+	}
+}
+
+func TestRegistry_NewRegistryErrorHandling(t *testing.T) {
+	// Try to create registry in invalid location
+	logger := testLogger()
+
+	_, err := NewRegistry("/proc/invalid-location", logger)
+	if err == nil {
+		t.Error("expected error when creating registry in invalid location")
+	}
+}
+
+func TestMemory_SaveErrorHandling(t *testing.T) {
+	tmpDir := t.TempDir()
+	logger := testLogger()
+
+	memory, _ := NewMemoryStore(tmpDir, logger)
+	mem := memory.Get("test-agent")
+	mem.Add("user", "Hello")
+
+	// Make directory read-only
+	memDir := filepath.Join(tmpDir, "memory")
+	os.MkdirAll(memDir, 0755)
+	os.Chmod(memDir, 0444)
+
+	err := memory.Save("test-agent")
+	if err != nil {
+		t.Logf("Save with read-only dir returned error (expected): %v", err)
+	}
+
+	// Restore permissions
+	os.Chmod(memDir, 0755)
 }

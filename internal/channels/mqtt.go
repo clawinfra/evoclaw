@@ -29,10 +29,12 @@ type MQTTChannel struct {
 	password string
 	logger   *slog.Logger
 	inbox    chan orchestrator.Message
-	client   mqtt.Client
+	client   MQTTClient
 	ctx      context.Context
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
+	// Factory function for creating MQTT client
+	clientFactory func(opts *mqtt.ClientOptions) MQTTClient
 }
 
 // NewMQTT creates a new MQTT channel adapter
@@ -45,6 +47,23 @@ func NewMQTT(broker string, port int, username, password string, logger *slog.Lo
 		password: password,
 		logger:   logger.With("channel", "mqtt"),
 		inbox:    make(chan orchestrator.Message, 100),
+		clientFactory: func(opts *mqtt.ClientOptions) MQTTClient {
+			return &DefaultMQTTClient{client: mqtt.NewClient(opts)}
+		},
+	}
+}
+
+// NewMQTTWithClient creates an MQTT channel with a custom client factory (for testing)
+func NewMQTTWithClient(broker string, port int, username, password string, logger *slog.Logger, clientFactory func(*mqtt.ClientOptions) MQTTClient) *MQTTChannel {
+	return &MQTTChannel{
+		broker:        broker,
+		port:          port,
+		clientID:      fmt.Sprintf("evoclaw-orchestrator-%d", time.Now().Unix()),
+		username:      username,
+		password:      password,
+		logger:        logger.With("channel", "mqtt"),
+		inbox:         make(chan orchestrator.Message, 100),
+		clientFactory: clientFactory,
 	}
 }
 
@@ -85,7 +104,7 @@ func (m *MQTTChannel) Start(ctx context.Context) error {
 		}
 	})
 
-	m.client = mqtt.NewClient(opts)
+	m.client = m.clientFactory(opts)
 
 	// Connect
 	m.logger.Info("connecting to mqtt broker", "broker", brokerURL)

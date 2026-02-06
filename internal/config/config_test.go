@@ -366,3 +366,55 @@ func TestSaveConfigReadOnlyDir(t *testing.T) {
 		t.Error("expected error when saving to read-only directory")
 	}
 }
+
+func TestSave_ErrorHandling(t *testing.T) {
+	cfg := DefaultConfig()
+
+	// Try to save to invalid location
+	err := cfg.Save("/proc/invalid-location/config.json")
+	if err == nil {
+		t.Error("expected error when saving to invalid location")
+	}
+}
+
+func TestLoad_InvalidJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "invalid.json")
+
+	// Write invalid JSON
+	os.WriteFile(configPath, []byte("invalid json{{{"), 0644)
+
+	_, err := Load(configPath)
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestLoad_DataDirCreation(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.json")
+
+	cfg := DefaultConfig()
+	dataDir := filepath.Join(tmpDir, "new-data-dir")
+	cfg.Server.DataDir = dataDir
+
+	// Save config
+	if err := cfg.Save(configPath); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Load it - should create data dir
+	loadedCfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if loadedCfg.Server.DataDir != dataDir {
+		t.Errorf("expected dataDir %s, got %s", dataDir, loadedCfg.Server.DataDir)
+	}
+
+	// Verify data dir was created
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		t.Error("expected data dir to be created")
+	}
+}
