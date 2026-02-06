@@ -1,5 +1,5 @@
-# Go
-evoclaw
+# Go binary
+/evoclaw
 *.exe
 vendor/
 

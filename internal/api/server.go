@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -23,6 +24,7 @@ type Server struct {
 	router     *models.Router
 	logger     *slog.Logger
 	httpServer *http.Server
+	webFS      fs.FS // embedded web dashboard assets (optional)
 }
 
 // NewServer creates a new API server
@@ -44,16 +46,30 @@ func NewServer(
 	}
 }
 
+// SetWebFS sets the embedded filesystem for the web dashboard
+func (s *Server) SetWebFS(webFS fs.FS) {
+	s.webFS = webFS
+}
+
 // Start starts the HTTP server
 func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 
-	// Register routes
+	// Register API routes
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/agents", s.handleAgents)
 	mux.HandleFunc("/api/agents/", s.handleAgentDetail)
 	mux.HandleFunc("/api/models", s.handleModels)
 	mux.HandleFunc("/api/costs", s.handleCosts)
+	mux.HandleFunc("/api/dashboard", s.handleDashboard)
+	mux.HandleFunc("/api/logs/stream", s.handleLogStream)
+
+	// Serve embedded web dashboard
+	if s.webFS != nil {
+		fileServer := http.FileServer(http.FS(s.webFS))
+		mux.Handle("/", fileServer)
+		s.logger.Info("web dashboard enabled at /")
+	}
 
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.port),
@@ -188,6 +204,8 @@ func (s *Server) handleAgentDetail(w http.ResponseWriter, r *http.Request) {
 		s.handleAgentMetrics(w, agent)
 	case action == "evolve" && r.Method == http.MethodPost:
 		s.handleAgentEvolve(w, agent)
+	case action == "evolution" && r.Method == http.MethodGet:
+		s.handleAgentEvolution(w, r)
 	case action == "memory" && r.Method == http.MethodGet:
 		s.handleAgentMemory(w, agentID)
 	case action == "memory" && r.Method == http.MethodDelete:
