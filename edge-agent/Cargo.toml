@@ -8,6 +8,7 @@ description = "EvoClaw edge agent runtime - lightweight, secure, self-evolving"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+toml = "0.8"
 rumqttc = "0.24"          # MQTT client
 reqwest = { version = "0.12", features = ["json"] }
 tracing = "0.1"
