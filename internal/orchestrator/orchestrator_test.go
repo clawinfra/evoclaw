@@ -525,7 +525,10 @@ func TestEvolutionLoop(t *testing.T) {
 	time.Sleep(1500 * time.Millisecond)
 	
 	// Check that evolution ran
-	if e.mutations == 0 {
+	e.mu.Lock()
+	mutations := e.mutations
+	e.mu.Unlock()
+	if mutations == 0 {
 		t.Error("evolution should have triggered mutations")
 	}
 }
@@ -737,7 +740,10 @@ func TestProcessWithAgent_WithEvolution(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	
 	// Verify evolution.Evaluate was called
-	if len(e.fitness) == 0 {
+	e.mu.Lock()
+	fitnessLen := len(e.fitness)
+	e.mu.Unlock()
+	if fitnessLen == 0 {
 		t.Error("expected evolution.Evaluate to be called")
 	}
 }
