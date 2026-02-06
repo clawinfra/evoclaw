@@ -1,0 +1,190 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, beta-release]
+  pull_request:
+    branches: [main, master]
+
+env:
+  GO_VERSION: "1.24"
+  RUST_VERSION: "stable"
+
+jobs:
+  # ─── Go Orchestrator ────────────────────────────────────────────
+  go-lint:
+    name: Go Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  go-test:
+    name: Go Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Check coverage
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          echo "Go coverage: ${COVERAGE}%"
+          # Fail if coverage drops below 88%
+          if (( $(echo "$COVERAGE < 88.0" | bc -l) )); then
+            echo "❌ Coverage ${COVERAGE}% is below 88% threshold"
+            exit 1
+          fi
+          echo "✅ Coverage ${COVERAGE}% meets 88% threshold"
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: coverage.out
+
+  go-build:
+    name: Go Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -ldflags="-s -w -X main.version=${{ github.sha }}" \
+            -o evoclaw-${{ matrix.goos }}-${{ matrix.goarch }} \
+            ./cmd/evoclaw
+          ls -lh evoclaw-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  # ─── Rust Edge Agent ────────────────────────────────────────────
+  rust-lint:
+    name: Rust Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: edge-agent
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: edge-agent
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Format check
+        run: cargo fmt -- --check
+
+  rust-test:
+    name: Rust Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: edge-agent
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: edge-agent
+
+      - name: Run tests
+        run: cargo test --all-features 2>&1 | tee test-output.txt
+
+      - name: Check test results
+        run: |
+          # Extract test counts from output
+          PASSED=$(grep -oP '\d+ passed' test-output.txt | head -1 | grep -oP '\d+')
+          FAILED=$(grep -oP '\d+ failed' test-output.txt | head -1 | grep -oP '\d+' || echo "0")
+          echo "Tests: ${PASSED} passed, ${FAILED} failed"
+          if [ "$FAILED" != "0" ]; then
+            echo "❌ Some tests failed"
+            exit 1
+          fi
+
+  rust-build:
+    name: Rust Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: edge-agent
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: edge-agent
+
+      - name: Build release
+        run: |
+          cargo build --release
+          ls -lh target/release/evoclaw-agent 2>/dev/null || ls -lh target/release/evoclaw_agent 2>/dev/null || echo "Binary built"
+
+  # ─── Integration Tests ──────────────────────────────────────────
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [go-test, rust-test]
+    services:
+      mosquitto:
+        image: eclipse-mosquitto:2
+        ports:
+          - 1883:1883
+        options: >-
+          --health-cmd "mosquitto_sub -t '$$SYS/#' -C 1 -W 3"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: integration/go.sum
+
+      - name: Run integration tests
+        working-directory: integration
+        env:
+          MQTT_BROKER: localhost
+          MQTT_PORT: "1883"
+        run: go test -v -tags=integration -timeout=60s ./...
