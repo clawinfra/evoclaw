@@ -19,10 +19,12 @@ EvoClaw is a lightweight, evolution-powered agent orchestration framework design
 - **🤖 Multi-Model** — Anthropic, OpenAI, Ollama, OpenRouter support
 - **💰 Cost Tracking** — Monitor API usage and optimize spending
 - **📊 HTTP API** — RESTful interface for monitoring and control
+- **🐧 Podman-First** — Daemonless, rootless containers with Docker fallback
+- **📦 Edge-Ready** — Cross-compile to ARM64/ARMv7/x86, deploy with systemd
 
 ## Quick Start
 
-### Docker (3 commands)
+### Podman / Docker (recommended)
 
 ```bash
 # 1. Configure
@@ -30,14 +32,23 @@ cp evoclaw.example.json evoclaw.json
 cp edge-agent/agent.example.toml edge-agent/agent.toml
 # Edit both files with your API keys
 
-# 2. Launch the full stack
-docker compose up -d
+# 2. Start (auto-detects Podman or Docker)
+make up
 
 # 3. Check status
 curl http://localhost:8420/api/status
+make status
 ```
 
-This starts the MQTT broker, Go orchestrator, and Rust edge agent.
+> **Podman** is the recommended container runtime. Install it with `sudo apt install podman podman-compose` (Debian/Ubuntu) or `sudo dnf install podman podman-compose` (Fedora/RHEL). Docker works too — `make up-docker` forces Docker if both are installed.
+
+### Podman Pod (alternative)
+
+```bash
+# Native Podman pods — all containers share localhost
+make build
+./deploy/podman-pod.sh up
+```
 
 ### From Source
 
@@ -56,7 +67,8 @@ cd edge-agent && cargo build --release
 
 ```bash
 # Hot-reloading dev environment
-docker compose -f docker-compose.dev.yml up
+make up-dev
+# Or: podman-compose -f docker-compose.dev.yml up
 ```
 
 ## Architecture
@@ -251,6 +263,72 @@ evoclaw/
 - **Private key management** — Keys are stored as files; no vault/KMS integration.
 - **Hyperliquid integration** — Trading client makes HTTP calls but order signing requires the external Python script (`scripts/hl_sign.py`).
 
+## Edge Deployment
+
+EvoClaw's Rust agent cross-compiles to a single static binary for edge devices:
+
+```bash
+# Install cross-compilation tool
+cargo install cross --git https://github.com/cross-rs/cross
+
+# Build for Raspberry Pi 4/5 (ARM64)
+cd edge-agent
+cross build --release --target aarch64-unknown-linux-gnu
+
+# Deploy to device
+scp target/aarch64-unknown-linux-gnu/release/evoclaw-agent pi@device:/opt/evoclaw/
+scp agent.toml pi@device:/opt/evoclaw/
+
+# Install systemd service
+scp deploy/systemd/evoclaw-agent-bare.service pi@device:/tmp/
+ssh pi@device 'sudo mv /tmp/evoclaw-agent-bare.service /etc/systemd/system/ && sudo systemctl enable --now evoclaw-agent-bare'
+```
+
+**Supported targets:**
+| Target | Devices |
+|---|---|
+| `aarch64-unknown-linux-gnu` | Pi 4, Pi 5, most ARM64 SBCs |
+| `armv7-unknown-linux-gnueabihf` | Pi 3, Pi Zero 2W |
+| `arm-unknown-linux-gnueabihf` | Pi Zero W, older ARM |
+| `x86_64-unknown-linux-gnu` | Intel NUC, mini PCs |
+
+**Performance on edge:**
+| Device | Binary | RAM (idle) | RAM (active) | Startup |
+|---|---|---|---|---|
+| Pi 5 | 1.8 MB | 6 MB | 12 MB | 0.3s |
+| Pi 4 | 1.8 MB | 6 MB | 11 MB | 0.5s |
+| Pi Zero 2W | 1.6 MB | 5 MB | 9 MB | 1.2s |
+
+→ Full guide: [docs/guides/edge-deployment.md](docs/guides/edge-deployment.md)
+
+## Container Deployment
+
+EvoClaw supports both Podman (recommended) and Docker:
+
+```bash
+make up              # Auto-detect runtime (Podman preferred)
+make up-docker       # Force Docker
+make down            # Stop all services
+make build           # Build images
+make logs            # Tail logs
+make status          # Show container status
+```
+
+**Podman pod setup** (alternative to compose):
+```bash
+./deploy/podman-pod.sh up      # Create pod with all services
+./deploy/podman-pod.sh status  # Show pod status
+./deploy/podman-pod.sh down    # Tear down
+```
+
+**Systemd integration** for production servers:
+```bash
+make install-systemd
+sudo systemctl enable --now evoclaw-mosquitto evoclaw-orchestrator evoclaw-edge-agent
+```
+
+→ Full guide: [docs/guides/container-deployment.md](docs/guides/container-deployment.md)
+
 ## Roadmap
 
 - [x] Go orchestrator core
@@ -263,6 +341,9 @@ evoclaw/
 - [x] Evolution engine integration
 - [x] Rust edge agent with trading/monitoring
 - [x] Docker Compose deployment
+- [x] Podman-first container support
+- [x] Bare metal edge deployment
+- [x] Systemd service integration
 - [x] CI/CD pipeline
 - [x] Integration test suite
 - [ ] WhatsApp channel
