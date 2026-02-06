@@ -1,0 +1,22 @@
+[package]
+name = "evoclaw-agent"
+version = "0.1.0"
+edition = "2021"
+description = "EvoClaw edge agent runtime - lightweight, secure, self-evolving"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rumqttc = "0.24"          # MQTT client
+reqwest = { version = "0.12", features = ["json"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+clap = { version = "4", features = ["derive"] }
+
+[profile.release]
+opt-level = "s"     # Optimize for size
+lto = true           # Link-time optimization
+codegen-units = 1    # Better optimization
+strip = true         # Strip debug symbols
+panic = "abort"      # Smaller binary

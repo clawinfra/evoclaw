@@ -1,0 +1,25 @@
+# Go
+evoclaw
+*.exe
+vendor/
+
+# Rust
+edge-agent/target/
+
+# Data
+data/
+*.db
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Secrets
+*.key
+*.pem
+.env
