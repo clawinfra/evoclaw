@@ -119,3 +119,134 @@ impl MqttClient {
 pub fn parse_command(payload: &[u8]) -> Result<AgentCommand, serde_json::Error> {
     serde_json::from_slice(payload)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_command_valid() {
+        let json = r#"{
+            "command": "ping",
+            "payload": {"test": true},
+            "request_id": "req123"
+        }"#;
+
+        let cmd = parse_command(json.as_bytes()).unwrap();
+        assert_eq!(cmd.command, "ping");
+        assert_eq!(cmd.request_id, "req123");
+        assert_eq!(cmd.payload.get("test").unwrap().as_bool().unwrap(), true);
+    }
+
+    #[test]
+    fn test_parse_command_complex_payload() {
+        let json = r#"{
+            "command": "execute",
+            "payload": {
+                "action": "place_order",
+                "asset": 0,
+                "price": 50000.0,
+                "size": 0.1
+            },
+            "request_id": "req456"
+        }"#;
+
+        let cmd = parse_command(json.as_bytes()).unwrap();
+        assert_eq!(cmd.command, "execute");
+        assert_eq!(cmd.payload.get("action").unwrap().as_str().unwrap(), "place_order");
+        assert_eq!(cmd.payload.get("price").unwrap().as_f64().unwrap(), 50000.0);
+    }
+
+    #[test]
+    fn test_parse_command_empty_payload() {
+        let json = r#"{
+            "command": "status",
+            "payload": {},
+            "request_id": "req789"
+        }"#;
+
+        let cmd = parse_command(json.as_bytes()).unwrap();
+        assert_eq!(cmd.command, "status");
+        assert!(cmd.payload.as_object().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_parse_command_invalid_json() {
+        let invalid_json = b"not valid json {[}";
+        let result = parse_command(invalid_json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_command_missing_field() {
+        let json = r#"{
+            "command": "ping",
+            "payload": {}
+        }"#;
+        // Missing request_id
+        let result = parse_command(json.as_bytes());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_agent_command_serialization() {
+        let cmd = AgentCommand {
+            command: "test".to_string(),
+            payload: serde_json::json!({"key": "value"}),
+            request_id: "req001".to_string(),
+        };
+
+        let json = serde_json::to_string(&cmd).unwrap();
+        let deserialized: AgentCommand = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.command, "test");
+        assert_eq!(deserialized.request_id, "req001");
+    }
+
+    #[test]
+    fn test_agent_report_serialization() {
+        let report = AgentReport {
+            agent_id: "agent1".to_string(),
+            agent_type: "trader".to_string(),
+            report_type: "heartbeat".to_string(),
+            payload: serde_json::json!({"uptime": 3600}),
+            timestamp: 1234567890,
+        };
+
+        let json = serde_json::to_string(&report).unwrap();
+        let deserialized: AgentReport = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.agent_id, "agent1");
+        assert_eq!(deserialized.agent_type, "trader");
+        assert_eq!(deserialized.report_type, "heartbeat");
+        assert_eq!(deserialized.timestamp, 1234567890);
+    }
+
+    #[test]
+    fn test_mqtt_client_new() {
+        let config = MqttConfig {
+            broker: "localhost".to_string(),
+            port: 1883,
+            keep_alive_secs: 30,
+        };
+
+        let result = MqttClient::new(&config, "test_agent".to_string(), "trader".to_string());
+        assert!(result.is_ok());
+        let (client, _eventloop) = result.unwrap();
+        assert_eq!(client.agent_id, "test_agent");
+        assert_eq!(client.agent_type, "trader");
+    }
+
+    #[test]
+    fn test_mqtt_topics_format() {
+        // Test that topic formats are consistent
+        let agent_id = "agent123";
+        let command_topic = format!("evoclaw/agents/{}/commands", agent_id);
+        let report_topic = format!("evoclaw/agents/{}/reports", agent_id);
+        let strategy_topic = format!("evoclaw/agents/{}/strategy", agent_id);
+
+        assert_eq!(command_topic, "evoclaw/agents/agent123/commands");
+        assert_eq!(report_topic, "evoclaw/agents/agent123/reports");
+        assert_eq!(strategy_topic, "evoclaw/agents/agent123/strategy");
+    }
+}

@@ -67,3 +67,166 @@ impl Metrics {
         self.uptime_sec += seconds;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_metrics_new() {
+        let metrics = Metrics::new();
+        assert_eq!(metrics.uptime_sec, 0);
+        assert_eq!(metrics.actions_total, 0);
+        assert_eq!(metrics.actions_success, 0);
+        assert_eq!(metrics.actions_failed, 0);
+        assert_eq!(metrics.memory_bytes, 0);
+        assert!(metrics.custom.is_empty());
+    }
+
+    #[test]
+    fn test_metrics_default() {
+        let metrics = Metrics::default();
+        assert_eq!(metrics.uptime_sec, 0);
+        assert_eq!(metrics.actions_total, 0);
+    }
+
+    #[test]
+    fn test_record_success() {
+        let mut metrics = Metrics::new();
+        metrics.record_success();
+        assert_eq!(metrics.actions_total, 1);
+        assert_eq!(metrics.actions_success, 1);
+        assert_eq!(metrics.actions_failed, 0);
+
+        metrics.record_success();
+        assert_eq!(metrics.actions_total, 2);
+        assert_eq!(metrics.actions_success, 2);
+    }
+
+    #[test]
+    fn test_record_failure() {
+        let mut metrics = Metrics::new();
+        metrics.record_failure();
+        assert_eq!(metrics.actions_total, 1);
+        assert_eq!(metrics.actions_success, 0);
+        assert_eq!(metrics.actions_failed, 1);
+
+        metrics.record_failure();
+        assert_eq!(metrics.actions_total, 2);
+        assert_eq!(metrics.actions_failed, 2);
+    }
+
+    #[test]
+    fn test_record_mixed() {
+        let mut metrics = Metrics::new();
+        metrics.record_success();
+        metrics.record_success();
+        metrics.record_failure();
+        metrics.record_success();
+
+        assert_eq!(metrics.actions_total, 4);
+        assert_eq!(metrics.actions_success, 3);
+        assert_eq!(metrics.actions_failed, 1);
+    }
+
+    #[test]
+    fn test_success_rate_zero_actions() {
+        let metrics = Metrics::new();
+        assert_eq!(metrics.success_rate(), 100.0);
+    }
+
+    #[test]
+    fn test_success_rate_all_success() {
+        let mut metrics = Metrics::new();
+        metrics.record_success();
+        metrics.record_success();
+        metrics.record_success();
+        assert_eq!(metrics.success_rate(), 100.0);
+    }
+
+    #[test]
+    fn test_success_rate_all_failures() {
+        let mut metrics = Metrics::new();
+        metrics.record_failure();
+        metrics.record_failure();
+        assert_eq!(metrics.success_rate(), 0.0);
+    }
+
+    #[test]
+    fn test_success_rate_mixed() {
+        let mut metrics = Metrics::new();
+        metrics.record_success();
+        metrics.record_success();
+        metrics.record_failure();
+        metrics.record_success();
+        // 3 success out of 4 = 75%
+        assert_eq!(metrics.success_rate(), 75.0);
+    }
+
+    #[test]
+    fn test_set_custom_metric() {
+        let mut metrics = Metrics::new();
+        metrics.set_custom("latency_ms", 42.5);
+        metrics.set_custom("cpu_percent", 75.0);
+
+        assert_eq!(metrics.custom.len(), 2);
+        assert_eq!(metrics.custom.get("latency_ms"), Some(&42.5));
+        assert_eq!(metrics.custom.get("cpu_percent"), Some(&75.0));
+    }
+
+    #[test]
+    fn test_set_custom_metric_overwrite() {
+        let mut metrics = Metrics::new();
+        metrics.set_custom("value", 100.0);
+        metrics.set_custom("value", 200.0);
+
+        assert_eq!(metrics.custom.len(), 1);
+        assert_eq!(metrics.custom.get("value"), Some(&200.0));
+    }
+
+    #[test]
+    fn test_increment_uptime() {
+        let mut metrics = Metrics::new();
+        metrics.increment_uptime(30);
+        assert_eq!(metrics.uptime_sec, 30);
+
+        metrics.increment_uptime(30);
+        assert_eq!(metrics.uptime_sec, 60);
+
+        metrics.increment_uptime(120);
+        assert_eq!(metrics.uptime_sec, 180);
+    }
+
+    #[test]
+    fn test_update_memory() {
+        let mut metrics = Metrics::new();
+        metrics.update_memory();
+        // Memory should be updated (may be 0 on non-Linux or if proc not available)
+        // Just verify it doesn't panic
+        #[cfg(target_os = "linux")]
+        {
+            // On Linux, memory_bytes might be updated
+            // We can't assert exact value, but it should be non-negative
+            assert!(metrics.memory_bytes >= 0);
+        }
+    }
+
+    #[test]
+    fn test_metrics_serialization() {
+        let mut metrics = Metrics::new();
+        metrics.uptime_sec = 3600;
+        metrics.record_success();
+        metrics.record_success();
+        metrics.record_failure();
+        metrics.set_custom("test_metric", 123.45);
+
+        let json = serde_json::to_string(&metrics).unwrap();
+        let deserialized: Metrics = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.uptime_sec, 3600);
+        assert_eq!(deserialized.actions_total, 3);
+        assert_eq!(deserialized.actions_success, 2);
+        assert_eq!(deserialized.actions_failed, 1);
+        assert_eq!(deserialized.custom.get("test_metric"), Some(&123.45));
+    }
+}

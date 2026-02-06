@@ -118,3 +118,46 @@ impl EdgeAgent {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_edge_agent_new() {
+        let config = Config::default_for_type("test_agent".to_string(), "trader".to_string());
+        let result = EdgeAgent::new(config).await;
+        assert!(result.is_ok());
+        
+        let (agent, _eventloop) = result.unwrap();
+        assert_eq!(agent.config.agent_id, "test_agent");
+        assert_eq!(agent.config.agent_type, "trader");
+        assert_eq!(agent.metrics.actions_total, 0);
+    }
+
+    #[tokio::test]
+    async fn test_edge_agent_new_monitor() {
+        let config = Config::default_for_type("monitor1".to_string(), "monitor".to_string());
+        let result = EdgeAgent::new(config).await;
+        assert!(result.is_ok());
+        
+        let (agent, _) = result.unwrap();
+        assert!(agent.monitor.is_some());
+        assert!(agent.trading_client.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_heartbeat() {
+        let config = Config::default_for_type("test_agent".to_string(), "trader".to_string());
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let initial_uptime = agent.metrics.uptime_sec;
+        
+        // Heartbeat should increment uptime
+        let result = agent.heartbeat().await;
+        // May fail if MQTT not running, but shouldn't panic
+        
+        // Uptime should be incremented regardless
+        assert!(agent.metrics.uptime_sec > initial_uptime);
+    }
+}

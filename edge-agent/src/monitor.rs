@@ -207,3 +207,290 @@ pub struct MonitorStatus {
     pub tracked_coins: usize,
     pub last_check_interval_secs: u64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_config() -> MonitorConfig {
+        MonitorConfig {
+            price_alert_threshold_pct: 5.0,
+            funding_rate_threshold_pct: 0.1,
+            check_interval_secs: 60,
+        }
+    }
+
+    #[test]
+    fn test_monitor_new() {
+        let config = create_test_config();
+        let monitor = Monitor::new(config.clone());
+        
+        assert_eq!(monitor.config.price_alert_threshold_pct, 5.0);
+        assert_eq!(monitor.config.funding_rate_threshold_pct, 0.1);
+        assert!(monitor.price_alerts.is_empty());
+        assert!(monitor.last_prices.is_empty());
+    }
+
+    #[test]
+    fn test_add_price_alert() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        monitor.add_price_alert("BTC".to_string(), 50000.0, AlertType::Above);
+        monitor.add_price_alert("ETH".to_string(), 3000.0, AlertType::Below);
+        
+        assert_eq!(monitor.price_alerts.len(), 2);
+        assert_eq!(monitor.price_alerts[0].coin, "BTC");
+        assert_eq!(monitor.price_alerts[0].target_price, 50000.0);
+        assert!(!monitor.price_alerts[0].triggered);
+        assert_eq!(monitor.price_alerts[1].coin, "ETH");
+    }
+
+    #[test]
+    fn test_check_price_alerts_above_triggered() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        monitor.add_price_alert("BTC".to_string(), 50000.0, AlertType::Above);
+        
+        let mut prices = HashMap::new();
+        prices.insert("BTC".to_string(), 51000.0);
+        
+        let triggered = monitor.check_price_alerts(&prices);
+        
+        assert_eq!(triggered.len(), 1);
+        assert_eq!(triggered[0].coin, "BTC");
+        assert!(monitor.price_alerts[0].triggered);
+    }
+
+    #[test]
+    fn test_check_price_alerts_below_triggered() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        monitor.add_price_alert("ETH".to_string(), 3000.0, AlertType::Below);
+        
+        let mut prices = HashMap::new();
+        prices.insert("ETH".to_string(), 2900.0);
+        
+        let triggered = monitor.check_price_alerts(&prices);
+        
+        assert_eq!(triggered.len(), 1);
+        assert_eq!(triggered[0].coin, "ETH");
+        assert!(triggered[0].triggered);
+    }
+
+    #[test]
+    fn test_check_price_alerts_not_triggered() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        monitor.add_price_alert("BTC".to_string(), 50000.0, AlertType::Above);
+        
+        let mut prices = HashMap::new();
+        prices.insert("BTC".to_string(), 49000.0);
+        
+        let triggered = monitor.check_price_alerts(&prices);
+        
+        assert_eq!(triggered.len(), 0);
+        assert!(!monitor.price_alerts[0].triggered);
+    }
+
+    #[test]
+    fn test_check_price_alerts_already_triggered() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        monitor.add_price_alert("BTC".to_string(), 50000.0, AlertType::Above);
+        
+        let mut prices = HashMap::new();
+        prices.insert("BTC".to_string(), 51000.0);
+        
+        // First check - triggers
+        let triggered1 = monitor.check_price_alerts(&prices);
+        assert_eq!(triggered1.len(), 1);
+        
+        // Second check - should not trigger again
+        prices.insert("BTC".to_string(), 52000.0);
+        let triggered2 = monitor.check_price_alerts(&prices);
+        assert_eq!(triggered2.len(), 0);
+    }
+
+    #[test]
+    fn test_check_price_alerts_exact_threshold() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        monitor.add_price_alert("BTC".to_string(), 50000.0, AlertType::Above);
+        
+        let mut prices = HashMap::new();
+        prices.insert("BTC".to_string(), 50000.0);
+        
+        let triggered = monitor.check_price_alerts(&prices);
+        assert_eq!(triggered.len(), 1); // Exact match should trigger
+    }
+
+    #[test]
+    fn test_check_price_movements() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        // Set initial prices
+        let mut prices = HashMap::new();
+        prices.insert("BTC".to_string(), 50000.0);
+        monitor.check_price_movements(&prices);
+        
+        // Move price by 6% (above 5% threshold)
+        prices.insert("BTC".to_string(), 53000.0);
+        let movements = monitor.check_price_movements(&prices);
+        
+        assert_eq!(movements.len(), 1);
+        assert_eq!(movements[0].coin, "BTC");
+        assert_eq!(movements[0].from_price, 50000.0);
+        assert_eq!(movements[0].to_price, 53000.0);
+        assert!((movements[0].change_pct - 6.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_check_price_movements_below_threshold() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        let mut prices = HashMap::new();
+        prices.insert("BTC".to_string(), 50000.0);
+        monitor.check_price_movements(&prices);
+        
+        // Move price by 3% (below 5% threshold)
+        prices.insert("BTC".to_string(), 51500.0);
+        let movements = monitor.check_price_movements(&prices);
+        
+        assert_eq!(movements.len(), 0);
+    }
+
+    #[test]
+    fn test_check_price_movements_negative() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        let mut prices = HashMap::new();
+        prices.insert("ETH".to_string(), 3000.0);
+        monitor.check_price_movements(&prices);
+        
+        // Drop by 6%
+        prices.insert("ETH".to_string(), 2820.0);
+        let movements = monitor.check_price_movements(&prices);
+        
+        assert_eq!(movements.len(), 1);
+        assert!((movements[0].change_pct + 6.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_check_funding_rates_extreme_positive() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        let mut rates = HashMap::new();
+        rates.insert("BTC".to_string(), 0.0015); // 0.15%
+        
+        let alerts = monitor.check_funding_rates(&rates);
+        
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].coin, "BTC");
+        assert!((alerts[0].funding_rate - 0.15).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_check_funding_rates_extreme_negative() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        let mut rates = HashMap::new();
+        rates.insert("ETH".to_string(), -0.0012); // -0.12%
+        
+        let alerts = monitor.check_funding_rates(&rates);
+        
+        assert_eq!(alerts.len(), 1);
+        assert!((alerts[0].funding_rate + 0.12).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_check_funding_rates_normal() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        let mut rates = HashMap::new();
+        rates.insert("BTC".to_string(), 0.0005); // 0.05%, below threshold
+        
+        let alerts = monitor.check_funding_rates(&rates);
+        assert_eq!(alerts.len(), 0);
+    }
+
+    #[test]
+    fn test_status() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        monitor.add_price_alert("BTC".to_string(), 50000.0, AlertType::Above);
+        monitor.add_price_alert("ETH".to_string(), 3000.0, AlertType::Below);
+        
+        let mut prices = HashMap::new();
+        prices.insert("BTC".to_string(), 51000.0);
+        monitor.check_price_alerts(&prices);
+        
+        let status = monitor.status();
+        
+        assert_eq!(status.total_alerts, 2);
+        assert_eq!(status.triggered_alerts, 1);
+        assert_eq!(status.last_check_interval_secs, 60);
+    }
+
+    #[test]
+    fn test_reset_alerts() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        monitor.add_price_alert("BTC".to_string(), 50000.0, AlertType::Above);
+        
+        let mut prices = HashMap::new();
+        prices.insert("BTC".to_string(), 51000.0);
+        monitor.check_price_alerts(&prices);
+        
+        assert!(monitor.price_alerts[0].triggered);
+        
+        monitor.reset_alerts();
+        
+        assert!(!monitor.price_alerts[0].triggered);
+        assert_eq!(monitor.price_alerts.len(), 1); // Alert still exists
+    }
+
+    #[test]
+    fn test_clear_alerts() {
+        let config = create_test_config();
+        let mut monitor = Monitor::new(config);
+        
+        monitor.add_price_alert("BTC".to_string(), 50000.0, AlertType::Above);
+        monitor.add_price_alert("ETH".to_string(), 3000.0, AlertType::Below);
+        
+        assert_eq!(monitor.price_alerts.len(), 2);
+        
+        monitor.clear_alerts();
+        
+        assert_eq!(monitor.price_alerts.len(), 0);
+    }
+
+    #[test]
+    fn test_alert_type_serialization() {
+        let alert = PriceAlert {
+            coin: "BTC".to_string(),
+            target_price: 50000.0,
+            alert_type: AlertType::Above,
+            triggered: false,
+        };
+        
+        let json = serde_json::to_string(&alert).unwrap();
+        let deserialized: PriceAlert = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.coin, "BTC");
+        assert_eq!(deserialized.target_price, 50000.0);
+    }
+}

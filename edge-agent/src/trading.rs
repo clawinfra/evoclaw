@@ -349,3 +349,266 @@ impl HyperliquidClient {
         Ok(signature)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_config() -> TradingConfig {
+        TradingConfig {
+            hyperliquid_api: "https://api.test.com".to_string(),
+            wallet_address: "0x1234567890abcdef".to_string(),
+            private_key_path: "test.key".to_string(),
+            max_position_size_usd: 5000.0,
+            max_leverage: 5.0,
+        }
+    }
+
+    #[test]
+    fn test_pnl_tracker_new() {
+        let tracker = PnLTracker::new();
+        assert_eq!(tracker.total_pnl, 0.0);
+        assert_eq!(tracker.realized_pnl, 0.0);
+        assert_eq!(tracker.unrealized_pnl, 0.0);
+        assert_eq!(tracker.win_count, 0);
+        assert_eq!(tracker.loss_count, 0);
+        assert_eq!(tracker.total_trades, 0);
+    }
+
+    #[test]
+    fn test_pnl_tracker_default() {
+        let tracker = PnLTracker::default();
+        assert_eq!(tracker.total_pnl, 0.0);
+    }
+
+    #[test]
+    fn test_record_trade_winning() {
+        let mut tracker = PnLTracker::new();
+        tracker.record_trade(100.0);
+        
+        assert_eq!(tracker.total_trades, 1);
+        assert_eq!(tracker.win_count, 1);
+        assert_eq!(tracker.loss_count, 0);
+        assert_eq!(tracker.realized_pnl, 100.0);
+        assert_eq!(tracker.total_pnl, 100.0);
+    }
+
+    #[test]
+    fn test_record_trade_losing() {
+        let mut tracker = PnLTracker::new();
+        tracker.record_trade(-50.0);
+        
+        assert_eq!(tracker.total_trades, 1);
+        assert_eq!(tracker.win_count, 0);
+        assert_eq!(tracker.loss_count, 1);
+        assert_eq!(tracker.realized_pnl, -50.0);
+        assert_eq!(tracker.total_pnl, -50.0);
+    }
+
+    #[test]
+    fn test_record_trade_multiple() {
+        let mut tracker = PnLTracker::new();
+        tracker.record_trade(100.0);
+        tracker.record_trade(-30.0);
+        tracker.record_trade(50.0);
+        tracker.record_trade(-20.0);
+        
+        assert_eq!(tracker.total_trades, 4);
+        assert_eq!(tracker.win_count, 2);
+        assert_eq!(tracker.loss_count, 2);
+        assert_eq!(tracker.realized_pnl, 100.0);
+    }
+
+    #[test]
+    fn test_update_unrealized() {
+        let mut tracker = PnLTracker::new();
+        tracker.record_trade(100.0);
+        tracker.update_unrealized(50.0);
+        
+        assert_eq!(tracker.unrealized_pnl, 50.0);
+        assert_eq!(tracker.total_pnl, 150.0);
+        assert_eq!(tracker.realized_pnl, 100.0);
+    }
+
+    #[test]
+    fn test_update_unrealized_negative() {
+        let mut tracker = PnLTracker::new();
+        tracker.record_trade(100.0);
+        tracker.update_unrealized(-30.0);
+        
+        assert_eq!(tracker.unrealized_pnl, -30.0);
+        assert_eq!(tracker.total_pnl, 70.0);
+    }
+
+    #[test]
+    fn test_win_rate_no_trades() {
+        let tracker = PnLTracker::new();
+        assert_eq!(tracker.win_rate(), 0.0);
+    }
+
+    #[test]
+    fn test_win_rate_all_wins() {
+        let mut tracker = PnLTracker::new();
+        tracker.record_trade(100.0);
+        tracker.record_trade(50.0);
+        tracker.record_trade(75.0);
+        
+        assert_eq!(tracker.win_rate(), 100.0);
+    }
+
+    #[test]
+    fn test_win_rate_all_losses() {
+        let mut tracker = PnLTracker::new();
+        tracker.record_trade(-100.0);
+        tracker.record_trade(-50.0);
+        
+        assert_eq!(tracker.win_rate(), 0.0);
+    }
+
+    #[test]
+    fn test_win_rate_mixed() {
+        let mut tracker = PnLTracker::new();
+        tracker.record_trade(100.0);
+        tracker.record_trade(-50.0);
+        tracker.record_trade(75.0);
+        tracker.record_trade(-25.0);
+        
+        // 2 wins out of 4 = 50%
+        assert_eq!(tracker.win_rate(), 50.0);
+    }
+
+    #[test]
+    fn test_hyperliquid_client_new() {
+        let config = create_test_config();
+        let client = HyperliquidClient::new(config.clone());
+        
+        assert_eq!(client.config.wallet_address, "0x1234567890abcdef");
+        assert_eq!(client.config.max_position_size_usd, 5000.0);
+    }
+
+    #[test]
+    fn test_order_request_construction() {
+        let order = OrderRequest {
+            asset: 0,
+            is_buy: true,
+            limit_px: 50000000, // $50,000 in basis points
+            sz: 100000,         // 0.1 BTC in basis points
+            reduce_only: false,
+            timestamp: 1234567890,
+        };
+        
+        assert_eq!(order.asset, 0);
+        assert!(order.is_buy);
+        assert_eq!(order.limit_px, 50000000);
+        assert_eq!(order.sz, 100000);
+        assert!(!order.reduce_only);
+    }
+
+    #[test]
+    fn test_order_request_serialization() {
+        let order = OrderRequest {
+            asset: 0,
+            is_buy: false,
+            limit_px: 3000000,
+            sz: 500000,
+            reduce_only: true,
+            timestamp: 9876543210,
+        };
+        
+        let json = serde_json::to_string(&order).unwrap();
+        let deserialized: OrderRequest = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.asset, 0);
+        assert!(!deserialized.is_buy);
+        assert!(deserialized.reduce_only);
+    }
+
+    #[test]
+    fn test_signature_serialization() {
+        let sig = Signature {
+            r: "0xabc123".to_string(),
+            s: "0xdef456".to_string(),
+            v: 27,
+        };
+        
+        let json = serde_json::to_string(&sig).unwrap();
+        let deserialized: Signature = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.r, "0xabc123");
+        assert_eq!(deserialized.s, "0xdef456");
+        assert_eq!(deserialized.v, 27);
+    }
+
+    #[test]
+    fn test_position_deserialization() {
+        let json = r#"{
+            "coin": "BTC",
+            "szi": "0.5",
+            "entryPx": "50000.0",
+            "positionValue": "25000.0",
+            "unrealizedPnl": "500.0",
+            "returnOnEquity": "0.02"
+        }"#;
+        
+        let position: Position = serde_json::from_str(json).unwrap();
+        assert_eq!(position.coin, "BTC");
+        assert_eq!(position.szi, "0.5");
+        assert_eq!(position.entry_px, Some("50000.0".to_string()));
+    }
+
+    #[test]
+    fn test_order_response_deserialization() {
+        let json = r#"{
+            "status": "success",
+            "response": {"orderId": 12345}
+        }"#;
+        
+        let response: OrderResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(response.status, "success");
+    }
+
+    #[test]
+    fn test_pnl_tracker_serialization() {
+        let mut tracker = PnLTracker::new();
+        tracker.record_trade(100.0);
+        tracker.record_trade(-30.0);
+        tracker.update_unrealized(50.0);
+        
+        let json = serde_json::to_string(&tracker).unwrap();
+        let deserialized: PnLTracker = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.total_trades, 2);
+        assert_eq!(deserialized.win_count, 1);
+        assert_eq!(deserialized.loss_count, 1);
+        assert_eq!(deserialized.realized_pnl, 70.0);
+        assert_eq!(deserialized.unrealized_pnl, 50.0);
+        assert_eq!(deserialized.total_pnl, 120.0);
+    }
+
+    #[test]
+    fn test_all_mids_response_parsing() {
+        let json = r#"{
+            "mids": {
+                "BTC": "50000.0",
+                "ETH": "3000.5",
+                "SOL": "150.25"
+            }
+        }"#;
+        
+        let response: AllMidsResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(response.mids.len(), 3);
+        assert_eq!(response.mids.get("BTC"), Some(&"50000.0".to_string()));
+    }
+
+    #[test]
+    fn test_price_conversion() {
+        // Test converting price to basis points (used in orders)
+        let price = 50000.0;
+        let price_bp = (price * 1000.0) as u64;
+        assert_eq!(price_bp, 50000000);
+        
+        let size = 0.1;
+        let size_bp = (size * 1000.0) as u64;
+        assert_eq!(size_bp, 100);
+    }
+}
