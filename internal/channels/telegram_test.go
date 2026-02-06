@@ -45,3 +45,23 @@ func TestTelegramSendWithoutStart(t *testing.T) {
 		t.Log("Note: Send succeeded (possibly connected to real Telegram API)")
 	}
 }
+
+func TestNewMQTT(t *testing.T) {
+	mqtt := NewMQTT("localhost", 1883, "user", "pass", testLogger())
+	
+	if mqtt == nil {
+		t.Fatal("expected non-nil MQTT channel")
+	}
+	
+	if mqtt.Name() != "mqtt" {
+		t.Errorf("expected name mqtt, got %s", mqtt.Name())
+	}
+	
+	if mqtt.broker != "localhost" {
+		t.Errorf("expected broker localhost, got %s", mqtt.broker)
+	}
+	
+	if mqtt.port != 1883 {
+		t.Errorf("expected port 1883, got %d", mqtt.port)
+	}
+}

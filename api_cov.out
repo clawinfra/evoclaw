@@ -1,13 +1,13 @@
 mode: set
 github.com/clawinfra/evoclaw/internal/api/server.go:36.11,45.2 1 1
-github.com/clawinfra/evoclaw/internal/api/server.go:48.51,70.12 10 0
-github.com/clawinfra/evoclaw/internal/api/server.go:70.12,71.86 1 0
+github.com/clawinfra/evoclaw/internal/api/server.go:48.51,70.12 10 1
+github.com/clawinfra/evoclaw/internal/api/server.go:70.12,71.86 1 1
 github.com/clawinfra/evoclaw/internal/api/server.go:71.86,73.4 1 0
-github.com/clawinfra/evoclaw/internal/api/server.go:77.2,77.9 1 0
-github.com/clawinfra/evoclaw/internal/api/server.go:78.20,82.44 4 0
+github.com/clawinfra/evoclaw/internal/api/server.go:77.2,77.9 1 1
+github.com/clawinfra/evoclaw/internal/api/server.go:78.20,82.44 4 1
 github.com/clawinfra/evoclaw/internal/api/server.go:83.22,84.13 1 0
-github.com/clawinfra/evoclaw/internal/api/server.go:89.68,90.71 1 0
-github.com/clawinfra/evoclaw/internal/api/server.go:90.71,98.3 3 0
+github.com/clawinfra/evoclaw/internal/api/server.go:89.68,90.71 1 1
+github.com/clawinfra/evoclaw/internal/api/server.go:90.71,98.3 3 1
 github.com/clawinfra/evoclaw/internal/api/server.go:102.65,103.71 1 1
 github.com/clawinfra/evoclaw/internal/api/server.go:103.71,108.28 4 1
 github.com/clawinfra/evoclaw/internal/api/server.go:108.28,111.4 2 1
@@ -21,7 +21,7 @@ github.com/clawinfra/evoclaw/internal/api/server.go:146.71,147.18 1 1
 github.com/clawinfra/evoclaw/internal/api/server.go:148.22,151.31 3 1
 github.com/clawinfra/evoclaw/internal/api/server.go:151.31,153.4 1 1
 github.com/clawinfra/evoclaw/internal/api/server.go:154.3,154.30 1 1
-github.com/clawinfra/evoclaw/internal/api/server.go:156.10,157.67 1 0
+github.com/clawinfra/evoclaw/internal/api/server.go:156.10,157.67 1 1
 github.com/clawinfra/evoclaw/internal/api/server.go:162.76,167.21 3 1
 github.com/clawinfra/evoclaw/internal/api/server.go:167.21,170.3 2 0
 github.com/clawinfra/evoclaw/internal/api/server.go:172.2,174.20 3 1
@@ -34,7 +34,7 @@ github.com/clawinfra/evoclaw/internal/api/server.go:189.57,190.32 1 1
 github.com/clawinfra/evoclaw/internal/api/server.go:191.56,192.34 1 1
 github.com/clawinfra/evoclaw/internal/api/server.go:193.59,194.34 1 1
 github.com/clawinfra/evoclaw/internal/api/server.go:195.50,197.40 1 1
-github.com/clawinfra/evoclaw/internal/api/server.go:198.10,199.67 1 0
+github.com/clawinfra/evoclaw/internal/api/server.go:198.10,199.67 1 1
 github.com/clawinfra/evoclaw/internal/api/server.go:204.81,212.2 2 1
 github.com/clawinfra/evoclaw/internal/api/server.go:215.80,221.2 1 1
 github.com/clawinfra/evoclaw/internal/api/server.go:224.75,226.16 2 1

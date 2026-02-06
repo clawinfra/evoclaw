@@ -1,0 +1,291 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>config: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/clawinfra/evoclaw/internal/config/config.go (88.2%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package config
+
+import (
+        "encoding/json"
+        "fmt"
+        "os"
+        "path/filepath"
+)
+
+// Config holds all EvoClaw configuration
+type Config struct {
+        // Server settings
+        Server ServerConfig `json:"server"`
+
+        // MQTT broker for agent mesh
+        MQTT MQTTConfig `json:"mqtt"`
+
+        // Channel configurations
+        Channels ChannelConfig `json:"channels"`
+
+        // LLM provider settings
+        Models ModelsConfig `json:"models"`
+
+        // Evolution engine settings
+        Evolution EvolutionConfig `json:"evolution"`
+
+        // Agent definitions
+        Agents []AgentDef `json:"agents"`
+}
+
+type ServerConfig struct {
+        Port     int    `json:"port"`
+        DataDir  string `json:"dataDir"`
+        LogLevel string `json:"logLevel"`
+}
+
+type MQTTConfig struct {
+        Port     int    `json:"port"`
+        Host     string `json:"host"`
+        Username string `json:"username,omitempty"`
+        Password string `json:"password,omitempty"`
+}
+
+type ChannelConfig struct {
+        WhatsApp *WhatsAppConfig `json:"whatsapp,omitempty"`
+        Telegram *TelegramConfig `json:"telegram,omitempty"`
+}
+
+type WhatsAppConfig struct {
+        Enabled   bool     `json:"enabled"`
+        AllowFrom []string `json:"allowFrom"`
+}
+
+type TelegramConfig struct {
+        Enabled  bool   `json:"enabled"`
+        BotToken string `json:"botToken"`
+}
+
+type ModelsConfig struct {
+        Providers map[string]ProviderConfig `json:"providers"`
+        // Routing rules: task complexity → model selection
+        Routing ModelRouting `json:"routing"`
+}
+
+type ProviderConfig struct {
+        BaseURL string  `json:"baseUrl"`
+        APIKey  string  `json:"apiKey"`
+        Models  []Model `json:"models"`
+}
+
+type Model struct {
+        ID            string   `json:"id"`
+        Name          string   `json:"name"`
+        ContextWindow int      `json:"contextWindow"`
+        CostInput     float64  `json:"costInput"`    // per million tokens
+        CostOutput    float64  `json:"costOutput"`   // per million tokens
+        Capabilities  []string `json:"capabilities"` // "reasoning", "code", "vision"
+}
+
+type ModelRouting struct {
+        // Simple tasks use cheap models
+        Simple string `json:"simple"`
+        // Complex tasks use expensive models
+        Complex string `json:"complex"`
+        // Critical tasks (trading, money) use best available
+        Critical string `json:"critical"`
+}
+
+type EvolutionConfig struct {
+        Enabled bool `json:"enabled"`
+        // How often to evaluate agent performance (seconds)
+        EvalIntervalSec int `json:"evalIntervalSec"`
+        // Minimum trades/actions before evaluation
+        MinSamplesForEval int `json:"minSamplesForEval"`
+        // Maximum strategy mutation rate (0.0 - 1.0)
+        MaxMutationRate float64 `json:"maxMutationRate"`
+}
+
+type AgentDef struct {
+        ID           string            `json:"id"`
+        Name         string            `json:"name"`
+        Type         string            `json:"type"` // "orchestrator", "trader", "monitor", "governance"
+        Model        string            `json:"model"`
+        SystemPrompt string            `json:"systemPrompt,omitempty"`
+        Skills       []string          `json:"skills"`
+        Config       map[string]string `json:"config,omitempty"`
+        // Container isolation settings
+        Container ContainerConfig `json:"container"`
+}
+
+type ContainerConfig struct {
+        Enabled    bool     `json:"enabled"`
+        Image      string   `json:"image,omitempty"`
+        MemoryMB   int      `json:"memoryMb"`
+        CPUShares  int      `json:"cpuShares"`
+        Mounts     []Mount  `json:"mounts,omitempty"`
+        AllowNet   bool     `json:"allowNet"`
+        AllowTools []string `json:"allowTools,omitempty"`
+}
+
+type Mount struct {
+        HostPath      string `json:"hostPath"`
+        ContainerPath string `json:"containerPath"`
+        ReadOnly      bool   `json:"readOnly"`
+}
+
+// DefaultConfig returns a sensible default configuration
+func DefaultConfig() *Config <span class="cov8" title="1">{
+        return &amp;Config{
+                Server: ServerConfig{
+                        Port:     8420,
+                        DataDir:  "./data",
+                        LogLevel: "info",
+                },
+                MQTT: MQTTConfig{
+                        Port: 1883,
+                        Host: "0.0.0.0",
+                },
+                Evolution: EvolutionConfig{
+                        Enabled:           true,
+                        EvalIntervalSec:   3600, // every hour
+                        MinSamplesForEval: 10,
+                        MaxMutationRate:   0.2,
+                },
+                Models: ModelsConfig{
+                        Routing: ModelRouting{
+                                Simple:   "local/small",
+                                Complex:  "anthropic/claude-sonnet",
+                                Critical: "anthropic/claude-opus",
+                        },
+                },
+        }
+}</span>
+
+// Load reads config from a JSON file
+func Load(path string) (*Config, error) <span class="cov8" title="1">{
+        data, err := os.ReadFile(path)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("read config: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">cfg := DefaultConfig()
+        if err := json.Unmarshal(data, cfg); err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("parse config: %w", err)
+        }</span>
+
+        // Ensure data directory exists
+        <span class="cov8" title="1">if err := os.MkdirAll(cfg.Server.DataDir, 0750); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("create data dir: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return cfg, nil</span>
+}
+
+// Save writes config to a JSON file
+func (c *Config) Save(path string) error <span class="cov8" title="1">{
+        dir := filepath.Dir(path)
+        if err := os.MkdirAll(dir, 0750); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("create config dir: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">data, err := json.MarshalIndent(c, "", "  ")
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("marshal config: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return os.WriteFile(path, data, 0640)</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

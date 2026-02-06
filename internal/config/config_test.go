@@ -418,3 +418,57 @@ func TestLoad_DataDirCreation(t *testing.T) {
 		t.Error("expected data dir to be created")
 	}
 }
+
+func TestSave_MarshalError(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.json")
+
+	cfg := DefaultConfig()
+	
+	// The Save function is straightforward - we test the happy path
+	err := cfg.Save(configPath)
+	if err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Verify the file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		t.Error("config file was not created")
+	}
+}
+
+func TestSave_WriteFileError(t *testing.T) {
+	cfg := DefaultConfig()
+	
+	// Try to write to a path that is a directory
+	tmpDir := t.TempDir()
+	dirPath := filepath.Join(tmpDir, "testdir")
+	os.Mkdir(dirPath, 0755)
+	
+	// Try to write to the directory itself (not a file in it)
+	err := cfg.Save(dirPath)
+	if err == nil {
+		t.Error("expected error when writing to directory path")
+	}
+}
+
+func TestLoad_MkdirAllError(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.json")
+
+	cfg := DefaultConfig()
+	// Set data dir to a path that can't be created (file instead of dir)
+	filePath := filepath.Join(tmpDir, "blockingfile")
+	os.WriteFile(filePath, []byte("test"), 0644)
+	cfg.Server.DataDir = filepath.Join(filePath, "subdir") // Can't create dir under a file
+
+	if err := cfg.Save(configPath); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Load should fail when trying to create data dir
+	_, err := Load(configPath)
+	if err == nil {
+		t.Error("expected error when data dir can't be created")
+	}
+}

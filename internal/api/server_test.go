@@ -648,3 +648,16 @@ func TestHandleCosts_MethodNotAllowed(t *testing.T) {
 		t.Errorf("expected status 405, got %d", w.Code)
 	}
 }
+
+func TestHandleAgents_MethodNotAllowed(t *testing.T) {
+	s := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/agents", nil)
+	w := httptest.NewRecorder()
+
+	s.handleAgents(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected status 405, got %d", w.Code)
+	}
+}
