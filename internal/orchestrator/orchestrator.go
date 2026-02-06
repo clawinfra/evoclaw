@@ -74,6 +74,14 @@ type ModelProvider interface {
 	Models() []config.Model
 }
 
+// EvolutionEngine interface for pluggable evolution
+type EvolutionEngine interface {
+	GetStrategy(agentID string) interface{}
+	Evaluate(agentID string, metrics map[string]float64) float64
+	ShouldEvolve(agentID string, minFitness float64) bool
+	Mutate(agentID string, mutationRate float64) (interface{}, error)
+}
+
 type ChatRequest struct {
 	Model        string
 	SystemPrompt string
@@ -107,6 +115,8 @@ type Orchestrator struct {
 	mu        sync.RWMutex
 	ctx       context.Context
 	cancel    context.CancelFunc
+	// Evolution engine (optional, set via SetEvolutionEngine)
+	evolution EvolutionEngine
 }
 
 // New creates a new Orchestrator
@@ -139,6 +149,14 @@ func (o *Orchestrator) RegisterProvider(p ModelProvider) {
 	defer o.mu.Unlock()
 	o.providers[p.Name()] = p
 	o.logger.Info("model provider registered", "name", p.Name())
+}
+
+// SetEvolutionEngine sets the evolution engine
+func (o *Orchestrator) SetEvolutionEngine(e EvolutionEngine) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.evolution = e
+	o.logger.Info("evolution engine registered")
 }
 
 // Start begins the orchestrator loop
@@ -363,7 +381,27 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 	// Running average response time
 	n := float64(agent.Metrics.TotalActions)
 	agent.Metrics.AvgResponseMs = agent.Metrics.AvgResponseMs*(n-1)/n + float64(elapsed.Milliseconds())/n
+
+	// Prepare metrics for evolution evaluation
+	metrics := agent.Metrics
 	agent.mu.Unlock()
+
+	// Report to evolution engine if available
+	if o.evolution != nil {
+		successRate := float64(metrics.SuccessfulActions) / float64(metrics.TotalActions)
+		evalMetrics := map[string]float64{
+			"successRate":   successRate,
+			"avgResponseMs": metrics.AvgResponseMs,
+			"costUSD":       metrics.CostUSD,
+			"totalActions":  float64(metrics.TotalActions),
+		}
+		// Add custom metrics
+		for k, v := range metrics.Custom {
+			evalMetrics[k] = v
+		}
+
+		o.evolution.Evaluate(agent.ID, evalMetrics)
+	}
 
 	// Send response back
 	o.outbox <- Response{
@@ -410,12 +448,17 @@ func (o *Orchestrator) evolutionLoop() {
 
 // evaluateAgents runs the evolution engine on all agents
 func (o *Orchestrator) evaluateAgents() {
+	if o.evolution == nil {
+		return
+	}
+
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
 	for _, agent := range o.agents {
 		agent.mu.RLock()
 		metrics := agent.Metrics
+		agentID := agent.ID
 		agent.mu.RUnlock()
 
 		if metrics.TotalActions < int64(o.cfg.Evolution.MinSamplesForEval) {
@@ -423,20 +466,74 @@ func (o *Orchestrator) evaluateAgents() {
 		}
 
 		successRate := float64(metrics.SuccessfulActions) / float64(metrics.TotalActions)
+
+		// Prepare metrics for evaluation
+		evalMetrics := map[string]float64{
+			"successRate":   successRate,
+			"avgResponseMs": metrics.AvgResponseMs,
+			"costUSD":       metrics.CostUSD,
+			"totalActions":  float64(metrics.TotalActions),
+		}
+		for k, v := range metrics.Custom {
+			evalMetrics[k] = v
+		}
+
+		// Get current fitness
+		fitness := o.evolution.Evaluate(agentID, evalMetrics)
+
 		o.logger.Info("agent evaluation",
-			"agent", agent.ID,
+			"agent", agentID,
 			"actions", metrics.TotalActions,
 			"successRate", successRate,
 			"avgResponseMs", metrics.AvgResponseMs,
 			"tokensUsed", metrics.TokensUsed,
+			"fitness", fitness,
 		)
 
-		// TODO: Implement strategy mutation based on performance
-		// - If success rate < threshold → adjust prompts/strategies
-		// - If cost too high → try cheaper model
-		// - If response too slow → try faster model
-		// - Record what works → reinforce successful strategies
+		// Check if evolution is needed
+		minFitness := 0.6 // Threshold for acceptable performance
+		if o.evolution.ShouldEvolve(agentID, minFitness) {
+			o.logger.Warn("agent fitness below threshold, triggering evolution",
+				"agent", agentID,
+				"fitness", fitness,
+				"threshold", minFitness,
+			)
+
+			// Trigger evolution
+			agent.mu.Lock()
+			agent.Status = "evolving"
+			agent.mu.Unlock()
+
+			go o.evolveAgent(agent, fitness)
+		}
 	}
+}
+
+// evolveAgent performs evolution on a single agent
+func (o *Orchestrator) evolveAgent(agent *AgentState, currentFitness float64) {
+	defer func() {
+		agent.mu.Lock()
+		agent.Status = "idle"
+		agent.mu.Unlock()
+	}()
+
+	o.logger.Info("starting agent evolution", "agent", agent.ID, "fitness", currentFitness)
+
+	// Mutate strategy
+	_, err := o.evolution.Mutate(agent.ID, o.cfg.Evolution.MaxMutationRate)
+	if err != nil {
+		o.logger.Error("evolution failed", "agent", agent.ID, "error", err)
+		return
+	}
+
+	// Reset metrics for new strategy evaluation
+	agent.mu.Lock()
+	agent.Metrics = AgentMetrics{
+		Custom: make(map[string]float64),
+	}
+	agent.mu.Unlock()
+
+	o.logger.Info("agent evolved successfully", "agent", agent.ID)
 }
 
 // GetAgentMetrics returns current metrics for an agent

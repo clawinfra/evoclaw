@@ -1,0 +1,100 @@
+{
+  "server": {
+    "port": 8420,
+    "dataDir": "./data",
+    "logLevel": "info"
+  },
+  "mqtt": {
+    "port": 1883,
+    "host": "0.0.0.0",
+    "username": "",
+    "password": ""
+  },
+  "channels": {
+    "telegram": {
+      "enabled": false,
+      "botToken": "YOUR_BOT_TOKEN_HERE"
+    }
+  },
+  "models": {
+    "providers": {
+      "anthropic": {
+        "baseUrl": "https://api.anthropic.com",
+        "apiKey": "YOUR_ANTHROPIC_KEY",
+        "models": [
+          {
+            "id": "claude-opus-4-20250514",
+            "name": "Claude Opus 4",
+            "contextWindow": 200000,
+            "costInput": 15.0,
+            "costOutput": 75.0,
+            "capabilities": ["reasoning", "code", "vision"]
+          },
+          {
+            "id": "claude-sonnet-4-20250514",
+            "name": "Claude Sonnet 4",
+            "contextWindow": 200000,
+            "costInput": 3.0,
+            "costOutput": 15.0,
+            "capabilities": ["reasoning", "code", "vision"]
+          }
+        ]
+      },
+      "ollama": {
+        "baseUrl": "http://localhost:11434",
+        "apiKey": "",
+        "models": [
+          {
+            "id": "llama3.2:3b",
+            "name": "Llama 3.2 3B",
+            "contextWindow": 8192,
+            "costInput": 0.0,
+            "costOutput": 0.0,
+            "capabilities": ["reasoning"]
+          }
+        ]
+      },
+      "openai": {
+        "baseUrl": "https://api.openai.com/v1",
+        "apiKey": "YOUR_OPENAI_KEY",
+        "models": [
+          {
+            "id": "gpt-4o",
+            "name": "GPT-4o",
+            "contextWindow": 128000,
+            "costInput": 2.5,
+            "costOutput": 10.0,
+            "capabilities": ["reasoning", "code", "vision"]
+          }
+        ]
+      }
+    },
+    "routing": {
+      "simple": "ollama/llama3.2:3b",
+      "complex": "anthropic/claude-sonnet-4-20250514",
+      "critical": "anthropic/claude-opus-4-20250514"
+    }
+  },
+  "evolution": {
+    "enabled": true,
+    "evalIntervalSec": 3600,
+    "minSamplesForEval": 10,
+    "maxMutationRate": 0.2
+  },
+  "agents": [
+    {
+      "id": "assistant-1",
+      "name": "General Assistant",
+      "type": "orchestrator",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are a helpful AI assistant. Be concise, accurate, and friendly.",
+      "skills": ["chat", "search", "analysis"],
+      "container": {
+        "enabled": false,
+        "memoryMb": 512,
+        "cpuShares": 512,
+        "allowNet": true
+      }
+    }
+  ]
+}

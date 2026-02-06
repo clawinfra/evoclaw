@@ -71,7 +71,7 @@ func NewEngine(dataDir string, logger *slog.Logger) *Engine {
 }
 
 // GetStrategy returns the current strategy for an agent
-func (e *Engine) GetStrategy(agentID string) *Strategy {
+func (e *Engine) GetStrategy(agentID string) interface{} {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return e.strategies[agentID]
@@ -121,7 +121,7 @@ func (e *Engine) Evaluate(agentID string, metrics map[string]float64) float64 {
 }
 
 // Mutate creates a new strategy variant based on the current one
-func (e *Engine) Mutate(agentID string, mutationRate float64) (*Strategy, error) {
+func (e *Engine) Mutate(agentID string, mutationRate float64) (interface{}, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
