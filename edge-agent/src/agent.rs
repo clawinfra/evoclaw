@@ -2,6 +2,7 @@ use std::time::Duration;
 use tracing::{error, info, warn};
 
 use crate::config::Config;
+use crate::evolution::EvolutionTracker;
 use crate::metrics::Metrics;
 use crate::monitor::Monitor;
 use crate::mqtt::{parse_command, MqttClient};
@@ -16,6 +17,7 @@ pub struct EdgeAgent {
     pub pnl_tracker: PnLTracker,
     pub monitor: Option<Monitor>,
     pub strategy_engine: StrategyEngine,
+    pub evolution_tracker: EvolutionTracker,
 }
 
 impl EdgeAgent {
@@ -40,6 +42,9 @@ impl EdgeAgent {
         // Initialize strategy engine (for trader agents)
         let strategy_engine = StrategyEngine::new();
 
+        // Initialize evolution tracker
+        let evolution_tracker = EvolutionTracker::default();
+
         let agent = Self {
             config,
             mqtt,
@@ -48,6 +53,7 @@ impl EdgeAgent {
             pnl_tracker: PnLTracker::new(),
             monitor,
             strategy_engine,
+            evolution_tracker,
         };
 
         Ok((agent, eventloop))

@@ -2,6 +2,7 @@ use serde_json::Value;
 use tracing::{info, warn};
 
 use crate::agent::EdgeAgent;
+use crate::evolution::TradeRecord;
 use crate::mqtt::AgentCommand;
 use crate::strategy::{FundingArbitrage, MeanReversion};
 
@@ -22,6 +23,7 @@ impl EdgeAgent {
             "execute" => self.handle_execute(&cmd).await,
             "update_strategy" => self.handle_update_strategy(&cmd).await,
             "get_metrics" => self.handle_get_metrics(&cmd).await,
+            "evolution" => self.handle_evolution(&cmd).await,
             "shutdown" => self.handle_shutdown(&cmd).await,
             _ => {
                 warn!(command = %cmd.command, "unknown command");
@@ -313,7 +315,94 @@ impl EdgeAgent {
 
     async fn handle_get_metrics(&self, _cmd: &AgentCommand) -> CommandResult {
         let metrics_json = serde_json::to_value(&self.metrics)?;
-        Ok(metrics_json)
+        let evolution_metrics = self.evolution_tracker.get_metrics();
+        let fitness = self.evolution_tracker.fitness_score();
+
+        Ok(serde_json::json!({
+            "agent_metrics": metrics_json,
+            "evolution_metrics": evolution_metrics,
+            "fitness_score": fitness
+        }))
+    }
+
+    async fn handle_evolution(&mut self, cmd: &AgentCommand) -> CommandResult {
+        let action = cmd.payload.get("action").and_then(|v| v.as_str());
+
+        match action {
+            Some("record_trade") => {
+                let asset = cmd
+                    .payload
+                    .get("asset")
+                    .and_then(|v| v.as_str())
+                    .ok_or("missing asset")?
+                    .to_string();
+                let entry_price = cmd
+                    .payload
+                    .get("entry_price")
+                    .and_then(|v| v.as_f64())
+                    .ok_or("missing entry_price")?;
+                let exit_price = cmd
+                    .payload
+                    .get("exit_price")
+                    .and_then(|v| v.as_f64())
+                    .ok_or("missing exit_price")?;
+                let size = cmd
+                    .payload
+                    .get("size")
+                    .and_then(|v| v.as_f64())
+                    .ok_or("missing size")?;
+
+                let pnl = (exit_price - entry_price) * size;
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)?
+                    .as_secs();
+
+                let trade = TradeRecord {
+                    timestamp,
+                    asset: asset.clone(),
+                    entry_price,
+                    exit_price,
+                    size,
+                    pnl,
+                };
+
+                self.evolution_tracker.record_trade(trade);
+
+                Ok(serde_json::json!({
+                    "status": "trade_recorded",
+                    "asset": asset,
+                    "pnl": pnl
+                }))
+            }
+            Some("get_performance") => {
+                let metrics = self.evolution_tracker.get_metrics();
+                let fitness = self.evolution_tracker.fitness_score();
+
+                Ok(serde_json::json!({
+                    "status": "success",
+                    "performance": metrics,
+                    "fitness_score": fitness
+                }))
+            }
+            Some("get_trade_history") => {
+                let history = self.evolution_tracker.get_trade_history();
+                Ok(serde_json::json!({
+                    "status": "success",
+                    "trade_count": history.len(),
+                    "trades": history
+                }))
+            }
+            Some("reset") => {
+                self.evolution_tracker.reset();
+                Ok(serde_json::json!({
+                    "status": "evolution_tracker_reset"
+                }))
+            }
+            _ => Ok(serde_json::json!({
+                "status": "evolution_command_received",
+                "note": "specify action: record_trade, get_performance, get_trade_history, reset"
+            })),
+        }
     }
 
     async fn handle_shutdown(&self, _cmd: &AgentCommand) -> CommandResult {
