@@ -249,4 +249,114 @@ mod tests {
         assert_eq!(report_topic, "evoclaw/agents/agent123/reports");
         assert_eq!(strategy_topic, "evoclaw/agents/agent123/strategy");
     }
+
+    #[test]
+    fn test_parse_command_with_nulls() {
+        let json = r#"{
+            "command": "test",
+            "payload": {"key": null, "value": 42},
+            "request_id": "req999"
+        }"#;
+
+        let cmd = parse_command(json.as_bytes()).unwrap();
+        assert_eq!(cmd.command, "test");
+        assert!(cmd.payload.get("key").unwrap().is_null());
+        assert_eq!(cmd.payload.get("value").unwrap().as_i64().unwrap(), 42);
+    }
+
+    #[test]
+    fn test_parse_command_nested_payload() {
+        let json = r#"{
+            "command": "complex",
+            "payload": {
+                "level1": {
+                    "level2": {
+                        "data": "deep"
+                    }
+                }
+            },
+            "request_id": "req888"
+        }"#;
+
+        let cmd = parse_command(json.as_bytes()).unwrap();
+        assert_eq!(cmd.command, "complex");
+        let nested = cmd.payload.get("level1").unwrap()
+            .get("level2").unwrap()
+            .get("data").unwrap().as_str().unwrap();
+        assert_eq!(nested, "deep");
+    }
+
+    #[test]
+    fn test_agent_report_timestamp() {
+        let report = AgentReport {
+            agent_id: "agent_time".to_string(),
+            agent_type: "trader".to_string(),
+            report_type: "test".to_string(),
+            payload: serde_json::json!({}),
+            timestamp: 1700000000,
+        };
+
+        assert!(report.timestamp > 0);
+        assert_eq!(report.timestamp, 1700000000);
+    }
+
+    #[test]
+    fn test_mqtt_config_different_ports() {
+        let configs = vec![
+            (MqttConfig { broker: "broker1".to_string(), port: 1883, keep_alive_secs: 30 }, 1883),
+            (MqttConfig { broker: "broker2".to_string(), port: 8883, keep_alive_secs: 30 }, 8883),
+            (MqttConfig { broker: "broker3".to_string(), port: 9001, keep_alive_secs: 30 }, 9001),
+        ];
+
+        for (config, expected_port) in configs {
+            let result = MqttClient::new(&config, "agent".to_string(), "trader".to_string());
+            assert!(result.is_ok());
+            assert_eq!(config.port, expected_port);
+        }
+    }
+
+    #[test]
+    fn test_parse_command_array_payload() {
+        let json = r#"{
+            "command": "batch",
+            "payload": {
+                "items": [1, 2, 3, 4, 5]
+            },
+            "request_id": "req777"
+        }"#;
+
+        let cmd = parse_command(json.as_bytes()).unwrap();
+        assert_eq!(cmd.command, "batch");
+        let items = cmd.payload.get("items").unwrap().as_array().unwrap();
+        assert_eq!(items.len(), 5);
+        assert_eq!(items[0].as_i64().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_agent_command_clone() {
+        let cmd = AgentCommand {
+            command: "test".to_string(),
+            payload: serde_json::json!({"data": 123}),
+            request_id: "req666".to_string(),
+        };
+
+        let cloned = cmd.clone();
+        assert_eq!(cmd.command, cloned.command);
+        assert_eq!(cmd.request_id, cloned.request_id);
+    }
+
+    #[test]
+    fn test_agent_report_clone() {
+        let report = AgentReport {
+            agent_id: "agent_clone".to_string(),
+            agent_type: "monitor".to_string(),
+            report_type: "heartbeat".to_string(),
+            payload: serde_json::json!({"uptime": 100}),
+            timestamp: 9999,
+        };
+
+        let cloned = report.clone();
+        assert_eq!(report.agent_id, cloned.agent_id);
+        assert_eq!(report.timestamp, cloned.timestamp);
+    }
 }

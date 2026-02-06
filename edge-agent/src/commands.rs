@@ -746,4 +746,430 @@ mod tests {
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_err());
     }
+
+    #[tokio::test]
+    async fn test_handle_evolution_get_trade_history() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        // Record a trade first
+        let record_cmd = AgentCommand {
+            command: "evolution".to_string(),
+            payload: serde_json::json!({
+                "action": "record_trade",
+                "asset": "ETH",
+                "entry_price": 3000.0,
+                "exit_price": 3100.0,
+                "size": 1.0
+            }),
+            request_id: "req16a".to_string(),
+        };
+        agent.handle_evolution(&record_cmd).await.unwrap();
+        
+        // Now get trade history
+        let cmd = AgentCommand {
+            command: "evolution".to_string(),
+            payload: serde_json::json!({
+                "action": "get_trade_history"
+            }),
+            request_id: "req16".to_string(),
+        };
+        
+        let result = agent.handle_evolution(&cmd).await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response["status"], "success");
+        assert_eq!(response["trade_count"], 1);
+        assert!(response.get("trades").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_monitor_reset_alerts() {
+        let config = create_test_agent_config("monitor");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "execute".to_string(),
+            payload: serde_json::json!({
+                "action": "reset_alerts"
+            }),
+            request_id: "req17".to_string(),
+        };
+        
+        let result = agent.handle_execute(&cmd).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap()["action"], "alerts_reset");
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_monitor_clear_alerts() {
+        let config = create_test_agent_config("monitor");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "execute".to_string(),
+            payload: serde_json::json!({
+                "action": "clear_alerts"
+            }),
+            request_id: "req18".to_string(),
+        };
+        
+        let result = agent.handle_execute(&cmd).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap()["action"], "alerts_cleared");
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_governance() {
+        let config = create_test_agent_config("governance");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "execute".to_string(),
+            payload: serde_json::json!({}),
+            request_id: "req19".to_string(),
+        };
+        
+        let result = agent.handle_execute(&cmd).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap()["agent_type"], "governance");
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_unknown_agent_type() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        agent.config.agent_type = "unknown".to_string();
+        
+        let cmd = AgentCommand {
+            command: "execute".to_string(),
+            payload: serde_json::json!({}),
+            request_id: "req20".to_string(),
+        };
+        
+        let result = agent.handle_execute(&cmd).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_update_strategy_update_params() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        // Add a strategy first
+        let add_cmd = AgentCommand {
+            command: "update_strategy".to_string(),
+            payload: serde_json::json!({
+                "action": "add_funding_arbitrage"
+            }),
+            request_id: "req21a".to_string(),
+        };
+        agent.handle_update_strategy(&add_cmd).await.unwrap();
+        
+        // Now update its params
+        let cmd = AgentCommand {
+            command: "update_strategy".to_string(),
+            payload: serde_json::json!({
+                "action": "update_params",
+                "strategy": "FundingArbitrage",
+                "params": {
+                    "funding_threshold": -0.2
+                }
+            }),
+            request_id: "req21".to_string(),
+        };
+        
+        let result = agent.handle_update_strategy(&cmd).await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response["status"], "strategy_updated");
+        assert_eq!(response["strategy"], "FundingArbitrage");
+    }
+
+    #[tokio::test]
+    async fn test_handle_update_strategy_update_nonexistent() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "update_strategy".to_string(),
+            payload: serde_json::json!({
+                "action": "update_params",
+                "strategy": "NonExistent",
+                "params": {}
+            }),
+            request_id: "req22".to_string(),
+        };
+        
+        let result = agent.handle_update_strategy(&cmd).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_update_strategy_reset() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "update_strategy".to_string(),
+            payload: serde_json::json!({
+                "action": "reset"
+            }),
+            request_id: "req23".to_string(),
+        };
+        
+        let result = agent.handle_update_strategy(&cmd).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap()["status"], "strategies_reset");
+    }
+
+    #[tokio::test]
+    async fn test_handle_unknown_command() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "unknown_command".to_string(),
+            payload: serde_json::json!({}),
+            request_id: "req24".to_string(),
+        };
+        
+        // handle_command is called internally, so we'll test the dispatch
+        // Instead, we can call handle_command through the agent
+        agent.handle_command(cmd).await;
+        
+        // Verify that metrics recorded a failure
+        assert_eq!(agent.metrics.actions_failed, 1);
+    }
+
+    #[tokio::test]
+    async fn test_handle_command_success_records_metric() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "ping".to_string(),
+            payload: serde_json::json!({}),
+            request_id: "req25".to_string(),
+        };
+        
+        agent.handle_command(cmd).await;
+        
+        // Verify that metrics recorded a success
+        assert_eq!(agent.metrics.actions_success, 1);
+        assert_eq!(agent.metrics.actions_total, 1);
+    }
+
+    #[tokio::test]
+    async fn test_handle_evolution_no_action() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "evolution".to_string(),
+            payload: serde_json::json!({}),
+            request_id: "req26".to_string(),
+        };
+        
+        let result = agent.handle_evolution(&cmd).await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response["status"], "evolution_command_received");
+    }
+
+    #[tokio::test]
+    async fn test_handle_update_strategy_no_action() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "update_strategy".to_string(),
+            payload: serde_json::json!({}),
+            request_id: "req27".to_string(),
+        };
+        
+        let result = agent.handle_update_strategy(&cmd).await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response["status"], "strategy_update_received");
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_trader_no_client() {
+        let mut config = create_test_agent_config("trader");
+        config.trading = None; // Remove trading config
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "execute".to_string(),
+            payload: serde_json::json!({
+                "action": "get_prices"
+            }),
+            request_id: "req28".to_string(),
+        };
+        
+        let result = agent.handle_execute(&cmd).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("trading client not initialized"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_monitor_no_monitor() {
+        let mut config = create_test_agent_config("monitor");
+        config.monitor = None; // Remove monitor config
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "execute".to_string(),
+            payload: serde_json::json!({
+                "action": "status"
+            }),
+            request_id: "req29".to_string(),
+        };
+        
+        let result = agent.handle_execute(&cmd).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("monitor not initialized"));
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_monitor_missing_target_price() {
+        let config = create_test_agent_config("monitor");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "execute".to_string(),
+            payload: serde_json::json!({
+                "action": "add_price_alert",
+                "coin": "BTC",
+                "alert_type": "above"
+                // Missing target_price
+            }),
+            request_id: "req30".to_string(),
+        };
+        
+        let result = agent.handle_execute(&cmd).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_execute_monitor_missing_alert_type() {
+        let config = create_test_agent_config("monitor");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "execute".to_string(),
+            payload: serde_json::json!({
+                "action": "add_price_alert",
+                "coin": "BTC",
+                "target_price": 50000.0
+                // Missing alert_type
+            }),
+            request_id: "req31".to_string(),
+        };
+        
+        let result = agent.handle_execute(&cmd).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_update_strategy_update_params_missing_strategy() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "update_strategy".to_string(),
+            payload: serde_json::json!({
+                "action": "update_params",
+                "params": {"key": "value"}
+                // Missing strategy name
+            }),
+            request_id: "req32".to_string(),
+        };
+        
+        let result = agent.handle_update_strategy(&cmd).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_update_strategy_update_params_missing_params() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "update_strategy".to_string(),
+            payload: serde_json::json!({
+                "action": "update_params",
+                "strategy": "FundingArbitrage"
+                // Missing params
+            }),
+            request_id: "req33".to_string(),
+        };
+        
+        let result = agent.handle_update_strategy(&cmd).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_evolution_record_trade_missing_entry_price() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "evolution".to_string(),
+            payload: serde_json::json!({
+                "action": "record_trade",
+                "asset": "BTC",
+                "exit_price": 51000.0,
+                "size": 0.1
+                // Missing entry_price
+            }),
+            request_id: "req34".to_string(),
+        };
+        
+        let result = agent.handle_evolution(&cmd).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_evolution_record_trade_missing_exit_price() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "evolution".to_string(),
+            payload: serde_json::json!({
+                "action": "record_trade",
+                "asset": "BTC",
+                "entry_price": 50000.0,
+                "size": 0.1
+                // Missing exit_price
+            }),
+            request_id: "req35".to_string(),
+        };
+        
+        let result = agent.handle_evolution(&cmd).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_evolution_record_trade_missing_size() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "evolution".to_string(),
+            payload: serde_json::json!({
+                "action": "record_trade",
+                "asset": "BTC",
+                "entry_price": 50000.0,
+                "exit_price": 51000.0
+                // Missing size
+            }),
+            request_id: "req36".to_string(),
+        };
+        
+        let result = agent.handle_evolution(&cmd).await;
+        assert!(result.is_err());
+    }
 }
