@@ -1,0 +1,73 @@
+# EvoClaw — Bare Metal Edge Agent (Rust binary, no container)
+#
+# Install:
+#   sudo cp deploy/systemd/evoclaw-agent-bare.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now evoclaw-agent-bare
+#
+# Prerequisites:
+#   - Binary at /opt/evoclaw/evoclaw-agent
+#   - Config at /opt/evoclaw/agent.toml
+#   - User 'evoclaw' exists: sudo useradd -r -s /usr/sbin/nologin evoclaw
+#
+# For Raspberry Pi / constrained devices, adjust MemoryMax and CPUQuota below.
+
+[Unit]
+Description=EvoClaw Edge Agent (Bare Metal)
+Documentation=https://github.com/clawinfra/evoclaw
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=evoclaw
+Group=evoclaw
+WorkingDirectory=/opt/evoclaw
+
+ExecStart=/opt/evoclaw/evoclaw-agent --config /opt/evoclaw/agent.toml
+
+# ── Restart Policy ──────────────────────────────────────────────
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# ── Watchdog ────────────────────────────────────────────────────
+# Agent should call sd_notify(WATCHDOG=1) every 60s.
+# If no notification within 120s, systemd kills and restarts.
+WatchdogSec=120
+
+# ── Resource Limits ─────────────────────────────────────────────
+# Tune these for your device. Defaults are conservative for Pi Zero 2W.
+MemoryMax=128M
+MemoryHigh=96M
+CPUQuota=50%
+
+# Pi 4/5 with more headroom:
+# MemoryMax=256M
+# MemoryHigh=192M
+# CPUQuota=100%
+
+# ── Security Hardening ──────────────────────────────────────────
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/evoclaw/data /opt/evoclaw/keys
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+
+# ── Environment ─────────────────────────────────────────────────
+Environment=RUST_LOG=info
+Environment=RUST_BACKTRACE=1
+
+# ── Logging ─────────────────────────────────────────────────────
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=evoclaw-agent
+
+[Install]
+WantedBy=multi-user.target

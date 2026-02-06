@@ -1,0 +1,45 @@
+# EvoClaw — Mosquitto MQTT Broker (Podman container)
+#
+# Install:
+#   sudo cp deploy/systemd/evoclaw-mosquitto.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now evoclaw-mosquitto
+#
+# Works with both rootful and rootless Podman.
+# For rootless, install to ~/.config/systemd/user/ and use `systemctl --user`.
+
+[Unit]
+Description=EvoClaw MQTT Broker (Mosquitto)
+Documentation=https://github.com/clawinfra/evoclaw
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=forking
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=30
+TimeoutStopSec=30
+
+Environment=PODMAN_SYSTEMD_UNIT=%n
+
+ExecStartPre=-/usr/bin/podman rm -f evoclaw-mosquitto
+ExecStart=/usr/bin/podman run -d \
+    --name evoclaw-mosquitto \
+    --replace \
+    -p 1883:1883 \
+    -v /opt/evoclaw/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro,Z \
+    -v evoclaw-mosquitto-data:/mosquitto/data \
+    --health-cmd="mosquitto_sub -t '$$SYS/#' -C 1 -W 3 || exit 1" \
+    --health-interval=10s \
+    --health-timeout=5s \
+    --health-retries=3 \
+    eclipse-mosquitto:2
+
+ExecStop=/usr/bin/podman stop -t 10 evoclaw-mosquitto
+ExecStopPost=-/usr/bin/podman rm -f evoclaw-mosquitto
+
+PIDFile=%t/evoclaw-mosquitto.pid
+
+[Install]
+WantedBy=multi-user.target
