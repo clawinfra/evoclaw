@@ -1,8 +1,23 @@
-# EvoClaw 🧬
+<p align="center">
+  <img src="assets/banner.jpg" alt="EvoClaw Banner" width="100%">
+</p>
 
-**Self-evolving agent framework for edge devices and IoT.**
+<p align="center">
+  <img src="assets/logo.jpg" alt="EvoClaw Logo" width="200">
+</p>
 
-Built by agents, for agents. Every device is an agent.
+<h1 align="center">EvoClaw 🧬</h1>
+
+<p align="center">
+  <strong>Self-evolving agent framework for edge devices and IoT.</strong><br>
+  Built by agents, for agents. Every device is an agent. Every agent evolves.
+</p>
+
+<p align="center">
+  <a href="#architecture">Architecture</a> •
+  <a href="#building">Building</a> •
+  <a href="#status">Status</a>
+</p>
 
 ## Architecture
 
