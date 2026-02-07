@@ -204,7 +204,7 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 
 	// Send thinking indicator
 	s.sendSSE(w, flusher, map[string]interface{}{
-		"type":    "thinking",
+		"type":     "thinking",
 		"agent_id": agentID,
 	})
 

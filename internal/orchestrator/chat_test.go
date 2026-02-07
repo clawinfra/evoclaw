@@ -90,7 +90,6 @@ func TestChatSync_WithHistory(t *testing.T) {
 		t.Error("expected non-empty response")
 	}
 
-	// Verify provider was called with history
 	if p.getCalls() != 1 {
 		t.Errorf("expected 1 provider call, got %d", p.getCalls())
 	}
@@ -224,7 +223,6 @@ func TestChatSync_WithEvolution(t *testing.T) {
 		t.Fatalf("ChatSync failed: %v", err)
 	}
 
-	// Verify evolution was notified
 	e.mu.Lock()
 	fitnessLen := len(e.fitness)
 	e.mu.Unlock()
