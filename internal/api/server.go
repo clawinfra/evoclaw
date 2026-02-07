@@ -70,6 +70,11 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/dashboard", s.handleDashboard)
 	mux.HandleFunc("/api/logs/stream", s.handleLogStream)
 
+	// Chat API routes
+	mux.HandleFunc("/api/chat", s.handleChat)
+	mux.HandleFunc("/api/chat/history", s.handleChatHistory)
+	mux.HandleFunc("/api/chat/stream", s.handleChatStream)
+
 	// Serve embedded web dashboard
 	if s.webFS != nil {
 		fileServer := http.FileServer(http.FS(s.webFS))
@@ -87,7 +92,7 @@ func (s *Server) Start(ctx context.Context) error {
 		Addr:         fmt.Sprintf(":%d", s.port),
 		Handler:      s.corsMiddleware(s.loggingMiddleware(mux)),
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 300 * time.Second, // Long timeout for LLM streaming
 		IdleTimeout:  60 * time.Second,
 	}
 

@@ -66,8 +66,10 @@ type WhatsAppConfig struct {
 }
 
 type TelegramConfig struct {
-	Enabled  bool   `json:"enabled"`
-	BotToken string `json:"botToken"`
+	Enabled      bool    `json:"enabled"`
+	BotToken     string  `json:"botToken"`
+	AllowedUsers []int64 `json:"allowedUsers,omitempty"` // empty = allow all
+	DefaultAgent string  `json:"defaultAgent,omitempty"` // which agent handles messages
 }
 
 type ModelsConfig struct {
