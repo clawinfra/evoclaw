@@ -15,6 +15,7 @@ import (
 
 // AnthropicProvider implements ModelProvider for Anthropic's API
 type AnthropicProvider struct {
+	name    string
 	baseURL string
 	apiKey  string
 	models  []config.Model
@@ -73,7 +74,17 @@ func NewAnthropicProvider(cfg config.ProviderConfig) *AnthropicProvider {
 	}
 }
 
-func (p *AnthropicProvider) Name() string { return "anthropic" }
+func (p *AnthropicProvider) Name() string {
+	if p.name != "" {
+		return p.name
+	}
+	return "anthropic"
+}
+
+// SetName overrides the default provider name (for multiple Anthropic-compatible endpoints)
+func (p *AnthropicProvider) SetName(name string) {
+	p.name = name
+}
 
 func (p *AnthropicProvider) Models() []config.Model { return p.models }
 

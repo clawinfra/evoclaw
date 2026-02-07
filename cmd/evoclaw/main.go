@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/clawinfra/evoclaw/internal/agents"
@@ -244,9 +245,17 @@ func registerProviders(router *models.Router, cfg *config.Config, logger *slog.L
 	for providerName, provCfg := range cfg.Models.Providers {
 		logger.Info("initializing provider", "name", providerName, "models", len(provCfg.Models))
 
-		switch providerName {
+		// Detect provider type from name or baseUrl
+		providerType := providerName
+		if strings.Contains(provCfg.BaseURL, "/anthropic") || strings.HasPrefix(providerName, "anthropic") {
+			providerType = "anthropic"
+		}
+
+		switch providerType {
 		case "anthropic":
-			router.RegisterProvider(models.NewAnthropicProvider(provCfg))
+			p := models.NewAnthropicProvider(provCfg)
+			p.SetName(providerName)
+			router.RegisterProvider(p)
 		case "ollama":
 			router.RegisterProvider(models.NewOllamaProvider(provCfg))
 		case "openai":

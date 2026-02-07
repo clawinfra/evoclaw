@@ -1,0 +1,92 @@
+{
+  "server": {
+    "port": 8420,
+    "dataDir": "./data",
+    "logLevel": "info"
+  },
+  "mqtt": {
+    "broker": "localhost",
+    "port": 1883
+  },
+  "channels": {
+    "telegram": {
+      "enabled": false,
+      "botToken": "",
+      "allowedUsers": [],
+      "defaultAgent": "pi1-edge"
+    }
+  },
+  "models": {
+    "providers": {
+      "ollama": {
+        "baseUrl": "http://localhost:11434",
+        "models": [
+          {"id": "qwen2.5:1.5b", "contextWindow": 8192}
+        ]
+      },
+      "nvidia": {
+        "baseUrl": "https://integrate.api.nvidia.com/v1",
+        "apiKey": "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",
+        "models": [
+          {"id": "mistralai/mistral-small-3.1-24b-instruct-2503", "name": "Mistral Small 3.1 24B", "contextWindow": 32768, "costInput": 0.15, "costOutput": 0.15, "capabilities": ["code"]},
+          {"id": "meta/llama-3.3-70b-instruct", "name": "Llama 3.3 70B", "contextWindow": 131072, "costInput": 0.40, "costOutput": 0.40, "capabilities": ["code", "reasoning"]},
+          {"id": "deepseek-ai/deepseek-v3.2", "name": "DeepSeek V3.2", "contextWindow": 131072, "costInput": 0.40, "costOutput": 1.30, "capabilities": ["code", "reasoning"]},
+          {"id": "nvidia/llama-3.1-nemotron-ultra-253b-v1", "name": "Nemotron Ultra 253B", "contextWindow": 131072, "costInput": 2.50, "costOutput": 5.00, "capabilities": ["code", "reasoning"]},
+          {"id": "qwen/qwen3-235b-a22b", "name": "Qwen3 235B MoE", "contextWindow": 131072, "costInput": 0.80, "costOutput": 0.80, "capabilities": ["code", "reasoning"]}
+        ]
+      },
+      "zhipu-1": {
+        "baseUrl": "https://api.z.ai/api/anthropic",
+        "apiKey": "5798a068323e4e06be0ffd76b36ede2c.wBE6lE4v0bULJVSz",
+        "models": [
+          {"id": "glm-4.7", "name": "GLM 4.7 (Key 1)", "contextWindow": 131072, "costInput": 0.50, "costOutput": 0.50, "capabilities": ["code", "reasoning"]},
+          {"id": "glm-4.5-air", "name": "GLM 4.5 Air (Key 1)", "contextWindow": 131072, "costInput": 0.10, "costOutput": 0.10, "capabilities": ["code"]}
+        ]
+      },
+      "zhipu-2": {
+        "baseUrl": "https://api.z.ai/api/anthropic",
+        "apiKey": "8aad4931d85241c1ba86bc011c4b0380.6osovLHoTvJn8e5T",
+        "models": [
+          {"id": "glm-4.7", "name": "GLM 4.7 (Key 2)", "contextWindow": 131072, "costInput": 0.50, "costOutput": 0.50, "capabilities": ["code", "reasoning"]},
+          {"id": "glm-4.5-air", "name": "GLM 4.5 Air (Key 2)", "contextWindow": 131072, "costInput": 0.10, "costOutput": 0.10, "capabilities": ["code"]}
+        ]
+      }
+    },
+    "routing": {
+      "simple": "ollama/qwen2.5:1.5b",
+      "complex": "nvidia/deepseek-ai/deepseek-v3.2",
+      "critical": "nvidia/nvidia/llama-3.1-nemotron-ultra-253b-v1"
+    },
+    "intelligentRouter": {
+      "enabled": true,
+      "tierModels": {
+        "SIMPLE": "zhipu-1/glm-4.5-air",
+        "MEDIUM": "nvidia/meta/llama-3.3-70b-instruct",
+        "COMPLEX": "nvidia/deepseek-ai/deepseek-v3.2",
+        "REASONING": "nvidia/nvidia/llama-3.1-nemotron-ultra-253b-v1"
+      },
+      "tierCosts": {
+        "SIMPLE": 0.10,
+        "MEDIUM": 0.40,
+        "COMPLEX": 0.85,
+        "REASONING": 3.75
+      },
+      "defaultTier": "MEDIUM",
+      "thresholds": [0.25, 0.50, 0.75],
+      "logDecisions": true
+    }
+  },
+  "agents": [
+    {
+      "id": "pi1-edge",
+      "type": "monitor",
+      "model": "nvidia/meta/llama-3.3-70b-instruct"
+    }
+  ],
+  "evolution": {
+    "enabled": true,
+    "evalIntervalSec": 3600,
+    "minSamplesForEval": 10,
+    "maxMutationRate": 0.2
+  }
+}
