@@ -126,7 +126,9 @@ func (p *AnthropicProvider) Chat(ctx context.Context, req orchestrator.ChatReque
 
 	if resp.StatusCode != 200 {
 		var apiErr anthropicError
-		json.Unmarshal(respBody, &apiErr)
+		if err := json.Unmarshal(respBody, &apiErr); err != nil {
+			return nil, fmt.Errorf("API error %d (failed to parse error body: %w)", resp.StatusCode, err)
+		}
 		return nil, fmt.Errorf("API error %d: %s - %s",
 			resp.StatusCode, apiErr.Error.Type, apiErr.Error.Message)
 	}

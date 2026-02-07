@@ -91,7 +91,7 @@ func TestAnthropicChatSuccess(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -152,7 +152,7 @@ func TestAnthropicChatError(t *testing.T) {
 				Message: "Invalid API key",
 			},
 		}
-		json.NewEncoder(w).Encode(errResp)
+		_ = json.NewEncoder(w).Encode(errResp)
 	}))
 	defer server.Close()
 
@@ -178,7 +178,7 @@ func TestAnthropicChatError(t *testing.T) {
 func TestAnthropicChatWithSystemPrompt(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody anthropicRequest
-		json.NewDecoder(r.Body).Decode(&reqBody)
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 
 		if reqBody.System != "You are helpful" {
 			t.Errorf("expected system prompt, got '%s'", reqBody.System)
@@ -195,7 +195,7 @@ func TestAnthropicChatWithSystemPrompt(t *testing.T) {
 			Model:      "claude-sonnet-4",
 			StopReason: "end_turn",
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
