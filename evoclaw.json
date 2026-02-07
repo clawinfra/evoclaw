@@ -1,0 +1,37 @@
+{
+  "server": {
+    "port": 8420,
+    "dataDir": "./data",
+    "logLevel": "info"
+  },
+  "mqtt": {
+    "broker": "localhost",
+    "port": 1883
+  },
+  "providers": {
+    "ollama": {
+      "baseUrl": "http://localhost:11434",
+      "models": [
+        "llama3.2:3b"
+      ]
+    }
+  },
+  "routing": {
+    "simple": "ollama/llama3.2:3b",
+    "complex": "ollama/llama3.2:3b",
+    "critical": "ollama/llama3.2:3b"
+  },
+  "agents": [
+    {
+      "id": "pi1-edge",
+      "type": "monitor",
+      "model": "ollama/llama3.2:3b"
+    }
+  ],
+  "evolution": {
+    "enabled": true,
+    "evalIntervalSec": 3600,
+    "minSamplesForEval": 10,
+    "maxMutationRate": 0.2
+  }
+}

@@ -204,6 +204,50 @@ func (m *MQTTChannel) subscribe() error {
 func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 	m.logger.Debug("mqtt message received", "topic", mqttMsg.Topic())
 
+	// Try to parse as agent report (from edge agents)
+	var report struct {
+		AgentID    string          `json:"agent_id"`
+		AgentType  string          `json:"agent_type"`
+		ReportType string          `json:"report_type"`
+		Payload    json.RawMessage `json:"payload"`
+		Timestamp  int64           `json:"timestamp"`
+	}
+
+	raw := mqttMsg.Payload()
+
+	if err := json.Unmarshal(raw, &report); err == nil && report.ReportType != "" {
+		// This is an agent report — convert to orchestrator message
+		content := string(report.Payload)
+		if content == "" {
+			content = report.ReportType
+		}
+
+		msg := orchestrator.Message{
+			ID:        fmt.Sprintf("mqtt-%d", time.Now().UnixNano()),
+			Channel:   "mqtt",
+			From:      report.AgentID,
+			To:        "orchestrator",
+			Content:   content,
+			Timestamp: time.Unix(report.Timestamp, 0),
+			Metadata: map[string]string{
+				"mqtt_topic":  mqttMsg.Topic(),
+				"report_type": report.ReportType,
+				"agent_type":  report.AgentType,
+			},
+		}
+
+		select {
+		case m.inbox <- msg:
+			m.logger.Info("agent report queued", "from", report.AgentID, "type", report.ReportType)
+		case <-m.ctx.Done():
+			return
+		default:
+			m.logger.Warn("inbox full, dropping report", "from", report.AgentID)
+		}
+		return
+	}
+
+	// Fall back to legacy message format
 	var payload struct {
 		AgentID  string            `json:"agent_id"`
 		Content  string            `json:"content"`
@@ -212,7 +256,7 @@ func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 		SentAt   int64             `json:"sent_at"`
 	}
 
-	if err := json.Unmarshal(mqttMsg.Payload(), &payload); err != nil {
+	if err := json.Unmarshal(raw, &payload); err != nil {
 		m.logger.Error("failed to parse mqtt message", "error", err)
 		return
 	}

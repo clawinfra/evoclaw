@@ -104,6 +104,13 @@ type ChatResponse struct {
 }
 
 // Orchestrator is the core of EvoClaw
+// AgentReporter allows the orchestrator to report agent activity to external systems
+type AgentReporter interface {
+	RecordMessage(id string) error
+	RecordError(id string) error
+	UpdateMetrics(id string, tokensUsed int, costUSD float64, responseMs int64, success bool) error
+}
+
 type Orchestrator struct {
 	cfg       *config.Config
 	channels  map[string]Channel
@@ -117,6 +124,8 @@ type Orchestrator struct {
 	cancel    context.CancelFunc
 	// Evolution engine (optional, set via SetEvolutionEngine)
 	evolution EvolutionEngine
+	// Reporter for external agent state (e.g., registry used by API)
+	reporter AgentReporter
 }
 
 // New creates a new Orchestrator
@@ -152,6 +161,13 @@ func (o *Orchestrator) RegisterProvider(p ModelProvider) {
 }
 
 // SetEvolutionEngine sets the evolution engine
+func (o *Orchestrator) SetAgentReporter(r AgentReporter) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.reporter = r
+	o.logger.Info("agent reporter registered")
+}
+
 func (o *Orchestrator) SetEvolutionEngine(e EvolutionEngine) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -280,6 +296,12 @@ func (o *Orchestrator) handleMessage(msg Message) {
 		"length", len(msg.Content),
 	)
 
+	// Check if this is an agent report (from edge agents via MQTT)
+	if msg.Metadata != nil && msg.Metadata["report_type"] != "" {
+		o.handleAgentReport(msg)
+		return
+	}
+
 	// Determine which agent should handle this
 	agentID := o.selectAgent(msg)
 	if agentID == "" {
@@ -301,6 +323,68 @@ func (o *Orchestrator) handleMessage(msg Message) {
 
 	// Process with LLM
 	go o.processWithAgent(agent, msg, model)
+}
+
+// handleAgentReport processes reports from edge agents and updates metrics
+func (o *Orchestrator) handleAgentReport(msg Message) {
+	agentID := msg.From
+	reportType := msg.Metadata["report_type"]
+
+	o.logger.Info("agent report received",
+		"agent", agentID,
+		"type", reportType,
+	)
+
+	o.mu.RLock()
+	agent, ok := o.agents[agentID]
+	o.mu.RUnlock()
+
+	if !ok {
+		o.logger.Warn("report from unknown agent", "agent", agentID)
+		return
+	}
+
+	agent.mu.Lock()
+	agent.MessageCount++
+	agent.LastActive = time.Now()
+	agent.Status = "idle"
+
+	switch reportType {
+	case "result":
+		agent.Metrics.TotalActions++
+		agent.Metrics.SuccessfulActions++
+	case "error":
+		agent.Metrics.TotalActions++
+		agent.Metrics.FailedActions++
+		agent.ErrorCount++
+	case "heartbeat", "status":
+		// Just update timestamps, already done above
+	default:
+		agent.Metrics.TotalActions++
+		agent.Metrics.SuccessfulActions++
+	}
+	agent.mu.Unlock()
+
+	// Also update the external registry (used by API/dashboard)
+	o.mu.RLock()
+	reporter := o.reporter
+	o.mu.RUnlock()
+
+	if reporter != nil {
+		switch reportType {
+		case "error":
+			_ = reporter.RecordError(agentID)
+		default:
+			_ = reporter.RecordMessage(agentID)
+			_ = reporter.UpdateMetrics(agentID, 0, 0, 0, reportType != "error")
+		}
+	}
+
+	o.logger.Debug("agent metrics updated",
+		"agent", agentID,
+		"messages", agent.MessageCount,
+		"actions", agent.Metrics.TotalActions,
+	)
 }
 
 // selectAgent picks the best agent for a message

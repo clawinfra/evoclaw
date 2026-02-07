@@ -160,6 +160,9 @@ func setup(configPath string) (*App, error) {
 		app.Orchestrator.SetEvolutionEngine(app.EvoEngine)
 	}
 
+	// Wire agent reporter (registry → dashboard metrics)
+	app.Orchestrator.SetAgentReporter(app.Registry)
+
 	// Register channels
 	if err := registerChannels(app.Orchestrator, cfg, app.Logger); err != nil {
 		return nil, fmt.Errorf("register channels: %w", err)
