@@ -323,6 +323,16 @@ func (s *Server) handleAgentDetail(w http.ResponseWriter, r *http.Request) {
 	case action == "" && r.Method == http.MethodGet:
 		// Get agent details
 		s.respondJSON(w, agent.GetSnapshot())
+	case action == "" && r.Method == http.MethodDelete:
+		// Delete agent
+		if err := s.registry.Delete(agentID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		s.respondJSON(w, map[string]interface{}{
+			"deleted": agentID,
+			"status":  "ok",
+		})
 	default:
 		http.Error(w, "invalid action or method", http.StatusBadRequest)
 	}
