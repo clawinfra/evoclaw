@@ -620,6 +620,11 @@ func (o *Orchestrator) evolveAgent(agent *AgentState, currentFitness float64) {
 	o.logger.Info("agent evolved successfully", "agent", agent.ID)
 }
 
+// GetConfig returns the orchestrator's configuration
+func (o *Orchestrator) GetConfig() *config.Config {
+	return o.cfg
+}
+
 // GetAgentMetrics returns current metrics for an agent
 func (o *Orchestrator) GetAgentMetrics(agentID string) (*AgentMetrics, error) {
 	o.mu.RLock()

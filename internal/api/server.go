@@ -12,6 +12,7 @@ import (
 
 	"github.com/clawinfra/evoclaw/internal/agents"
 	"github.com/clawinfra/evoclaw/internal/cloud"
+	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/models"
 	"github.com/clawinfra/evoclaw/internal/orchestrator"
 	"github.com/clawinfra/evoclaw/internal/saas"
@@ -61,6 +62,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Register API routes
 	mux.HandleFunc("/api/status", s.handleStatus)
+	mux.HandleFunc("/api/agents/register", s.handleAgentRegister)
 	mux.HandleFunc("/api/agents", s.handleAgents)
 	mux.HandleFunc("/api/agents/", s.handleAgentDetail)
 	mux.HandleFunc("/api/models", s.handleModels)
@@ -138,6 +140,104 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// AgentRegisterRequest is the JSON body for POST /api/agents/register
+type AgentRegisterRequest struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+	Host string `json:"host"`
+}
+
+// AgentRegisterResponse is the JSON response for POST /api/agents/register
+type AgentRegisterResponse struct {
+	Status     string `json:"status"`
+	ID         string `json:"id"`
+	MQTTBroker string `json:"mqtt_broker"`
+	MQTTPort   int    `json:"mqtt_port"`
+}
+
+// handleAgentRegister handles POST /api/agents/register for edge agent self-registration
+func (s *Server) handleAgentRegister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req AgentRegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.ID == "" {
+		http.Error(w, "id is required", http.StatusBadRequest)
+		return
+	}
+	if req.Type == "" {
+		req.Type = "monitor"
+	}
+
+	// Register the agent in the registry (create if not exists)
+	agentDef := config.AgentDef{
+		ID:   req.ID,
+		Name: req.ID,
+		Type: req.Type,
+		Config: map[string]string{
+			"host":        req.Host,
+			"registered":  "dynamic",
+		},
+	}
+
+	if _, err := s.registry.Get(req.ID); err != nil {
+		// Agent doesn't exist, create it
+		if _, err := s.registry.Create(agentDef); err != nil {
+			s.logger.Error("failed to register agent", "id", req.ID, "error", err)
+			http.Error(w, "failed to register agent", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Agent already exists, update it
+		if err := s.registry.Update(req.ID, agentDef); err != nil {
+			s.logger.Error("failed to update agent", "id", req.ID, "error", err)
+			http.Error(w, "failed to update agent", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	s.logger.Info("agent registered via API", "id", req.ID, "type", req.Type, "host", req.Host)
+
+	resp := AgentRegisterResponse{
+		Status:     "registered",
+		ID:         req.ID,
+		MQTTBroker: s.getMQTTBroker(),
+		MQTTPort:   s.getMQTTPort(),
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	s.respondJSON(w, resp)
+}
+
+// getMQTTBroker returns the MQTT broker address from orchestrator config
+func (s *Server) getMQTTBroker() string {
+	if s.orch != nil {
+		cfg := s.orch.GetConfig()
+		if cfg != nil && cfg.MQTT.Host != "" {
+			return cfg.MQTT.Host
+		}
+	}
+	return "localhost"
+}
+
+// getMQTTPort returns the MQTT broker port from orchestrator config
+func (s *Server) getMQTTPort() int {
+	if s.orch != nil {
+		cfg := s.orch.GetConfig()
+		if cfg != nil && cfg.MQTT.Port > 0 {
+			return cfg.MQTT.Port
+		}
+	}
+	return 1883
 }
 
 // handleStatus returns system status

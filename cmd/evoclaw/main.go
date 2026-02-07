@@ -15,6 +15,7 @@ import (
 	"github.com/clawinfra/evoclaw/internal/agents"
 	"github.com/clawinfra/evoclaw/internal/api"
 	"github.com/clawinfra/evoclaw/internal/channels"
+	"github.com/clawinfra/evoclaw/internal/cli"
 	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/evolution"
 	"github.com/clawinfra/evoclaw/internal/models"
@@ -48,6 +49,22 @@ func main() {
 }
 
 func run() int {
+	// Handle subcommands before flag parsing
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "setup":
+			setupCLI := cli.NewSetupCLI()
+			return setupCLI.Run(os.Args[2:])
+		case "cloud":
+			apiURL := "http://localhost:8420"
+			if v := os.Getenv("EVOCLAW_API_URL"); v != "" {
+				apiURL = v
+			}
+			cloudCLI := cli.NewCloudCLI(apiURL)
+			return cloudCLI.Run(os.Args[2:])
+		}
+	}
+
 	configPath := flag.String("config", "evoclaw.json", "Path to config file")
 	showVersion := flag.Bool("version", false, "Show version")
 	flag.Parse()
