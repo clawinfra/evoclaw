@@ -273,6 +273,7 @@ pub async fn run_join(opts: &JoinOptions) -> Result<JoinResult, Box<dyn std::err
 
     let mqtt_broker = reg_resp
         .mqtt_broker
+        .filter(|b| b != "0.0.0.0" && b != "localhost" && b != "127.0.0.1")
         .unwrap_or_else(|| opts.hub.clone());
     let mqtt_port = reg_resp.mqtt_port.unwrap_or(opts.mqtt_port);
 
