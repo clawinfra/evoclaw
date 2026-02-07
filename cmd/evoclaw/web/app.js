@@ -363,8 +363,8 @@ function dashboard() {
 
         formatUptime(uptime) {
             if (!uptime) return '—';
-            // Uptime comes as nanoseconds (Go duration)
-            const seconds = Math.abs(uptime / 1e9);
+            // Uptime comes as seconds from API
+            const seconds = Math.abs(typeof uptime === 'number' && uptime > 1e12 ? uptime / 1e9 : uptime);
             if (seconds < 60) return `${Math.floor(seconds)}s`;
             if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60)}s`;
             if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
@@ -665,12 +665,13 @@ function dashboard() {
                 },
                 scales: {
                     x: {
-                        ticks: { color: '#484f58', font: { size: 10 } },
+                        ticks: { color: '#484f58', font: { size: 10 }, maxRotation: 0 },
                         grid: { color: 'rgba(48, 54, 61, 0.5)' }
                     },
                     y: {
-                        ticks: { color: '#484f58', font: { size: 10 } },
-                        grid: { color: 'rgba(48, 54, 61, 0.5)' }
+                        ticks: { color: '#484f58', font: { size: 10 }, maxTicksLimit: 8 },
+                        grid: { color: 'rgba(48, 54, 61, 0.5)' },
+                        beginAtZero: true
                     }
                 }
             };
