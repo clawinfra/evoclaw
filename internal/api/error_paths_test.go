@@ -73,7 +73,9 @@ func TestHandleStatus_WithCosts(t *testing.T) {
 	}
 
 	var response map[string]interface{}
-	json.NewDecoder(w.Body).Decode(&response)
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
 
 	// Should have total_cost field
 	if _, ok := response["total_cost"]; !ok {

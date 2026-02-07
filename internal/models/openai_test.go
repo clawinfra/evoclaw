@@ -71,7 +71,7 @@ func TestOpenAIChatSuccess(t *testing.T) {
 		}`
 
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(resp))
+		_, _ = w.Write([]byte(resp))
 	}))
 	defer server.Close()
 

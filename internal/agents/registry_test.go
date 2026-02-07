@@ -783,7 +783,7 @@ func TestMemory_SaveErrorHandling(t *testing.T) {
 
 	// Make directory read-only
 	memDir := filepath.Join(tmpDir, "memory")
-	os.MkdirAll(memDir, 0755)
+	_ = os.MkdirAll(memDir, 0755)
 	os.Chmod(memDir, 0444)
 
 	err := memory.Save("test-agent")

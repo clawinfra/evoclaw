@@ -47,7 +47,7 @@ func TestHandleStatus(t *testing.T) {
 		ID:   "test-agent-1",
 		Name: "Test Agent",
 	}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
 	w := httptest.NewRecorder()
@@ -89,8 +89,8 @@ func TestHandleAgentsGet(t *testing.T) {
 	s := newTestServer(t)
 
 	// Create test agents
-	s.registry.Create(config.AgentDef{ID: "agent-1", Name: "Agent 1"})
-	s.registry.Create(config.AgentDef{ID: "agent-2", Name: "Agent 2"})
+	_, _ = s.registry.Create(config.AgentDef{ID: "agent-1", Name: "Agent 1"})
+	_, _ = s.registry.Create(config.AgentDef{ID: "agent-2", Name: "Agent 2"})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/agents", nil)
 	w := httptest.NewRecorder()
@@ -174,7 +174,7 @@ func TestHandleCostsGet(t *testing.T) {
 		Model:   "model-1",
 		Messages: []orchestrator.ChatMessage{{Role: "user", Content: "Hi"}},
 	}
-	s.router.Chat(context.Background(), "test-provider/model-1", req, nil)
+	_, _ = s.router.Chat(context.Background(), "test-provider/model-1", req, nil)
 
 	// Test GET /api/costs
 	httpReq := httptest.NewRequest(http.MethodGet, "/api/costs", nil)
@@ -510,7 +510,7 @@ func TestLoggingMiddleware(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, _ = w.Write([]byte("test response"))
 	})
 	
 	wrapped := s.loggingMiddleware(handler)
