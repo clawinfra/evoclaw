@@ -22,6 +22,12 @@ function dashboard() {
         agentEvolution: null,
         evolutionData: {},
 
+        // Chat
+        chatAgent: '',
+        chatInput: '',
+        chatMessages: [],
+        chatLoading: false,
+
         // Filters
         agentFilter: 'all',
         logLevel: 'all',
@@ -57,6 +63,7 @@ function dashboard() {
                 'overview': 'Overview',
                 'agents': 'Agents',
                 'agent-detail': `Agent: ${this.selectedAgent?.id || ''}`,
+                'chat': 'Chat',
                 'trading': 'Trading',
                 'models': 'Models',
                 'evolution': 'Evolution',
@@ -111,6 +118,7 @@ function dashboard() {
         // Init
         async init() {
             await this.refreshAll();
+            this.initChat();
             this.initMockTradingData();
 
             // Auto-refresh
@@ -134,6 +142,7 @@ function dashboard() {
 
             // Load view-specific data
             if (view === 'overview') this.initOverviewCharts();
+            if (view === 'chat') this.loadChatHistory();
             if (view === 'models') this.initModelCharts();
             if (view === 'evolution') this.initEvolutionCharts();
             if (view === 'trading') this.initTradingCharts();
@@ -236,6 +245,143 @@ function dashboard() {
             } catch (e) {
                 console.error('Evolve error:', e);
             }
+        },
+
+        // Chat methods
+        initChat() {
+            // Set default agent
+            if (this.agents.length > 0 && !this.chatAgent) {
+                this.chatAgent = this.agents[0].id;
+            }
+            // Load from localStorage
+            this.loadChatFromStorage();
+        },
+
+        loadChatFromStorage() {
+            try {
+                const key = `evoclaw-chat-${this.chatAgent}`;
+                const stored = localStorage.getItem(key);
+                if (stored) {
+                    this.chatMessages = JSON.parse(stored);
+                }
+            } catch (e) {
+                console.warn('Failed to load chat from storage:', e);
+            }
+        },
+
+        saveChatToStorage() {
+            try {
+                const key = `evoclaw-chat-${this.chatAgent}`;
+                localStorage.setItem(key, JSON.stringify(this.chatMessages.slice(-100)));
+            } catch (e) {
+                console.warn('Failed to save chat to storage:', e);
+            }
+        },
+
+        async loadChatHistory() {
+            if (!this.chatAgent) {
+                if (this.agents.length > 0) {
+                    this.chatAgent = this.agents[0].id;
+                }
+                return;
+            }
+
+            // Try loading from API first
+            const data = await this.fetchJSON(`/api/chat/history?agent_id=${this.chatAgent}&limit=50`);
+            if (data && data.messages && data.messages.length > 0) {
+                this.chatMessages = data.messages.map(msg => ({
+                    role: msg.role,
+                    content: msg.content,
+                    timestamp: msg.timestamp || '',
+                }));
+                this.saveChatToStorage();
+            } else {
+                // Fall back to localStorage
+                this.loadChatFromStorage();
+            }
+
+            this.$nextTick(() => this.scrollChatToBottom());
+        },
+
+        async sendChatMessage() {
+            const message = this.chatInput.trim();
+            if (!message || this.chatLoading) return;
+
+            // Add user message
+            const now = new Date().toLocaleTimeString();
+            this.chatMessages.push({
+                role: 'user',
+                content: message,
+                timestamp: now,
+            });
+
+            this.chatInput = '';
+            this.chatLoading = true;
+            this.saveChatToStorage();
+            this.$nextTick(() => this.scrollChatToBottom());
+
+            try {
+                const res = await fetch(`${API_BASE}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent_id: this.chatAgent,
+                        message: message,
+                    }),
+                });
+
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(errText);
+                }
+
+                const data = await res.json();
+
+                this.chatMessages.push({
+                    role: 'assistant',
+                    content: data.response,
+                    timestamp: new Date().toLocaleTimeString(),
+                    model: data.model,
+                    elapsed_ms: data.elapsed_ms,
+                    tokens: (data.tokens_input || 0) + (data.tokens_output || 0),
+                });
+            } catch (e) {
+                this.chatMessages.push({
+                    role: 'system',
+                    content: `Error: ${e.message}`,
+                    timestamp: new Date().toLocaleTimeString(),
+                });
+            } finally {
+                this.chatLoading = false;
+                this.saveChatToStorage();
+                this.$nextTick(() => this.scrollChatToBottom());
+            }
+        },
+
+        clearChat() {
+            this.chatMessages = [];
+            this.saveChatToStorage();
+        },
+
+        scrollChatToBottom() {
+            const container = document.getElementById('chatMessages');
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+        },
+
+        renderMarkdown(text) {
+            if (!text) return '';
+            // Simple markdown rendering
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+                .replace(/\n/g, '<br>');
         },
 
         // Log streaming via SSE
