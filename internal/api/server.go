@@ -70,6 +70,11 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/dashboard", s.handleDashboard)
 	mux.HandleFunc("/api/logs/stream", s.handleLogStream)
 
+	// Chat API routes
+	mux.HandleFunc("/api/chat", s.handleChat)
+	mux.HandleFunc("/api/chat/history", s.handleChatHistory)
+	mux.HandleFunc("/api/chat/stream", s.handleChatStream)
+
 	// Serve embedded web dashboard
 	if s.webFS != nil {
 		fileServer := http.FileServer(http.FS(s.webFS))
@@ -320,6 +325,8 @@ func (s *Server) handleAgentDetail(w http.ResponseWriter, r *http.Request) {
 		s.handleAgentMemory(w, agentID)
 	case action == "memory" && r.Method == http.MethodDelete:
 		s.handleClearMemory(w, agentID)
+	case action == "skills" && r.Method == http.MethodGet:
+		s.handleAgentSkills(w, agentID)
 	case action == "" && r.Method == http.MethodGet:
 		// Get agent details
 		s.respondJSON(w, agent.GetSnapshot())
@@ -391,6 +398,22 @@ func (s *Server) handleClearMemory(w http.ResponseWriter, agentID string) {
 	s.respondJSON(w, map[string]interface{}{
 		"message":  "memory cleared",
 		"agent_id": agentID,
+	})
+}
+
+// handleAgentSkills returns skill data for an agent
+func (s *Server) handleAgentSkills(w http.ResponseWriter, agentID string) {
+	skillData, err := s.registry.GetSkillData(agentID)
+	if err != nil {
+		http.Error(w, "agent not found", http.StatusNotFound)
+		return
+	}
+
+	s.respondJSON(w, map[string]interface{}{
+		"agent_id":       agentID,
+		"skills":         skillData.Skills,
+		"last_update":    skillData.LastUpdate,
+		"recent_reports": skillData.Reports,
 	})
 }
 

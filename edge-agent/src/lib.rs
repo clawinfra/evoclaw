@@ -9,5 +9,6 @@ pub mod mqtt;
 pub mod paper;
 pub mod risk;
 pub mod signing;
+pub mod skills;
 pub mod strategy;
 pub mod trading;

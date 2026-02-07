@@ -9,6 +9,7 @@ mod mqtt;
 mod paper;
 mod risk;
 mod signing;
+mod skills;
 mod strategy;
 mod trading;
 

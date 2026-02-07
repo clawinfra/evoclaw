@@ -196,6 +196,9 @@ function dashboard() {
             });
         },
 
+        // Skills data
+        agentSkills: null,
+
         // Agent detail
         async viewAgent(agentId) {
             const agent = this.agents.find(a => a.id === agentId);
@@ -212,6 +215,10 @@ function dashboard() {
             // Fetch evolution
             const evo = await this.fetchJSON(`/api/agents/${agentId}/evolution`);
             this.agentEvolution = evo;
+
+            // Fetch skills
+            const skills = await this.fetchJSON(`/api/agents/${agentId}/skills`);
+            this.agentSkills = skills;
 
             // Init charts after view renders
             this.$nextTick(() => this.initAgentDetailCharts());

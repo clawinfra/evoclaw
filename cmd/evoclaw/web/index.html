@@ -301,6 +301,66 @@
                 </div>
             </div>
 
+            <!-- Skills Section -->
+            <div class="card" x-show="agentSkills">
+                <h3>🔌 Agent Skills</h3>
+                <div x-show="agentSkills?.skills?.length > 0">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Skill</th>
+                                <th>Status</th>
+                                <th>Capabilities</th>
+                                <th>Tick Interval</th>
+                                <th>Last Tick</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="skill in (agentSkills?.skills || [])" :key="skill.name">
+                                <tr>
+                                    <td class="mono" x-text="skill.name"></td>
+                                    <td>
+                                        <span class="status-dot" :class="skill.enabled ? 'green' : 'red'"></span>
+                                        <span x-text="skill.enabled ? 'Enabled' : 'Disabled'"></span>
+                                    </td>
+                                    <td x-text="(skill.capabilities || []).join(', ')"></td>
+                                    <td x-text="skill.tick_interval_secs ? skill.tick_interval_secs + 's' : '—'"></td>
+                                    <td x-text="skill.last_tick ? formatTime(new Date(skill.last_tick).toISOString()) : '—'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty-state" x-show="!agentSkills?.skills?.length">
+                    <p>No skills registered for this agent</p>
+                </div>
+
+                <!-- Recent skill reports -->
+                <div x-show="agentSkills?.recent_reports?.length > 0" style="margin-top: 1rem;">
+                    <h4>Recent Skill Reports</h4>
+                    <div class="grid-2" style="gap: 0.5rem;">
+                        <template x-for="(report, idx) in (agentSkills?.recent_reports || []).slice(-4).reverse()" :key="idx">
+                            <div class="config-grid" style="padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
+                                <div class="config-row">
+                                    <span class="config-label">Skill</span>
+                                    <span class="config-value mono" x-text="report.skill || '—'"></span>
+                                </div>
+                                <div class="config-row">
+                                    <span class="config-label">Type</span>
+                                    <span class="config-value" x-text="report.report_type || '—'"></span>
+                                </div>
+                                <template x-for="[key, val] in Object.entries(report.payload || {}).slice(0, 6)" :key="key">
+                                    <div class="config-row">
+                                        <span class="config-label" x-text="key"></span>
+                                        <span class="config-value mono" x-text="typeof val === 'number' ? val.toFixed(2) : val"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
             <div class="card" x-show="selectedAgent?.def?.type === 'trader'">
                 <h3>Strategy / Genome Config</h3>
                 <div class="config-grid" x-show="agentEvolution">

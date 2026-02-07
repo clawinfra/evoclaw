@@ -207,6 +207,52 @@ Every agent tracks performance metrics — success rate, response time, cost, tr
 
 What gets mutated: temperature, model selection, system prompts, trading thresholds, strategy weights. What drives fitness: success rate, response quality, cost efficiency, trading PnL.
 
+## 🔧 Agent Skills
+
+Edge agents support a modular skill plugin system. Skills are self-contained capabilities that handle commands, collect data periodically, and report back to the orchestrator.
+
+### Built-in Skills
+
+| Skill | Description | Config Key |
+|-------|-------------|------------|
+| **System Monitor** | CPU, memory, disk, temperature, uptime, load, network stats | `[skills.system_monitor]` |
+| **GPIO** | Raspberry Pi GPIO control via sysfs — read, write, blink, edge detection | `[skills.gpio]` |
+| **Price Monitor** | Crypto price tracking with alerts (CoinGecko API) | `[skills.price_monitor]` |
+
+### Config Example
+
+```toml
+[skills.system_monitor]
+enabled = true
+tick_interval_secs = 30
+
+[skills.gpio]
+enabled = true
+pins = [17, 27, 22]
+
+[skills.price_monitor]
+enabled = true
+symbols = ["BTC", "ETH", "SOL"]
+threshold_pct = 5.0
+```
+
+### Commanding Skills
+
+```json
+{
+  "command": "skill",
+  "payload": {
+    "skill": "system_monitor",
+    "action": "status"
+  },
+  "request_id": "req-123"
+}
+```
+
+Skills report data to the orchestrator via MQTT, which displays it on the dashboard.
+
+→ Full guide: [Agent Skills](docs/guides/agent-skills.md) — writing custom skills, config reference, examples
+
 ## 🔌 API Reference
 
 ### Core API
@@ -220,6 +266,7 @@ GET  /api/agents/{id}/metrics             # Performance metrics
 POST /api/agents/{id}/evolve              # Trigger evolution
 GET  /api/agents/{id}/memory              # Conversation history
 DEL  /api/agents/{id}/memory              # Clear memory
+GET  /api/agents/{id}/skills              # Agent skills and reports
 GET  /api/models                          # Available LLM models
 GET  /api/costs                           # Cost tracking
 GET  /api/dashboard                       # Dashboard data (JSON)

@@ -28,6 +28,7 @@ impl EdgeAgent {
             "evolution" => self.handle_evolution(&cmd).await,
             "trade" => self.handle_trade(&cmd).await,
             "risk" => self.handle_risk(&cmd).await,
+            "skill" => self.handle_skill(&cmd).await,
             "shutdown" => self.handle_shutdown(&cmd).await,
             _ => {
                 warn!(command = %cmd.command, "unknown command");
@@ -543,6 +544,38 @@ impl EdgeAgent {
                 } else { Err("risk manager not initialized".into()) }
             }
             _ => Err(format!("unknown risk action: {}", action).into()),
+        }
+    }
+
+    async fn handle_skill(&mut self, cmd: &AgentCommand) -> CommandResult {
+        let skill_name = cmd.payload.get("skill").and_then(|v| v.as_str());
+        let action = cmd.payload.get("action").and_then(|v| v.as_str());
+
+        match (skill_name, action) {
+            (Some(skill), Some(action)) => {
+                let payload = cmd.payload.get("params").cloned().unwrap_or(serde_json::json!({}));
+                match self.skill_registry.handle_command(skill, action, payload).await {
+                    Ok(result) => Ok(serde_json::json!({
+                        "status": "success",
+                        "skill": skill,
+                        "action": action,
+                        "result": result
+                    })),
+                    Err(e) => Err(e.to_string().into()),
+                }
+            }
+            (None, _) if cmd.payload.get("action").and_then(|v| v.as_str()) == Some("list") => {
+                let skills = self.skill_registry.list_skills();
+                Ok(serde_json::json!({
+                    "status": "success",
+                    "skills": skills,
+                    "count": skills.len()
+                }))
+            }
+            _ => Ok(serde_json::json!({
+                "status": "error",
+                "note": "specify skill and action, e.g.: {\"skill\": \"system_monitor\", \"action\": \"status\"}"
+            })),
         }
     }
 
@@ -1316,5 +1349,110 @@ mod tests {
         
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_skill_list() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "skill".to_string(),
+            payload: serde_json::json!({
+                "action": "list"
+            }),
+            request_id: "req_skill_list".to_string(),
+        };
+        
+        let result = agent.handle_skill(&cmd).await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response["status"], "success");
+        assert!(response.get("skills").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_skill_missing_fields() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "skill".to_string(),
+            payload: serde_json::json!({}),
+            request_id: "req_skill_bad".to_string(),
+        };
+        
+        let result = agent.handle_skill(&cmd).await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response["status"], "error");
+    }
+
+    #[tokio::test]
+    async fn test_handle_skill_nonexistent() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "skill".to_string(),
+            payload: serde_json::json!({
+                "skill": "nonexistent",
+                "action": "status"
+            }),
+            request_id: "req_skill_noexist".to_string(),
+        };
+        
+        let result = agent.handle_skill(&cmd).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_skill_with_config() {
+        use crate::config::{SkillsConfig, SystemMonitorSkillConfig};
+        let mut config = create_test_agent_config("monitor");
+        config.skills = Some(SkillsConfig {
+            system_monitor: Some(SystemMonitorSkillConfig {
+                enabled: true,
+                tick_interval_secs: Some(30),
+            }),
+            gpio: None,
+            price_monitor: None,
+        });
+        
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        assert_eq!(agent.skill_registry.skill_count(), 1);
+        
+        let cmd = AgentCommand {
+            command: "skill".to_string(),
+            payload: serde_json::json!({
+                "skill": "system_monitor",
+                "action": "status"
+            }),
+            request_id: "req_skill_sysmon".to_string(),
+        };
+        
+        let result = agent.handle_skill(&cmd).await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response["status"], "success");
+        assert_eq!(response["skill"], "system_monitor");
+    }
+
+    #[tokio::test]
+    async fn test_handle_command_skill_integration() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "skill".to_string(),
+            payload: serde_json::json!({
+                "action": "list"
+            }),
+            request_id: "req_skill_cmd".to_string(),
+        };
+        
+        // Test that handle_command dispatches to skill handler
+        agent.handle_command(cmd).await;
+        assert_eq!(agent.metrics.actions_success, 1);
     }
 }
