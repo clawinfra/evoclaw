@@ -31,6 +31,7 @@ type Agent struct {
 	MessageCount  int64           `json:"message_count"`
 	ErrorCount    int64           `json:"error_count"`
 	Metrics       Metrics         `json:"metrics"`
+	SkillData     *SkillData      `json:"skill_data,omitempty"`
 	mu            sync.RWMutex
 }
 
@@ -43,6 +44,23 @@ type Metrics struct {
 	TokensUsed        int64              `json:"tokens_used"`
 	CostUSD           float64            `json:"cost_usd"`
 	Custom            map[string]float64 `json:"custom,omitempty"`
+}
+
+// SkillStatus represents a single skill's status for an agent
+type SkillStatus struct {
+	Name             string                 `json:"name"`
+	Enabled          bool                   `json:"enabled"`
+	Capabilities     []string               `json:"capabilities"`
+	TickIntervalSecs int                    `json:"tick_interval_secs"`
+	LastTick         *time.Time             `json:"last_tick,omitempty"`
+	LastReport       map[string]interface{} `json:"last_report,omitempty"`
+}
+
+// SkillData tracks skill reports for an agent
+type SkillData struct {
+	Skills     []SkillStatus            `json:"skills"`
+	LastUpdate time.Time                `json:"last_update"`
+	Reports    []map[string]interface{} `json:"recent_reports,omitempty"`
 }
 
 // NewRegistry creates a new agent registry
@@ -356,5 +374,54 @@ func (a *Agent) GetSnapshot() Agent {
 		MessageCount:  a.MessageCount,
 		ErrorCount:    a.ErrorCount,
 		Metrics:       a.Metrics,
+		SkillData:     a.SkillData,
 	}
+}
+
+// UpdateSkillData updates the skill data for an agent from a skill report
+func (r *Registry) UpdateSkillData(id string, report map[string]interface{}) error {
+	agent, err := r.Get(id)
+	if err != nil {
+		return err
+	}
+
+	agent.mu.Lock()
+	defer agent.mu.Unlock()
+
+	if agent.SkillData == nil {
+		agent.SkillData = &SkillData{
+			Skills:  []SkillStatus{},
+			Reports: []map[string]interface{}{},
+		}
+	}
+
+	agent.SkillData.LastUpdate = time.Now()
+
+	// Keep last 50 reports
+	agent.SkillData.Reports = append(agent.SkillData.Reports, report)
+	if len(agent.SkillData.Reports) > 50 {
+		agent.SkillData.Reports = agent.SkillData.Reports[len(agent.SkillData.Reports)-50:]
+	}
+
+	return nil
+}
+
+// GetSkillData returns the skill data for an agent
+func (r *Registry) GetSkillData(id string) (*SkillData, error) {
+	agent, err := r.Get(id)
+	if err != nil {
+		return nil, err
+	}
+
+	agent.mu.RLock()
+	defer agent.mu.RUnlock()
+
+	if agent.SkillData == nil {
+		return &SkillData{
+			Skills:  []SkillStatus{},
+			Reports: []map[string]interface{}{},
+		}, nil
+	}
+
+	return agent.SkillData, nil
 }

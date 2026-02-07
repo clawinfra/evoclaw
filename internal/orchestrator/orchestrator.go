@@ -360,6 +360,9 @@ func (o *Orchestrator) handleAgentReport(msg Message) {
 		agent.ErrorCount++
 	case "heartbeat", "status":
 		// Just update timestamps, already done above
+	case "skill_report":
+		agent.Metrics.TotalActions++
+		agent.Metrics.SuccessfulActions++
 	default:
 		agent.Metrics.TotalActions++
 		agent.Metrics.SuccessfulActions++
@@ -375,6 +378,9 @@ func (o *Orchestrator) handleAgentReport(msg Message) {
 		switch reportType {
 		case "error":
 			_ = reporter.RecordError(agentID)
+		case "skill_report":
+			_ = reporter.RecordMessage(agentID)
+			_ = reporter.UpdateMetrics(agentID, 0, 0, 0, true)
 		default:
 			_ = reporter.RecordMessage(agentID)
 			_ = reporter.UpdateMetrics(agentID, 0, 0, 0, reportType != "error")
