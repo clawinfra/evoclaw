@@ -33,6 +33,20 @@ Put it in a teddy bear — it becomes a companion. Put it on an exchange — it 
 | 🐧 | **Podman-First** | Daemonless rootless containers. Docker fallback. Systemd-native. |
 | 💰 | **Cost Tracking** | Per-model, per-agent, per-tenant cost accounting with budget enforcement |
 
+## ⚡ Deploy in 2 Commands
+
+```bash
+# On your server
+evoclaw setup hub
+
+# On your Pi / edge device
+evoclaw-agent join YOUR_SERVER_IP
+```
+
+The `join` command auto-discovers the hub, generates a config, registers the agent, and starts it. No config files to edit, no ports to look up.
+
+→ Full guide: [Deployment Profiles](docs/guides/deployment-profiles.md) — Solo, Hub & Spoke, Cloud Fleet
+
 ## 🏗️ Three-Tier Deployment
 
 ```
@@ -200,6 +214,7 @@ What gets mutated: temperature, model selection, system prompts, trading thresho
 ```bash
 GET  /api/status                          # System status + uptime
 GET  /api/agents                          # List all agents
+POST /api/agents/register                 # Register edge agent (join flow)
 GET  /api/agents/{id}                     # Agent details
 GET  /api/agents/{id}/metrics             # Performance metrics
 POST /api/agents/{id}/evolve              # Trigger evolution
@@ -249,7 +264,7 @@ EvoClaw ships with **31 docs** covering architecture, guides, and API reference:
 |---------|----------|
 | [Getting Started](docs/getting-started/) | [Installation](docs/getting-started/installation.md) · [Quickstart](docs/getting-started/quickstart.md) · [Configuration](docs/getting-started/configuration.md) · [First Agent](docs/getting-started/first-agent.md) |
 | [Architecture](docs/architecture/) | [Overview](docs/architecture/overview.md) · [Orchestrator](docs/architecture/orchestrator.md) · [Edge Agent](docs/architecture/edge-agent.md) · [Evolution](docs/architecture/evolution.md) · [Communication](docs/architecture/communication.md) |
-| [Guides](docs/guides/) | [Trading Agent](docs/guides/trading-agent.md) · [Edge Deploy](docs/guides/edge-deployment.md) · [Container Deploy](docs/guides/container-deployment.md) · [Cloud Deploy](docs/guides/cloud-deployment.md) · [Model Routing](docs/guides/model-routing.md) · [Custom Strategy](docs/guides/custom-strategy.md) · [Companion Agent](docs/guides/companion-agent.md) |
+| [Guides](docs/guides/) | [Deployment Profiles](docs/guides/deployment-profiles.md) · [Trading Agent](docs/guides/trading-agent.md) · [Edge Deploy](docs/guides/edge-deployment.md) · [Container Deploy](docs/guides/container-deployment.md) · [Cloud Deploy](docs/guides/cloud-deployment.md) · [Model Routing](docs/guides/model-routing.md) · [Custom Strategy](docs/guides/custom-strategy.md) · [Companion Agent](docs/guides/companion-agent.md) |
 | [API Reference](docs/api/) | [REST API](docs/api/rest-api.md) · [MQTT Protocol](docs/api/mqtt-protocol.md) · [WebSocket](docs/api/websocket.md) |
 | [Reference](docs/reference/) | [Config Schema](docs/reference/config-schema.md) · [Genome Format](docs/reference/genome-format.md) · [Metrics](docs/reference/metrics.md) · [Environment](docs/reference/environment.md) |
 | [Contributing](docs/contributing/) | [Guide](docs/contributing/CONTRIBUTING.md) · [Development](docs/contributing/development.md) · [Architecture Decisions](docs/contributing/architecture-decisions.md) |
@@ -359,7 +374,7 @@ cd edge-agent && cargo clippy -- -D warnings
 | **WhatsApp** | Channel declared in config but not implemented | Backlog |
 | **Evolution** | Parameter mutation only — LLM-powered prompt mutation coming | In design |
 | **HA/Clustering** | Single orchestrator process, no failover | Backlog |
-| **Agent Discovery** | Manual config required — no mDNS/auto-registration | Backlog |
+| **Agent Discovery** | `join` command for API-based registration — no mDNS yet | Partial |
 | **Key Management** | File-based keys — no Vault/KMS integration | Backlog |
 
 ## 🗺️ Roadmap
@@ -384,6 +399,9 @@ cd edge-agent && cargo clippy -- -D warnings
 - [ ] LLM-powered prompt mutation (evolutionary prompt engineering)
 - [ ] WhatsApp channel
 - [ ] TLS/mTLS for MQTT
+- [x] Agent self-registration via `join` command + `POST /api/agents/register`
+- [x] Hub setup wizard (`evoclaw setup hub`)
+- [x] Deployment profiles documentation (Solo, Hub & Spoke, Cloud Fleet)
 - [ ] Agent auto-discovery (mDNS)
 - [ ] Distributed agent mesh
 - [ ] Advanced evolution — genetic algorithms, tournament selection
