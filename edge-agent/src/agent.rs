@@ -8,6 +8,7 @@ use crate::monitor::Monitor;
 use crate::mqtt::{parse_command, MqttClient};
 use crate::paper::PaperTrader;
 use crate::risk::RiskManager;
+use crate::skills::registry::SkillRegistry;
 use crate::strategy::StrategyEngine;
 use crate::trading::{HyperliquidClient, PnLTracker};
 
@@ -22,6 +23,7 @@ pub struct EdgeAgent {
     pub evolution_tracker: EvolutionTracker,
     pub paper_trader: Option<PaperTrader>,
     pub risk_manager: Option<RiskManager>,
+    pub skill_registry: SkillRegistry,
 }
 
 impl EdgeAgent {
@@ -61,6 +63,61 @@ impl EdgeAgent {
         // Initialize risk manager
         let risk_manager = config.risk.as_ref().map(|rc| RiskManager::new(rc.clone()));
 
+        // Initialize skill registry
+        let mut skill_registry = SkillRegistry::new();
+
+        // Register built-in skills based on config
+        if let Some(ref skills_config) = config.skills {
+            // System monitor skill
+            if skills_config.system_monitor.as_ref().map_or(false, |s| s.enabled) {
+                let tick_interval = skills_config
+                    .system_monitor
+                    .as_ref()
+                    .and_then(|s| s.tick_interval_secs)
+                    .unwrap_or(30);
+                let sys_skill = crate::skills::system_monitor::SystemMonitorSkill::new(tick_interval);
+                skill_registry.register(Box::new(sys_skill));
+            }
+
+            // GPIO skill
+            if skills_config.gpio.as_ref().map_or(false, |g| g.enabled) {
+                let pins = skills_config
+                    .gpio
+                    .as_ref()
+                    .map(|g| g.pins.clone())
+                    .unwrap_or_default();
+                let gpio_skill = crate::skills::gpio::GpioSkill::new(pins);
+                skill_registry.register(Box::new(gpio_skill));
+            }
+
+            // Price monitor skill
+            if skills_config.price_monitor.as_ref().map_or(false, |p| p.enabled) {
+                let symbols = skills_config
+                    .price_monitor
+                    .as_ref()
+                    .map(|p| p.symbols.clone())
+                    .unwrap_or_default();
+                let threshold = skills_config
+                    .price_monitor
+                    .as_ref()
+                    .and_then(|p| p.threshold_pct)
+                    .unwrap_or(5.0);
+                let tick_interval = skills_config
+                    .price_monitor
+                    .as_ref()
+                    .and_then(|p| p.tick_interval_secs)
+                    .unwrap_or(60);
+                let price_skill = crate::skills::price_monitor::PriceMonitorSkill::new(
+                    symbols,
+                    threshold,
+                    tick_interval,
+                );
+                skill_registry.register(Box::new(price_skill));
+            }
+
+            skill_registry.load_from_config(skills_config);
+        }
+
         let agent = Self {
             config,
             mqtt,
@@ -72,6 +129,7 @@ impl EdgeAgent {
             evolution_tracker,
             paper_trader,
             risk_manager,
+            skill_registry,
         };
 
         Ok((agent, eventloop))
@@ -99,10 +157,19 @@ impl EdgeAgent {
         mut eventloop: rumqttc::EventLoop,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.subscribe().await?;
-        info!("agent ready, entering main loop");
+
+        // Initialize skills
+        if let Err(e) = self.skill_registry.init_all().await {
+            warn!(error = %e, "failed to initialize some skills");
+        }
+        let skill_count = self.skill_registry.skill_count();
+        let enabled_count = self.skill_registry.enabled_count();
+        info!(skills = skill_count, enabled = enabled_count, "agent ready, entering main loop");
 
         // Heartbeat timer
         let mut heartbeat_interval = tokio::time::interval(Duration::from_secs(30));
+        // Skill tick timer (check every 5 seconds)
+        let mut skill_tick_interval = tokio::time::interval(Duration::from_secs(5));
 
         loop {
             tokio::select! {
@@ -130,6 +197,16 @@ impl EdgeAgent {
                 _ = heartbeat_interval.tick() => {
                     if let Err(e) = self.heartbeat().await {
                         warn!(error = %e, "failed to send heartbeat");
+                    }
+                }
+                // Tick skills
+                _ = skill_tick_interval.tick() => {
+                    let reports = self.skill_registry.tick_all().await;
+                    for report in reports {
+                        let report_json = serde_json::to_value(&report).unwrap_or_default();
+                        if let Err(e) = self.mqtt.report("skill_report", report_json).await {
+                            warn!(skill = %report.skill, error = %e, "failed to send skill report");
+                        }
                     }
                 }
             }

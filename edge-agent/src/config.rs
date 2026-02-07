@@ -14,6 +14,51 @@ pub struct Config {
     pub monitor: Option<MonitorConfig>,
     #[serde(default)]
     pub risk: Option<RiskConfig>,
+    #[serde(default)]
+    pub skills: Option<SkillsConfig>,
+}
+
+/// Configuration for the skills subsystem
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SkillsConfig {
+    #[serde(default)]
+    pub system_monitor: Option<SystemMonitorSkillConfig>,
+    #[serde(default)]
+    pub gpio: Option<GpioSkillConfig>,
+    #[serde(default)]
+    pub price_monitor: Option<PriceMonitorSkillConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemMonitorSkillConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub tick_interval_secs: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GpioSkillConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub pins: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PriceMonitorSkillConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub symbols: Vec<String>,
+    #[serde(default)]
+    pub threshold_pct: Option<f64>,
+    #[serde(default)]
+    pub tick_interval_secs: Option<u64>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -160,6 +205,7 @@ impl Config {
                 Some(MonitorConfig { price_alert_threshold_pct: 5.0, funding_rate_threshold_pct: 0.1, check_interval_secs: 60 })
             } else { None },
             risk: if agent_type == "trader" { Some(RiskConfig::default()) } else { None },
+            skills: None,
         }
     }
 }
