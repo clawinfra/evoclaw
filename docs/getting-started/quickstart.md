@@ -153,9 +153,67 @@ To interact with your agent via Telegram:
 
 3. Restart EvoClaw and message your bot!
 
+---
+
+## Add Your First Remote Agent
+
+Already have EvoClaw running? Add an edge agent from another device in one command.
+
+### On the hub (your existing machine)
+
+Your EvoClaw instance is already the hub. Just make sure ports 8420 and 1883 are accessible on your network:
+
+```bash
+# Check your IP
+hostname -I
+# e.g., 192.168.99.44
+```
+
+### On the remote device (Pi, laptop, etc.)
+
+```bash
+# Install the edge agent binary (or build from source)
+cd evoclaw/edge-agent && cargo build --release
+sudo cp target/release/evoclaw-agent /usr/local/bin/
+
+# Join the hub — one command
+evoclaw-agent join 192.168.99.44
+```
+
+Output:
+
+```
+🧬 EvoClaw Agent Setup
+  Hub: 192.168.99.44:8420 ✓ (v0.1.0, 1 agent online)
+  MQTT: 192.168.99.44:1883 ✓
+  Agent ID: raspberrypi-a3f2
+  Type: monitor
+  Config: /home/pi/.evoclaw/agent.toml ✓
+
+🚀 Agent started! Connected to hub.
+  Dashboard: http://192.168.99.44:8420
+```
+
+The agent appears in your dashboard immediately. No config files to edit, no ports to figure out.
+
+### Customize the agent
+
+```bash
+# Custom ID and type
+evoclaw-agent join 192.168.99.44 --id my-trader --type trader
+
+# Generate config only (edit before starting)
+evoclaw-agent join 192.168.99.44 --no-start
+vim ~/.evoclaw/agent.toml
+evoclaw-agent --config ~/.evoclaw/agent.toml
+```
+
+---
+
 ## What's Next?
 
 - [Create your first custom agent](first-agent.md)
+- [Deployment profiles](../guides/deployment-profiles.md) — Solo, Hub & Spoke, Cloud Fleet
 - [Container deployment guide](../guides/container-deployment.md) — Podman pods, systemd, production
 - [Edge deployment guide](../guides/edge-deployment.md) — Deploy to Raspberry Pi and ARM devices
 - [Set up a trading agent](../guides/trading-agent.md)

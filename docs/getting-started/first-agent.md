@@ -1,6 +1,18 @@
 # Create Your First Agent
 
-This guide walks you through creating, configuring, and running your first EvoClaw agent.
+This guide walks you through creating, configuring, and running your first EvoClaw agent — from hub setup to a remote edge agent connected via the dashboard.
+
+## The Fastest Way: `join`
+
+If you already have an EvoClaw orchestrator running (see [Quickstart](quickstart.md)), adding an agent is one command:
+
+```bash
+evoclaw-agent join YOUR_HUB_IP
+```
+
+That's it. The agent auto-configures, registers with the hub, and starts. The rest of this guide explains the details.
+
+---
 
 ## Understanding Agent Types
 
@@ -11,11 +23,87 @@ EvoClaw supports several agent types:
 | `orchestrator` | General-purpose LLM agent | Chat assistant, task runner |
 | `trader` | Trading agent | Hyperliquid perpetual futures |
 | `monitor` | Monitoring agent | Price alerts, system monitoring |
+| `sensor` | Data collection agent | IoT sensors, environmental data |
 | `governance` | Governance/oversight agent | Risk management, compliance |
 
-## Define Your Agent
+## Option 1: Join a Hub (Recommended)
 
-Add an agent definition to your `evoclaw.json`:
+The `join` command is the easiest way to deploy an edge agent on any device.
+
+### Step 1: Set up the hub
+
+On your main machine (PC, server, VPS):
+
+```bash
+# Initialize the hub
+evoclaw setup hub
+
+# Start the orchestrator
+./evoclaw --config evoclaw.json
+```
+
+### Step 2: Join from the edge device
+
+On the remote device (Raspberry Pi, laptop, another server):
+
+```bash
+# Build or install the agent binary
+cd evoclaw/edge-agent
+cargo build --release
+sudo cp target/release/evoclaw-agent /usr/local/bin/
+
+# Join the hub
+evoclaw-agent join 192.168.99.44
+```
+
+Output:
+
+```
+🧬 EvoClaw Agent Setup
+  Hub: 192.168.99.44:8420 ✓ (v0.1.0, 1 agent online)
+  MQTT: 192.168.99.44:1883 ✓
+  Agent ID: raspberrypi-a3f2
+  Type: monitor
+  Config: /home/pi/.evoclaw/agent.toml ✓
+
+🚀 Agent started! Connected to hub.
+  Dashboard: http://192.168.99.44:8420
+```
+
+### Step 3: Verify in the dashboard
+
+Open `http://192.168.99.44:8420` in your browser. Your new agent appears in the agent list with:
+
+- Status: online
+- Heartbeat: every 30 seconds
+- Type: monitor (or whatever you specified)
+
+You can also verify via API:
+
+```bash
+curl http://192.168.99.44:8420/api/agents | jq
+```
+
+### Customizing the join
+
+```bash
+# Specify agent type and ID
+evoclaw-agent join 192.168.99.44 --id my-trader --type trader
+
+# Use custom ports
+evoclaw-agent join 192.168.99.44 --port 9000 --mqtt-port 2883
+
+# Generate config only — edit before starting
+evoclaw-agent join 192.168.99.44 --no-start
+vim ~/.evoclaw/agent.toml
+evoclaw-agent --config ~/.evoclaw/agent.toml
+```
+
+---
+
+## Option 2: Define Agents in Config
+
+For agents running on the same machine as the orchestrator, define them in `evoclaw.json`:
 
 ```json
 {
@@ -134,22 +222,9 @@ With evolution enabled (`evolution.enabled: true`), your agent will:
 
 See [Evolution Engine](../architecture/evolution.md) for details.
 
-## Deploy an Edge Agent
-
-To run a Rust edge agent that connects to your orchestrator:
-
-```bash
-cd edge-agent
-cp agent.example.toml agent.toml
-# Edit agent.toml with your settings
-
-cargo run --release -- --config agent.toml
-```
-
-The edge agent connects via MQTT and appears in the orchestrator's agent list.
-
 ## Next Steps
 
+- [Deployment Profiles](../guides/deployment-profiles.md) — Solo, Hub & Spoke, Cloud Fleet
 - [Trading Agent Guide](../guides/trading-agent.md) — Set up a Hyperliquid trader
 - [Companion Agent Guide](../guides/companion-agent.md) — Build a companion device
 - [Architecture Overview](../architecture/overview.md) — Understand the system
