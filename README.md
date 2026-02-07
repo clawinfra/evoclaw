@@ -32,6 +32,18 @@ Put it in a teddy bear — it becomes a companion. Put it on an exchange — it 
 | ☁️ | **E2B Cloud** | Firecracker microVMs with ~100ms cold start. Multi-tenant SaaS mode. |
 | 🐧 | **Podman-First** | Daemonless rootless containers. Docker fallback. Systemd-native. |
 | 💰 | **Cost Tracking** | Per-model, per-agent, per-tenant cost accounting with budget enforcement |
+| 💬 | **Human Chat** | Talk to agents via Telegram bot or dashboard chat widget |
+
+## 💬 Talk to Your Agents
+
+Two ways to communicate with your agents:
+
+| Channel | How | Guide |
+|---------|-----|-------|
+| **Dashboard Chat** | Built-in chat widget at `localhost:8420` → Chat | [Dashboard Chat Guide](docs/guides/dashboard-chat.md) |
+| **Telegram Bot** | `/ask What's the CPU temp?` from your phone | [Telegram Bot Guide](docs/guides/telegram-bot.md) |
+
+Both use the same `ChatSync` flow: your message → agent's LLM → response with conversation history.
 
 ## ⚡ Deploy in 2 Commands
 
