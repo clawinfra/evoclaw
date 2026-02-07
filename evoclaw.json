@@ -8,6 +8,14 @@
     "broker": "localhost",
     "port": 1883
   },
+  "channels": {
+    "telegram": {
+      "enabled": false,
+      "botToken": "",
+      "allowedUsers": [],
+      "defaultAgent": "pi1-edge"
+    }
+  },
   "models": {
     "providers": {
       "ollama": {

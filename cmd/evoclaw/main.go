@@ -40,6 +40,7 @@ type App struct {
 	EvoEngine    *evolution.Engine
 	Orchestrator *orchestrator.Orchestrator
 	APIServer    *api.Server
+	TelegramBot  *channels.TelegramBot
 	apiContext   context.Context
 	apiCancel    context.CancelFunc
 }
@@ -181,8 +182,28 @@ func setup(configPath string) (*App, error) {
 	app.Orchestrator.SetAgentReporter(app.Registry)
 
 	// Register channels
-	if err := registerChannels(app.Orchestrator, cfg, app.Logger); err != nil {
+	telegramCh, err := registerChannels(app.Orchestrator, cfg, app.Logger)
+	if err != nil {
 		return nil, fmt.Errorf("register channels: %w", err)
+	}
+
+	// Create Telegram bot if channel is available
+	if telegramCh != nil {
+		defaultAgent := cfg.Channels.Telegram.DefaultAgent
+		if defaultAgent == "" {
+			// Use first agent as default
+			for _, a := range cfg.Agents {
+				defaultAgent = a.ID
+				break
+			}
+		}
+		app.TelegramBot = channels.NewTelegramBot(
+			telegramCh,
+			app.Orchestrator,
+			defaultAgent,
+			cfg.Channels.Telegram.AllowedUsers,
+			app.Logger,
+		)
 	}
 
 	// Register providers to orchestrator
@@ -282,12 +303,19 @@ func registerProviders(router *models.Router, cfg *config.Config, logger *slog.L
 }
 
 // registerChannels registers communication channels to orchestrator
-func registerChannels(orch *orchestrator.Orchestrator, cfg *config.Config, logger *slog.Logger) error {
+// Returns the TelegramChannel if Telegram is enabled (for bot wiring)
+func registerChannels(orch *orchestrator.Orchestrator, cfg *config.Config, logger *slog.Logger) (*channels.TelegramChannel, error) {
+	var telegramCh *channels.TelegramChannel
+
 	// Telegram
 	if cfg.Channels.Telegram != nil && cfg.Channels.Telegram.Enabled {
-		logger.Info("enabling telegram channel")
-		telegram := channels.NewTelegram(cfg.Channels.Telegram.BotToken, logger)
-		orch.RegisterChannel(telegram)
+		if cfg.Channels.Telegram.BotToken == "" {
+			logger.Warn("telegram enabled but no bot token configured — skipping")
+		} else {
+			logger.Info("enabling telegram channel")
+			telegramCh = channels.NewTelegram(cfg.Channels.Telegram.BotToken, logger)
+			orch.RegisterChannel(telegramCh)
+		}
 	}
 
 	// MQTT
@@ -306,7 +334,7 @@ func registerChannels(orch *orchestrator.Orchestrator, cfg *config.Config, logge
 		orch.RegisterChannel(mqtt)
 	}
 
-	return nil
+	return telegramCh, nil
 }
 
 // registerProvidersToOrchestrator registers providers from router to orchestrator
@@ -327,6 +355,16 @@ func startServices(app *App) error {
 	// Start orchestrator
 	if err := app.Orchestrator.Start(); err != nil {
 		return fmt.Errorf("start orchestrator: %w", err)
+	}
+
+	// Start Telegram bot if configured
+	if app.TelegramBot != nil {
+		if err := app.TelegramBot.Start(context.Background()); err != nil {
+			app.Logger.Error("telegram bot failed to start", "error", err)
+			// Non-fatal: continue without Telegram
+		} else {
+			app.Logger.Info("telegram bot started")
+		}
 	}
 
 	// Start API server in background
@@ -354,6 +392,9 @@ func printBanner(app *App) {
 	fmt.Printf("  📊 Dashboard: http://localhost:%d\n", app.Config.Server.Port)
 	fmt.Printf("  🤖 Agents: %d loaded\n", len(app.Registry.List()))
 	fmt.Printf("  🧠 Models: %d available\n", len(app.Router.ListModels()))
+	if app.TelegramBot != nil {
+		fmt.Println("  💬 Telegram: enabled")
+	}
 	fmt.Println()
 }
 
@@ -368,6 +409,11 @@ func waitForShutdown(app *App) error {
 	// Stop API server
 	if app.apiCancel != nil {
 		app.apiCancel()
+	}
+
+	// Stop Telegram bot
+	if app.TelegramBot != nil {
+		app.TelegramBot.Stop()
 	}
 
 	// Graceful shutdown

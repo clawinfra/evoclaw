@@ -266,7 +266,7 @@ func TestRegisterChannels_Telegram(t *testing.T) {
 
 	orch := orchestrator.New(cfg, logger)
 
-	err := registerChannels(orch, cfg, logger)
+	_, err := registerChannels(orch, cfg, logger)
 	if err != nil {
 		t.Fatalf("registerChannels failed: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestRegisterChannels_MQTT(t *testing.T) {
 
 	orch := orchestrator.New(cfg, logger)
 
-	err := registerChannels(orch, cfg, logger)
+	_, err := registerChannels(orch, cfg, logger)
 	if err != nil {
 		t.Fatalf("registerChannels failed: %v", err)
 	}
@@ -521,7 +521,7 @@ func TestRegisterChannels_NoChannels(t *testing.T) {
 
 	orch := orchestrator.New(cfg, logger)
 
-	err := registerChannels(orch, cfg, logger)
+	_, err := registerChannels(orch, cfg, logger)
 	if err != nil {
 		t.Fatalf("registerChannels failed: %v", err)
 	}
