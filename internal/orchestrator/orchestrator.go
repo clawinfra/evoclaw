@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -426,9 +427,13 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 		agent.mu.Unlock()
 	}()
 
-	// Build chat request
+	// Build chat request — strip provider prefix from model name
+	modelName := model
+	if parts := strings.SplitN(model, "/", 2); len(parts) == 2 {
+		modelName = parts[1]
+	}
 	req := ChatRequest{
-		Model:        model,
+		Model:        modelName,
 		SystemPrompt: agent.Def.SystemPrompt,
 		Messages: []ChatMessage{
 			{Role: "user", Content: msg.Content},
@@ -507,8 +512,14 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 // findProvider locates the right provider for a model string like "anthropic/claude-opus"
 func (o *Orchestrator) findProvider(model string) ModelProvider {
 	// Model format: "provider/model-name"
-	// For now, return first provider
-	// TODO: Parse provider from model string
+	parts := strings.SplitN(model, "/", 2)
+	if len(parts) == 2 {
+		providerName := parts[0]
+		if p, ok := o.providers[providerName]; ok {
+			return p
+		}
+	}
+	// Fallback: return first provider
 	for _, p := range o.providers {
 		return p
 	}
