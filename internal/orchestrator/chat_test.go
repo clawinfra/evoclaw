@@ -20,7 +20,6 @@ func TestChatSync_Success(t *testing.T) {
 		t.Fatalf("failed to start: %v", err)
 	}
 	defer o.Stop()
-
 	time.Sleep(50 * time.Millisecond)
 
 	req := ChatSyncRequest{
@@ -33,23 +32,18 @@ func TestChatSync_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ChatSync failed: %v", err)
 	}
-
 	if resp == nil {
 		t.Fatal("expected response, got nil")
 	}
-
 	if resp.AgentID != "test-agent" {
 		t.Errorf("expected agent test-agent, got %s", resp.AgentID)
 	}
-
 	if resp.Response == "" {
 		t.Error("expected non-empty response")
 	}
-
 	if resp.ElapsedMs < 0 {
 		t.Error("elapsed time should be non-negative")
 	}
-
 	if resp.Model == "" {
 		t.Error("expected non-empty model")
 	}
@@ -59,16 +53,13 @@ func TestChatSync_WithHistory(t *testing.T) {
 	o := New(testConfig(), testLogger())
 	ch := newMockChannel("mock-channel")
 	p := newMockProvider("mock")
-	p.setResponse("mock-model-1", "Based on our conversation, here is my answer.")
 
 	o.RegisterChannel(ch)
 	o.RegisterProvider(p)
-
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
 	defer o.Stop()
-
 	time.Sleep(50 * time.Millisecond)
 
 	req := ChatSyncRequest{
@@ -85,11 +76,9 @@ func TestChatSync_WithHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ChatSync failed: %v", err)
 	}
-
 	if resp.Response == "" {
 		t.Error("expected non-empty response")
 	}
-
 	if p.getCalls() != 1 {
 		t.Errorf("expected 1 provider call, got %d", p.getCalls())
 	}
@@ -99,24 +88,18 @@ func TestChatSync_AgentNotFound(t *testing.T) {
 	o := New(testConfig(), testLogger())
 	ch := newMockChannel("mock-channel")
 	p := newMockProvider("mock")
-
 	o.RegisterChannel(ch)
 	o.RegisterProvider(p)
-
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
 	defer o.Stop()
-
 	time.Sleep(50 * time.Millisecond)
 
-	req := ChatSyncRequest{
+	_, err := o.ChatSync(context.Background(), ChatSyncRequest{
 		AgentID: "nonexistent-agent",
-		UserID:  "user-123",
 		Message: "Hello!",
-	}
-
-	_, err := o.ChatSync(context.Background(), req)
+	})
 	if err == nil {
 		t.Fatal("expected error for nonexistent agent")
 	}
@@ -125,24 +108,17 @@ func TestChatSync_AgentNotFound(t *testing.T) {
 func TestChatSync_NoProvider(t *testing.T) {
 	o := New(testConfig(), testLogger())
 	ch := newMockChannel("mock-channel")
-
 	o.RegisterChannel(ch)
-	// No provider registered
-
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
 	defer o.Stop()
-
 	time.Sleep(50 * time.Millisecond)
 
-	req := ChatSyncRequest{
+	_, err := o.ChatSync(context.Background(), ChatSyncRequest{
 		AgentID: "test-agent",
-		UserID:  "user-123",
 		Message: "Hello!",
-	}
-
-	_, err := o.ChatSync(context.Background(), req)
+	})
 	if err == nil {
 		t.Fatal("expected error when no provider available")
 	}
@@ -151,48 +127,34 @@ func TestChatSync_NoProvider(t *testing.T) {
 func TestChatSync_LLMError(t *testing.T) {
 	o := New(testConfig(), testLogger())
 	ch := newMockChannel("mock-channel")
-	p := &mockProviderWithError{
-		mockProvider: newMockProvider("mock"),
-		shouldError:  true,
-	}
-
+	p := &mockProviderWithError{mockProvider: newMockProvider("mock"), shouldError: true}
 	o.RegisterChannel(ch)
 	o.RegisterProvider(p)
-
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
 	defer o.Stop()
-
 	time.Sleep(50 * time.Millisecond)
 
-	req := ChatSyncRequest{
+	_, err := o.ChatSync(context.Background(), ChatSyncRequest{
 		AgentID: "test-agent",
-		UserID:  "user-123",
 		Message: "Hello!",
-	}
-
-	_, err := o.ChatSync(context.Background(), req)
+	})
 	if err == nil {
 		t.Fatal("expected error on LLM failure")
 	}
 
-	// Check error metrics were updated
 	o.mu.RLock()
 	agent := o.agents["test-agent"]
 	o.mu.RUnlock()
-
 	agent.mu.RLock()
-	errCount := agent.ErrorCount
-	failedActions := agent.Metrics.FailedActions
-	agent.mu.RUnlock()
-
-	if errCount == 0 {
+	if agent.ErrorCount == 0 {
 		t.Error("expected error count > 0")
 	}
-	if failedActions == 0 {
+	if agent.Metrics.FailedActions == 0 {
 		t.Error("expected failed actions > 0")
 	}
+	agent.mu.RUnlock()
 }
 
 func TestChatSync_WithEvolution(t *testing.T) {
@@ -200,36 +162,28 @@ func TestChatSync_WithEvolution(t *testing.T) {
 	ch := newMockChannel("mock-channel")
 	p := newMockProvider("mock")
 	e := newMockEvolution()
-
 	o.RegisterChannel(ch)
 	o.RegisterProvider(p)
 	o.SetEvolutionEngine(e)
-
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
 	defer o.Stop()
-
 	time.Sleep(50 * time.Millisecond)
 
-	req := ChatSyncRequest{
+	_, err := o.ChatSync(context.Background(), ChatSyncRequest{
 		AgentID: "test-agent",
-		UserID:  "user-123",
 		Message: "Hello!",
-	}
-
-	_, err := o.ChatSync(context.Background(), req)
+	})
 	if err != nil {
 		t.Fatalf("ChatSync failed: %v", err)
 	}
 
 	e.mu.Lock()
-	fitnessLen := len(e.fitness)
-	e.mu.Unlock()
-
-	if fitnessLen == 0 {
+	if len(e.fitness) == 0 {
 		t.Error("expected evolution.Evaluate to be called")
 	}
+	e.mu.Unlock()
 }
 
 func TestChatSync_WithReporter(t *testing.T) {
@@ -237,29 +191,22 @@ func TestChatSync_WithReporter(t *testing.T) {
 	ch := newMockChannel("mock-channel")
 	p := newMockProvider("mock")
 	reporter := &mockReporter{}
-
 	o.RegisterChannel(ch)
 	o.RegisterProvider(p)
 	o.SetAgentReporter(reporter)
-
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
 	defer o.Stop()
-
 	time.Sleep(50 * time.Millisecond)
 
-	req := ChatSyncRequest{
+	_, err := o.ChatSync(context.Background(), ChatSyncRequest{
 		AgentID: "test-agent",
-		UserID:  "user-123",
 		Message: "Hello!",
-	}
-
-	_, err := o.ChatSync(context.Background(), req)
+	})
 	if err != nil {
 		t.Fatalf("ChatSync failed: %v", err)
 	}
-
 	if reporter.messages == 0 {
 		t.Error("expected reporter.RecordMessage to be called")
 	}
@@ -271,31 +218,22 @@ func TestChatSync_WithReporter(t *testing.T) {
 func TestChatSync_ContextCancelled(t *testing.T) {
 	o := New(testConfig(), testLogger())
 	ch := newMockChannel("mock-channel")
-	p := &mockSlowProvider{
-		mockProvider: newMockProvider("mock"),
-		delay:        2 * time.Second,
-	}
-
+	p := &mockSlowProvider{mockProvider: newMockProvider("mock"), delay: 2 * time.Second}
 	o.RegisterChannel(ch)
 	o.RegisterProvider(p)
-
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
 	defer o.Stop()
-
 	time.Sleep(50 * time.Millisecond)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	req := ChatSyncRequest{
+	_, err := o.ChatSync(ctx, ChatSyncRequest{
 		AgentID: "test-agent",
-		UserID:  "user-123",
 		Message: "Hello!",
-	}
-
-	_, err := o.ChatSync(ctx, req)
+	})
 	if err == nil {
 		t.Fatal("expected error on context cancellation")
 	}
@@ -305,22 +243,18 @@ func TestListAgentIDs(t *testing.T) {
 	o := New(testConfig(), testLogger())
 	ch := newMockChannel("mock-channel")
 	p := newMockProvider("mock")
-
 	o.RegisterChannel(ch)
 	o.RegisterProvider(p)
-
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
 	defer o.Stop()
-
 	time.Sleep(50 * time.Millisecond)
 
 	ids := o.ListAgentIDs()
 	if len(ids) != 1 {
 		t.Errorf("expected 1 agent ID, got %d", len(ids))
 	}
-
 	if ids[0] != "test-agent" {
 		t.Errorf("expected test-agent, got %s", ids[0])
 	}
@@ -330,15 +264,12 @@ func TestGetAgentInfo(t *testing.T) {
 	o := New(testConfig(), testLogger())
 	ch := newMockChannel("mock-channel")
 	p := newMockProvider("mock")
-
 	o.RegisterChannel(ch)
 	o.RegisterProvider(p)
-
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
 	defer o.Stop()
-
 	time.Sleep(50 * time.Millisecond)
 
 	info := o.GetAgentInfo("test-agent")
@@ -349,9 +280,7 @@ func TestGetAgentInfo(t *testing.T) {
 		t.Errorf("expected test-agent, got %s", info.ID)
 	}
 
-	// Nonexistent
-	info = o.GetAgentInfo("nonexistent")
-	if info != nil {
+	if o.GetAgentInfo("nonexistent") != nil {
 		t.Error("expected nil for nonexistent agent")
 	}
 }
@@ -363,16 +292,8 @@ type mockReporter struct {
 	metricUpdates int
 }
 
-func (m *mockReporter) RecordMessage(id string) error {
-	m.messages++
-	return nil
-}
-
-func (m *mockReporter) RecordError(id string) error {
-	m.errors++
-	return nil
-}
-
+func (m *mockReporter) RecordMessage(id string) error  { m.messages++; return nil }
+func (m *mockReporter) RecordError(id string) error     { m.errors++; return nil }
 func (m *mockReporter) UpdateMetrics(id string, tokensUsed int, costUSD float64, responseMs int64, success bool) error {
 	m.metricUpdates++
 	return nil

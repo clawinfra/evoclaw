@@ -29,6 +29,10 @@
                 <span class="nav-icon">🤖</span>
                 <span class="nav-label" x-show="!sidebarCollapsed">Agents</span>
             </li>
+            <li :class="{ active: currentView === 'chat' }" @click="navigate('chat')">
+                <span class="nav-icon">💬</span>
+                <span class="nav-label" x-show="!sidebarCollapsed">Chat</span>
+            </li>
             <li :class="{ active: currentView === 'trading' }" @click="navigate('trading')">
                 <span class="nav-icon">📈</span>
                 <span class="nav-label" x-show="!sidebarCollapsed">Trading</span>
@@ -382,6 +386,66 @@
                         <span class="config-label">Version</span>
                         <span class="config-value mono" x-text="agentEvolution?.version || '—'"></span>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat View -->
+        <div x-show="currentView === 'chat'" x-transition class="view">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <div class="chat-title">
+                        <span>💬</span>
+                        <span>Chat</span>
+                    </div>
+                    <div class="chat-controls">
+                        <label class="chat-agent-label">Agent:</label>
+                        <select x-model="chatAgent" @change="loadChatHistory()" class="input-sm">
+                            <template x-for="agent in agents" :key="agent.id">
+                                <option :value="agent.id" x-text="agent.def?.name || agent.id"></option>
+                            </template>
+                        </select>
+                        <button class="btn btn-xs" @click="clearChat()" title="Clear chat history">🗑️ Clear</button>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-system-msg" x-show="chatMessages.length === 0">
+                        <span class="chat-system-icon">🤖</span>
+                        <span>Connected to <strong x-text="chatAgent"></strong>. Type a message to start chatting.</span>
+                    </div>
+                    <template x-for="(msg, index) in chatMessages" :key="index">
+                        <div class="chat-bubble" :class="'chat-bubble-' + msg.role">
+                            <div class="chat-bubble-header">
+                                <span class="chat-bubble-sender" x-text="msg.role === 'user' ? 'You' : chatAgent"></span>
+                                <span class="chat-bubble-time" x-text="msg.timestamp || ''"></span>
+                            </div>
+                            <div class="chat-bubble-content" x-html="renderMarkdown(msg.content)"></div>
+                            <div class="chat-bubble-meta" x-show="msg.model">
+                                <span class="mono" x-text="msg.model || ''"></span>
+                                <span x-show="msg.elapsed_ms">· <span x-text="msg.elapsed_ms"></span>ms</span>
+                                <span x-show="msg.tokens">· <span x-text="msg.tokens"></span> tokens</span>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="chat-typing" x-show="chatLoading">
+                        <div class="chat-typing-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <span class="chat-typing-text" x-text="chatAgent + ' is thinking...'"></span>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <input
+                        type="text"
+                        class="chat-input"
+                        x-model="chatInput"
+                        @keydown.enter="sendChatMessage()"
+                        placeholder="Type a message..."
+                        :disabled="chatLoading"
+                    />
+                    <button class="btn btn-primary chat-send-btn" @click="sendChatMessage()" :disabled="chatLoading || !chatInput.trim()">
+                        Send ➤
+                    </button>
                 </div>
             </div>
         </div>

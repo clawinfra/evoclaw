@@ -54,7 +54,6 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.AgentID == "" {
-		// Use first available agent
 		agents := s.registry.List()
 		if len(agents) == 0 {
 			http.Error(w, "no agents available", http.StatusServiceUnavailable)
@@ -63,23 +62,19 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		req.AgentID = agents[0].ID
 	}
 
-	// Verify agent exists
 	if _, err := s.registry.Get(req.AgentID); err != nil {
 		http.Error(w, "agent not found", http.StatusNotFound)
 		return
 	}
 
-	// Build conversation key for memory
 	convKey := req.AgentID
 	if req.ConversationID != "" {
 		convKey = req.AgentID + ":" + req.ConversationID
 	}
 
-	// Get conversation history from memory
 	mem := s.memory.Get(convKey)
-	history := mem.GetRecentMessages(20) // Last 20 messages for context
+	history := mem.GetRecentMessages(20)
 
-	// Call orchestrator ChatSync
 	chatReq := orchestrator.ChatSyncRequest{
 		AgentID:        req.AgentID,
 		UserID:         "dashboard",
@@ -95,14 +90,12 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store in memory
 	mem.Add("user", req.Message)
 	mem.Add("assistant", resp.Response)
 	if err := s.memory.Save(convKey); err != nil {
 		s.logger.Error("failed to save chat memory", "key", convKey, "error", err)
 	}
 
-	// Send response
 	s.respondJSON(w, ChatResponseJSON{
 		AgentID:      resp.AgentID,
 		Response:     resp.Response,
@@ -181,7 +174,6 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify agent exists
 	if _, err := s.registry.Get(agentID); err != nil {
 		http.Error(w, "agent not found", http.StatusNotFound)
 		return
@@ -198,17 +190,14 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// Get conversation history
 	mem := s.memory.Get(agentID)
 	history := mem.GetRecentMessages(20)
 
-	// Send thinking indicator
 	s.sendSSE(w, flusher, map[string]interface{}{
 		"type":     "thinking",
 		"agent_id": agentID,
 	})
 
-	// Call ChatSync (non-streaming for now — Ollama streaming would require different API)
 	chatReq := orchestrator.ChatSyncRequest{
 		AgentID: agentID,
 		UserID:  "dashboard-stream",
@@ -225,12 +214,10 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store in memory
 	mem.Add("user", message)
 	mem.Add("assistant", resp.Response)
 	_ = s.memory.Save(agentID)
 
-	// Send complete response
 	s.sendSSE(w, flusher, map[string]interface{}{
 		"type":          "response",
 		"agent_id":      resp.AgentID,
@@ -242,7 +229,6 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 		"timestamp":     time.Now().UTC().Format(time.RFC3339),
 	})
 
-	// Send done signal
 	s.sendSSE(w, flusher, map[string]interface{}{
 		"type": "done",
 	})

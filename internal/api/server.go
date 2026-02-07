@@ -92,7 +92,7 @@ func (s *Server) Start(ctx context.Context) error {
 		Addr:         fmt.Sprintf(":%d", s.port),
 		Handler:      s.corsMiddleware(s.loggingMiddleware(mux)),
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 300 * time.Second, // Long timeout for LLM streaming
 		IdleTimeout:  60 * time.Second,
 	}
 
