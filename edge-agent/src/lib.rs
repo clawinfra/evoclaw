@@ -5,5 +5,6 @@ pub mod evolution;
 pub mod metrics;
 pub mod monitor;
 pub mod mqtt;
+pub mod skills;
 pub mod strategy;
 pub mod trading;
