@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use serde_json::Value;
@@ -70,17 +70,47 @@ pub struct GpioSkill {
     gpio_available: bool,
     sysfs_base: PathBuf,
     prev_input_values: HashMap<u8, PinValue>,
+    /// Offset for gpiochip (Pi 1/2 = 512, Pi 3/4 = 0, Pi 5 = 571)
+    gpio_offset: u32,
 }
 
 impl GpioSkill {
     pub fn new(pins: Vec<u8>) -> Self {
+        let sysfs_base = PathBuf::from("/sys/class/gpio");
+        let gpio_offset = Self::detect_gpio_offset(&sysfs_base);
         Self {
             allowed_pins: pins,
             pin_states: HashMap::new(),
             gpio_available: false,
-            sysfs_base: PathBuf::from("/sys/class/gpio"),
+            sysfs_base,
             prev_input_values: HashMap::new(),
+            gpio_offset,
         }
+    }
+
+    /// Detect gpiochip offset by reading /sys/class/gpio/gpiochipN
+    /// Pi 1/2: gpiochip512, Pi 3/4: gpiochip0, Pi 5: gpiochip571
+    fn detect_gpio_offset(sysfs_base: &Path) -> u32 {
+        if let Ok(entries) = std::fs::read_dir(sysfs_base) {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("gpiochip") {
+                    if let Ok(offset) = name_str.trim_start_matches("gpiochip").parse::<u32>() {
+                        if offset > 0 {
+                            tracing::info!(offset, "detected GPIO chip offset");
+                            return offset;
+                        }
+                    }
+                }
+            }
+        }
+        0 // Default: no offset (Pi 3/4 or non-Pi)
+    }
+
+    /// Convert BCM pin number to sysfs GPIO number
+    fn bcm_to_sysfs(&self, pin: u8) -> u32 {
+        self.gpio_offset + pin as u32
     }
 
     /// Create with a custom sysfs path (for testing)
@@ -92,6 +122,7 @@ impl GpioSkill {
             gpio_available: false,
             sysfs_base: base,
             prev_input_values: HashMap::new(),
+            gpio_offset: 0, // Tests use no offset
         }
     }
 
@@ -111,10 +142,11 @@ impl GpioSkill {
             return Err(format!("pin {} is not in the allowed list", pin).into());
         }
 
-        let pin_path = self.sysfs_base.join(format!("gpio{}", pin));
+        let sysfs_pin = self.bcm_to_sysfs(pin);
+        let pin_path = self.sysfs_base.join(format!("gpio{}", sysfs_pin));
         if !pin_path.exists() {
             let export_path = self.sysfs_base.join("export");
-            std::fs::write(&export_path, pin.to_string())?;
+            std::fs::write(&export_path, sysfs_pin.to_string())?;
             // Wait briefly for sysfs to create the directory
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
@@ -134,8 +166,9 @@ impl GpioSkill {
 
     /// Unexport a pin via sysfs
     fn unexport_pin(&mut self, pin: u8) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let sysfs_pin = self.bcm_to_sysfs(pin);
         let unexport_path = self.sysfs_base.join("unexport");
-        let _ = std::fs::write(&unexport_path, pin.to_string());
+        let _ = std::fs::write(&unexport_path, sysfs_pin.to_string());
         self.pin_states.remove(&pin);
         Ok(())
     }
@@ -150,9 +183,10 @@ impl GpioSkill {
             return Err(format!("pin {} is not allowed", pin).into());
         }
 
+        let sysfs_pin = self.bcm_to_sysfs(pin);
         let direction_path = self
             .sysfs_base
-            .join(format!("gpio{}", pin))
+            .join(format!("gpio{}", sysfs_pin))
             .join("direction");
         std::fs::write(&direction_path, direction.as_str())?;
 
@@ -169,9 +203,10 @@ impl GpioSkill {
             return Err(format!("pin {} is not allowed", pin).into());
         }
 
+        let sysfs_pin = self.bcm_to_sysfs(pin);
         let value_path = self
             .sysfs_base
-            .join(format!("gpio{}", pin))
+            .join(format!("gpio{}", sysfs_pin))
             .join("value");
         let content = std::fs::read_to_string(&value_path)?;
         let val: u8 = content.trim().parse().unwrap_or(0);
@@ -188,9 +223,10 @@ impl GpioSkill {
             return Err(format!("pin {} is not allowed", pin).into());
         }
 
+        let sysfs_pin = self.bcm_to_sysfs(pin);
         let value_path = self
             .sysfs_base
-            .join(format!("gpio{}", pin))
+            .join(format!("gpio{}", sysfs_pin))
             .join("value");
         std::fs::write(&value_path, (value as u8).to_string())?;
 
