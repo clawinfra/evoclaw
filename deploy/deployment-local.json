@@ -1,0 +1,39 @@
+{
+  "network": "hardhat-local",
+  "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "agents": [
+    {
+      "name": "evoclaw-orchestrator",
+      "model": "claude-sonnet-4",
+      "caps": [
+        "orchestration",
+        "evolution",
+        "routing"
+      ],
+      "id": "0xf49e6a1b211d122496ec94ce1e020353e2f4d6a189c15de49575db1c00f61bbb"
+    },
+    {
+      "name": "pi1-edge-trader",
+      "model": "mistral-small-3.1-24b",
+      "caps": [
+        "trading",
+        "monitoring",
+        "hyperliquid"
+      ],
+      "id": "0xe8bdf923e11c64bfa48a8f00accb15cba43814e04674051853a9c9b04a0df1e7"
+    },
+    {
+      "name": "alex-chen-agent",
+      "model": "claude-opus-4",
+      "caps": [
+        "coding",
+        "research",
+        "social",
+        "automation"
+      ],
+      "id": "0x3c984a2fdc9888ac072d497840de72950e404fedf7522419685b54f91592a85e"
+    }
+  ],
+  "timestamp": "2026-02-08T22:28:57.103Z"
+}
