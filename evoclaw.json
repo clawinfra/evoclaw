@@ -189,5 +189,16 @@
     "contractAddress": "",
     "privateKey": "",
     "chainId": 97
+  },
+  "cloudSync": {
+    "enabled": true,
+    "databaseUrl": "libsql://alphastrike-bowen31337.aws-us-east-1.turso.io",
+    "authToken": "ENV:TURSO_AUTH_TOKEN",
+    "heartbeatIntervalSeconds": 60,
+    "criticalSyncEnabled": true,
+    "warmSyncIntervalMinutes": 60,
+    "fullSyncIntervalHours": 24,
+    "fullSyncRequireWifi": true,
+    "maxOfflineQueueSize": 1000
   }
 }

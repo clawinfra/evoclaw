@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/clawinfra/evoclaw/internal/cloudsync"
 	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/onchain"
 )
@@ -120,6 +121,8 @@ type Orchestrator struct {
 	evolution EvolutionEngine
 	// On-chain integration (BSC/opBNB)
 	chainRegistry *onchain.ChainRegistry
+	// Cloud sync (Turso)
+	cloudSync *cloudsync.Manager
 }
 
 // New creates a new Orchestrator
@@ -213,8 +216,46 @@ func (o *Orchestrator) Start() error {
 		}
 	}
 
+	// Initialize cloud sync if enabled
+	if o.cfg.CloudSync.Enabled {
+		if err := o.initCloudSync(); err != nil {
+			o.logger.Warn("cloud sync failed to initialize (non-fatal)", "error", err)
+		}
+	}
+
 	o.logger.Info("EvoClaw orchestrator running")
 	return nil
+}
+
+// initCloudSync sets up Turso cloud sync
+func (o *Orchestrator) initCloudSync() error {
+	mgr, err := cloudsync.NewManager(o.cfg.CloudSync, o.logger)
+	if err != nil {
+		return fmt.Errorf("init cloud sync: %w", err)
+	}
+
+	// Initialize schema (creates tables if not exist)
+	if err := mgr.InitSchema(o.ctx); err != nil {
+		return fmt.Errorf("init cloud sync schema: %w", err)
+	}
+
+	// Start background sync (heartbeat + periodic warm/full sync)
+	if err := mgr.Start(o.ctx); err != nil {
+		return fmt.Errorf("start cloud sync: %w", err)
+	}
+
+	o.cloudSync = mgr
+	o.logger.Info("cloud sync initialized",
+		"deviceId", mgr.DeviceID(),
+		"enabled", mgr.IsEnabled(),
+	)
+
+	return nil
+}
+
+// GetCloudSync returns the cloud sync manager for external access
+func (o *Orchestrator) GetCloudSync() *cloudsync.Manager {
+	return o.cloudSync
 }
 
 // initOnChain sets up BSC/opBNB chain adapter
@@ -257,6 +298,13 @@ func (o *Orchestrator) GetChainRegistry() *onchain.ChainRegistry {
 func (o *Orchestrator) Stop() error {
 	o.logger.Info("stopping EvoClaw orchestrator")
 	o.cancel()
+
+	// Stop cloud sync (flushes offline queue)
+	if o.cloudSync != nil {
+		if err := o.cloudSync.Stop(); err != nil {
+			o.logger.Error("error stopping cloud sync", "error", err)
+		}
+	}
 
 	for name, ch := range o.channels {
 		if err := ch.Stop(); err != nil {
@@ -482,6 +530,59 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 			}
 		}()
 	}
+
+	// Cloud sync — critical sync after every conversation
+	if o.cloudSync != nil && o.cloudSync.IsEnabled() {
+		go func() {
+			agent.mu.RLock()
+			caps := make([]string, len(agent.Def.Capabilities))
+			copy(caps, agent.Def.Capabilities)
+			genome := make(map[string]interface{})
+			if agent.Def.Genome != nil {
+				for k, v := range agent.Def.Genome {
+					genome[k] = v
+				}
+			}
+			agentMetrics := agent.Metrics
+			agent.mu.RUnlock()
+
+			// Build core memory from agent state
+			coreMemory := map[string]interface{}{
+				"last_conversation": map[string]interface{}{
+					"timestamp": time.Now().Unix(),
+					"channel":   msg.Channel,
+					"from":      msg.From,
+					"model":     model,
+					"elapsed":   elapsed.Milliseconds(),
+				},
+				"metrics": map[string]interface{}{
+					"total_actions":      agentMetrics.TotalActions,
+					"successful_actions": agentMetrics.SuccessfulActions,
+					"tokens_used":        agentMetrics.TokensUsed,
+					"avg_response_ms":    agentMetrics.AvgResponseMs,
+					"cost_usd":           agentMetrics.CostUSD,
+				},
+			}
+
+			memory := &cloudsync.AgentMemory{
+				AgentID:      agent.ID,
+				Name:         agent.Def.Name,
+				Model:        model,
+				Capabilities: caps,
+				Genome:       genome,
+				CoreMemory:   coreMemory,
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			if err := o.cloudSync.SyncCritical(ctx, memory); err != nil {
+				o.logger.Debug("cloud sync critical failed (non-fatal)", "error", err)
+			} else {
+				o.logger.Debug("cloud synced after conversation", "agent", agent.ID)
+			}
+		}()
+	}
 }
 
 // findProvider locates the right provider for a model string like "anthropic/claude-opus"
@@ -598,6 +699,31 @@ func (o *Orchestrator) evolveAgent(agent *AgentState, currentFitness float64) {
 	agent.mu.Unlock()
 
 	o.logger.Info("agent evolved successfully", "agent", agent.ID)
+
+	// Sync evolution event to cloud
+	if o.cloudSync != nil && o.cloudSync.IsEnabled() {
+		go func() {
+			snapshot := &cloudsync.MemorySnapshot{
+				AgentID:   agent.ID,
+				Timestamp: time.Now().Unix(),
+				Evolution: []cloudsync.EvolutionEntry{
+					{
+						EventType:    "mutation",
+						FitnessScore: currentFitness,
+						Metrics: map[string]float64{
+							"mutation_rate": o.cfg.Evolution.MaxMutationRate,
+						},
+						Timestamp: time.Now().Unix(),
+					},
+				},
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := o.cloudSync.SyncWarm(ctx, snapshot); err != nil {
+				o.logger.Debug("cloud sync evolution event failed (non-fatal)", "error", err)
+			}
+		}()
+	}
 }
 
 // GetAgentMetrics returns current metrics for an agent

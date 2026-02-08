@@ -125,13 +125,15 @@ type EvolutionConfig struct {
 }
 
 type AgentDef struct {
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	Type         string            `json:"type"` // "orchestrator", "trader", "monitor", "governance"
-	Model        string            `json:"model"`
-	SystemPrompt string            `json:"systemPrompt,omitempty"`
-	Skills       []string          `json:"skills"`
-	Config       map[string]string `json:"config,omitempty"`
+	ID           string                 `json:"id"`
+	Name         string                 `json:"name"`
+	Type         string                 `json:"type"` // "orchestrator", "trader", "monitor", "governance"
+	Model        string                 `json:"model"`
+	SystemPrompt string                 `json:"systemPrompt,omitempty"`
+	Skills       []string               `json:"skills"`
+	Capabilities []string               `json:"capabilities,omitempty"`
+	Genome       map[string]interface{} `json:"genome,omitempty"`
+	Config       map[string]string      `json:"config,omitempty"`
 	// Container isolation settings
 	Container ContainerConfig `json:"container"`
 }

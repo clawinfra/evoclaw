@@ -25,3 +25,4 @@ data/
 .env
 evoclaw-new
 deploy/wallet.json
+deploy/node_modules/
