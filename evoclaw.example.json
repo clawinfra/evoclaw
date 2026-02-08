@@ -14,6 +14,9 @@
     "telegram": {
       "enabled": false,
       "botToken": "YOUR_BOT_TOKEN_HERE"
+    },
+    "tui": {
+      "enabled": true
     }
   },
   "models": {

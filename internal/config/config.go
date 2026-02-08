@@ -42,13 +42,12 @@ type MQTTConfig struct {
 }
 
 type ChannelConfig struct {
-	WhatsApp *WhatsAppConfig `json:"whatsapp,omitempty"`
 	Telegram *TelegramConfig `json:"telegram,omitempty"`
+	TUI      *TUIConfig      `json:"tui,omitempty"`
 }
 
-type WhatsAppConfig struct {
-	Enabled   bool     `json:"enabled"`
-	AllowFrom []string `json:"allowFrom"`
+type TUIConfig struct {
+	Enabled bool `json:"enabled"`
 }
 
 type TelegramConfig struct {
