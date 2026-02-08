@@ -25,8 +25,10 @@ type Config struct {
 	Evolution EvolutionConfig `json:"evolution"`
 
 	// On-chain integration (BSC/opBNB)
-
 	OnChain OnChainConfig `json:"onchain"`
+
+	// Cloud sync configuration
+	CloudSync CloudSyncConfig `json:"cloudSync,omitempty"`
 
 	// Agent definitions
 	Agents []AgentDef `json:"agents"`
@@ -57,6 +59,20 @@ type OnChainConfig struct {
 	ContractAddress string `json:"contractAddress"`
 	PrivateKey      string `json:"privateKey,omitempty"` // signing key (hex, 0x-prefixed)
 	ChainID         int64  `json:"chainId"`              // 56=BSC, 97=BSCTestnet, 204=opBNB
+}
+
+type CloudSyncConfig struct {
+	Enabled                  bool   `json:"enabled"`
+	DatabaseURL              string `json:"databaseUrl"`
+	AuthToken                string `json:"authToken"`
+	DeviceID                 string `json:"deviceId,omitempty"`
+	DeviceKey                string `json:"deviceKey,omitempty"`
+	HeartbeatIntervalSeconds int    `json:"heartbeatIntervalSeconds"`
+	CriticalSyncEnabled      bool   `json:"criticalSyncEnabled"`
+	WarmSyncIntervalMinutes  int    `json:"warmSyncIntervalMinutes"`
+	FullSyncIntervalHours    int    `json:"fullSyncIntervalHours"`
+	FullSyncRequireWiFi      bool   `json:"fullSyncRequireWifi"`
+	MaxOfflineQueueSize      int    `json:"maxOfflineQueueSize"`
 }
 
 type TUIConfig struct {
