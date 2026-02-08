@@ -24,6 +24,33 @@
 
 ---
 
+## Phase 1b: Terminal & Web Access 🖥️ (In Progress)
+
+**Terminal TUI + Web Terminal + BSC On-Chain**
+
+- ✅ Terminal TUI — 759 lines, Bubble Tea split-pane chat interface
+  - Left pane: agent status, metrics, uptime
+  - Right pane: conversation with scroll
+  - `evoclaw tui` — single command, 7.2MB binary
+  - SSH-friendly — access agents from anywhere, no browser needed
+- ✅ BSC On-Chain Integration — 1,444 lines
+  - `AgentRegistry.sol` — agent registration, action logging, evolution tracking, reputation
+  - `internal/onchain/adapter.go` — multi-chain adapter interface with ChainRegistry
+  - `internal/onchain/bsc.go` — BSC/opBNB JSON-RPC client (zero go-ethereum dep)
+  - Supports BSC mainnet/testnet + opBNB mainnet/testnet
+  - Orchestrator auto-logs agent actions on-chain
+- 🔜 Web Terminal (ttyd/xterm.js)
+  - Browser-based terminal — no SSH client needed
+  - Expose TUI via web for demos and remote access
+  - Auth layer (Cloudflare Access or app-level)
+  - Embed in dashboard as a "Terminal" tab
+- 🔜 Contract Deployment
+  - Deploy AgentRegistry to BSC testnet
+  - Real transaction signing
+  - MetaMask/wallet integration in web dashboard
+
+---
+
 ## Phase 2: Platform Expansion 📱 (Next)
 
 ### 2a. Android App
@@ -151,6 +178,9 @@ Platform         Rust Agent    Go Orchestrator    Status
 Linux x86_64     ✅            ✅                 Done
 Linux ARM64      ✅            ✅                 Done  
 Linux ARMv7      ✅            ✅                 Done
+Terminal TUI     N/A           ✅                 Done (Phase 1b)
+Web Terminal     N/A           🔜                 Phase 1b
+BSC/opBNB        N/A           ✅                 Done (Phase 1b)
 Android          🔜            ❌ (cloud)         Phase 2a
 iOS              ⚠️ (limited)  ❌ (cloud)         Phase 2b
 macOS            ✅            ✅                 Supported
@@ -176,4 +206,4 @@ Same DNA. Same evolution. Different container.
 
 ---
 
-*Last updated: 2026-02-06*
+*Last updated: 2026-02-09*
