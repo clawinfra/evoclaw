@@ -9,7 +9,7 @@ EvoClaw is a lightweight, evolution-powered agent orchestration framework design
 - **🦀 Rust Edge Agent** - 1.8MB binary, runs on Raspberry Pi, phones, IoT devices
 - **🐹 Go Orchestrator** - 6.9MB binary, coordinates agents and handles evolution
 - **🧬 Evolution Engine** - Agents improve themselves based on performance metrics
-- **📡 Multi-Channel** - Telegram, MQTT, WhatsApp (coming soon)
+- **📡 Multi-Channel** - Telegram, MQTT, Terminal TUI
 - **🤖 Multi-Model** - Anthropic, OpenAI, Ollama, OpenRouter support
 - **💰 Cost Tracking** - Monitor API usage and optimize spending
 - **📊 HTTP API** - RESTful interface for monitoring and control
@@ -75,9 +75,9 @@ curl http://localhost:8420/api/costs
 │    (Claude)          (GPT)           (Local)     │
 └─────────────────────────────────────────────────┘
          ↕                ↕                ↕
-    Telegram           MQTT          WhatsApp
-         ↕                ↕
-      Users      Edge Agents (Rust)
+    Telegram           MQTT         Terminal TUI
+         ↕                ↕                ↕
+      Users      Edge Agents (Rust)   SSH / Local
 ```
 
 ## Channel Support
@@ -94,6 +94,13 @@ curl http://localhost:8420/api/costs
   - `evoclaw/agents/{id}/reports` - agent → orchestrator
   - `evoclaw/agents/{id}/status` - heartbeats
   - `evoclaw/broadcast` - orchestrator → all agents
+
+### Terminal TUI (Planned)
+- Interactive chat in any terminal — SSH into a headless box and talk to your agent
+- Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) (Go TUI framework)
+- Split-pane layout: agent status + conversation + input
+- Works over SSH, tmux, screen — no GUI, no browser, no port forwarding
+- First-class citizen alongside Telegram, not an afterthought
 
 ## Model Routing
 
@@ -200,20 +207,29 @@ data/
 
 ## Roadmap
 
+### ✅ Done
 - [x] Go orchestrator core
 - [x] Telegram channel
-- [x] MQTT channel
-- [x] Multi-provider model router
+- [x] MQTT channel (agent ↔ orchestrator)
+- [x] Multi-provider model router (Anthropic, OpenAI, Ollama, OpenRouter, NVIDIA NIM)
 - [x] Cost tracking
 - [x] Agent registry + memory
 - [x] HTTP API
 - [x] Evolution engine integration
-- [ ] WhatsApp channel
-- [ ] Prompt mutation (LLM-powered strategy improvement)
-- [ ] Container isolation (Firecracker/gVisor)
-- [ ] Distributed agent mesh
-- [ ] Advanced evolution (genetic algorithms, tournament selection)
-- [ ] Web dashboard UI
+- [x] Rust edge agent (1.8MB, runs on Raspberry Pi)
+- [x] Intelligent model routing (task complexity → model selection)
+
+### 🚧 In Progress
+- [ ] **Terminal TUI** — Interactive chat interface for headless/SSH environments (Bubble Tea)
+- [ ] **Prompt mutation** — LLM-powered strategy improvement (evolve system prompts)
+
+### 📋 Planned
+- [ ] **Agent skill system** — Hot-loadable skills (tools, APIs, protocols) per agent
+- [ ] **Distributed agent mesh** — Peer-to-peer agent discovery and collaboration
+- [ ] **Container isolation** — Firecracker/gVisor sandboxing for untrusted agent code
+- [ ] **Advanced evolution** — Genetic algorithms, tournament selection, crossover
+- [ ] **Web dashboard** — Monitoring UI (low priority — TUI covers most needs)
+- [ ] **ClawChain integration** — On-chain agent identity, reputation, payments
 
 ## License
 
