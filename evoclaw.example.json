@@ -19,6 +19,13 @@
       "enabled": true
     }
   },
+  "onchain": {
+    "enabled": false,
+    "rpcUrl": "https://data-seed-prebsc-1-s1.binance.org:8545",
+    "contractAddress": "0x_DEPLOY_AND_PASTE_HERE",
+    "privateKey": "0x_YOUR_PRIVATE_KEY",
+    "chainId": 97
+  },
   "models": {
     "providers": {
       "anthropic": {

@@ -81,9 +81,8 @@ func TestLoadConfig(t *testing.T) {
 				Enabled:  true,
 				BotToken: "test-token-123",
 			},
-			WhatsApp: &WhatsAppConfig{
-				Enabled:   true,
-				AllowFrom: []string{"user1", "user2"},
+			TUI: &TUIConfig{
+				Enabled: true,
 			},
 		},
 		Models: ModelsConfig{
@@ -181,12 +180,12 @@ func TestLoadConfig(t *testing.T) {
 		t.Errorf("expected bot token test-token-123, got %s", loaded.Channels.Telegram.BotToken)
 	}
 
-	if loaded.Channels.WhatsApp == nil {
-		t.Fatal("expected whatsapp config, got nil")
+	if loaded.Channels.TUI == nil {
+		t.Fatal("expected TUI config, got nil")
 	}
 
-	if len(loaded.Channels.WhatsApp.AllowFrom) != 2 {
-		t.Errorf("expected 2 allowFrom entries, got %d", len(loaded.Channels.WhatsApp.AllowFrom))
+	if !loaded.Channels.TUI.Enabled {
+		t.Error("expected TUI enabled")
 	}
 
 	if loaded.Models.Routing.Simple != "ollama/llama3.2" {

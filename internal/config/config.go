@@ -24,6 +24,9 @@ type Config struct {
 	// Evolution engine settings
 	Evolution EvolutionConfig `json:"evolution"`
 
+	// On-chain settings (BSC/opBNB)
+	OnChain OnChainConfig `json:"onchain"`
+
 	// Agent definitions
 	Agents []AgentDef `json:"agents"`
 }
@@ -44,6 +47,15 @@ type MQTTConfig struct {
 type ChannelConfig struct {
 	Telegram *TelegramConfig `json:"telegram,omitempty"`
 	TUI      *TUIConfig      `json:"tui,omitempty"`
+}
+
+// OnChainConfig holds BSC/opBNB blockchain settings
+type OnChainConfig struct {
+	Enabled         bool   `json:"enabled"`
+	RPCURL          string `json:"rpcUrl"`
+	ContractAddress string `json:"contractAddress"`
+	PrivateKey      string `json:"privateKey,omitempty"` // signing key (hex, 0x-prefixed)
+	ChainID         int64  `json:"chainId"`              // 56=BSC, 97=BSCTestnet, 204=opBNB
 }
 
 type TUIConfig struct {
