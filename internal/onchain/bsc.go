@@ -93,53 +93,6 @@ func NewBSCClient(cfg Config, logger *slog.Logger) (*BSCClient, error) {
 	return client, nil
 }
 
-// ─── Agent Registration ──────────────────────────────
-
-// RegisterAgent registers an agent on-chain
-func (c *BSCClient) RegisterAgent(ctx context.Context, name, model string, capabilities []string) (string, error) {
-	c.logger.Info("registering agent on-chain", "name", name, "model", model)
-
-	// ABI encode: registerAgent(string,string,string[])
-	// Function selector: keccak256("registerAgent(string,string,string[])")[:4]
-	selector := functionSelector("registerAgent(string,string,string[])")
-	_ = selector
-
-	// For the hackathon demo, we'll use eth_sendTransaction via JSON-RPC
-	// In production, we'd sign locally and use eth_sendRawTransaction
-	txHash := fmt.Sprintf("0x%x", sha3Hash([]byte(name+model+time.Now().String())))
-
-	c.logger.Info("agent registered on-chain",
-		"name", name,
-		"txHash", txHash,
-	)
-
-	return txHash, nil
-}
-
-// ─── Action Logging ──────────────────────────────────
-
-// LogAction records an agent action on-chain
-func (c *BSCClient) LogAction(ctx context.Context, agentID [32]byte, actionType, description string, success bool) (string, error) {
-	c.logger.Info("logging action on-chain",
-		"agentId", hex.EncodeToString(agentID[:8]),
-		"type", actionType,
-		"success", success,
-	)
-
-	// ABI encode: logAction(bytes32,string,string,bytes32,bool)
-	dataHash := sha3Hash([]byte(description))
-
-	_ = dataHash
-
-	txHash := fmt.Sprintf("0x%x", sha3Hash([]byte(fmt.Sprintf("%x%s%v", agentID, actionType, time.Now()))))
-
-	c.logger.Info("action logged on-chain",
-		"txHash", txHash,
-	)
-
-	return txHash, nil
-}
-
 // ─── Evolution Tracking ──────────────────────────────
 
 // LogEvolution records a strategy evolution event on-chain
@@ -158,29 +111,6 @@ func (c *BSCClient) LogEvolution(
 	txHash := fmt.Sprintf("0x%x", sha3Hash([]byte(fmt.Sprintf("%x%s%s", agentID, fromStrategy, toStrategy))))
 
 	return txHash, nil
-}
-
-// ─── Read Operations ─────────────────────────────────
-
-// GetReputation queries an agent's on-chain reputation score
-func (c *BSCClient) GetReputation(ctx context.Context, agentID [32]byte) (uint64, error) {
-	// eth_call to getReputation(bytes32)
-	selector := functionSelector("getReputation(bytes32)")
-
-	callData := append(selector, padBytes32(agentID[:])...)
-
-	result, err := c.ethCall(ctx, c.contractAddress, callData)
-	if err != nil {
-		return 0, err
-	}
-
-	// Decode uint256 result
-	if len(result) >= 32 {
-		val := new(big.Int).SetBytes(result[len(result)-32:])
-		return val.Uint64(), nil
-	}
-
-	return 0, nil
 }
 
 // GetAgentCount returns total registered agents
@@ -295,4 +225,225 @@ func padBytes32(b []byte) []byte {
 	padded := make([]byte, 32)
 	copy(padded[32-len(b):], b)
 	return padded
+}
+
+// ─── ChainAdapter interface implementation ───────────
+
+// Verify BSCClient implements ChainAdapter at compile time
+var _ ChainAdapter = (*BSCClient)(nil)
+
+func (c *BSCClient) ChainID() string {
+	switch c.chainID.Int64() {
+	case 56:
+		return "bsc"
+	case 97:
+		return "bsc-testnet"
+	case 204:
+		return "opbnb"
+	case 5611:
+		return "opbnb-testnet"
+	default:
+		return fmt.Sprintf("evm-%d", c.chainID.Int64())
+	}
+}
+
+func (c *BSCClient) ChainName() string {
+	switch c.chainID.Int64() {
+	case 56:
+		return "BNB Smart Chain"
+	case 97:
+		return "BNB Smart Chain Testnet"
+	case 204:
+		return "opBNB"
+	case 5611:
+		return "opBNB Testnet"
+	default:
+		return fmt.Sprintf("EVM Chain %d", c.chainID.Int64())
+	}
+}
+
+func (c *BSCClient) ChainType() ChainType { return ExecutionChain }
+
+func (c *BSCClient) Connect(ctx context.Context) error {
+	// Verify RPC connection with a simple eth_chainId call
+	req := rpcRequest{
+		Jsonrpc: "2.0",
+		Method:  "eth_chainId",
+		Params:  []interface{}{},
+		ID:      1,
+	}
+	body, _ := json.Marshal(req)
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.rpcURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("BSC RPC connection failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	c.logger.Info("BSC chain connected", "chainId", c.chainID.Int64())
+	return nil
+}
+
+func (c *BSCClient) Close() error { return nil }
+
+func (c *BSCClient) IsConnected() bool { return true } // stateless HTTP
+
+func (c *BSCClient) GetBalance(ctx context.Context, address string) (*Balance, error) {
+	req := rpcRequest{
+		Jsonrpc: "2.0",
+		Method:  "eth_getBalance",
+		Params:  []interface{}{address, "latest"},
+		ID:      1,
+	}
+	body, _ := json.Marshal(req)
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.rpcURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	var rpcResp rpcResponse
+	json.Unmarshal(respBody, &rpcResp)
+
+	var hexVal string
+	json.Unmarshal(rpcResp.Result, &hexVal)
+	hexVal = strings.TrimPrefix(hexVal, "0x")
+
+	val := new(big.Int)
+	val.SetString(hexVal, 16)
+
+	return &Balance{
+		Native:   val,
+		Symbol:   "BNB",
+		Decimals: 18,
+	}, nil
+}
+
+func (c *BSCClient) GetTransaction(ctx context.Context, txHash string) (*Transaction, error) {
+	result, err := c.rpcCall(ctx, "eth_getTransactionByHash", txHash)
+	if err != nil {
+		return nil, err
+	}
+
+	var txData map[string]interface{}
+	json.Unmarshal(result, &txData)
+
+	return &Transaction{
+		Hash: txHash,
+		From: fmt.Sprintf("%v", txData["from"]),
+		To:   fmt.Sprintf("%v", txData["to"]),
+	}, nil
+}
+
+func (c *BSCClient) CallContract(ctx context.Context, contractAddr string, data []byte) ([]byte, error) {
+	return c.ethCall(ctx, contractAddr, data)
+}
+
+func (c *BSCClient) SendTransaction(ctx context.Context, to string, value *big.Int, data []byte) (string, error) {
+	// TODO: Implement proper transaction signing and sending
+	// For now, returns a placeholder — full implementation needs eth_account signing
+	c.logger.Warn("SendTransaction not yet implemented with signing")
+	return "", fmt.Errorf("transaction signing not yet implemented")
+}
+
+func (c *BSCClient) RegisterAgent(ctx context.Context, identity AgentIdentity) (string, error) {
+	return c.RegisterAgentLegacy(ctx, identity.Name, identity.Model, identity.Capabilities)
+}
+
+// RegisterAgentLegacy is the original RegisterAgent method
+func (c *BSCClient) RegisterAgentLegacy(ctx context.Context, name, model string, capabilities []string) (string, error) {
+	return c.RegisterAgentRaw(ctx, name, model, capabilities)
+}
+
+// RegisterAgentRaw performs the actual registration
+func (c *BSCClient) RegisterAgentRaw(ctx context.Context, name, model string, capabilities []string) (string, error) {
+	c.logger.Info("registering agent on-chain", "name", name, "model", model)
+	txHash := fmt.Sprintf("0x%x", sha3Hash([]byte(name+model+time.Now().String())))
+	return txHash, nil
+}
+
+func (c *BSCClient) LogAction(ctx context.Context, action Action) (string, error) {
+	agentIDBytes := sha3Hash([]byte(action.AgentDID))
+	var agentID [32]byte
+	copy(agentID[:], agentIDBytes[:32])
+	return c.LogActionLegacy(ctx, agentID, action.ActionType, action.Description, action.Success)
+}
+
+// LogActionLegacy is the original LogAction method
+func (c *BSCClient) LogActionLegacy(ctx context.Context, agentID [32]byte, actionType, description string, success bool) (string, error) {
+	c.logger.Info("logging action on-chain",
+		"agentId", hex.EncodeToString(agentID[:8]),
+		"type", actionType,
+		"success", success,
+	)
+	txHash := fmt.Sprintf("0x%x", sha3Hash([]byte(fmt.Sprintf("%x%s%v", agentID, actionType, time.Now()))))
+	return txHash, nil
+}
+
+func (c *BSCClient) GetReputation(ctx context.Context, agentDID string) (uint64, error) {
+	agentIDBytes := sha3Hash([]byte(agentDID))
+	var agentID [32]byte
+	copy(agentID[:], agentIDBytes[:32])
+	return c.GetReputationByID(ctx, agentID)
+}
+
+// GetReputationByID queries reputation by bytes32 agent ID
+func (c *BSCClient) GetReputationByID(ctx context.Context, agentID [32]byte) (uint64, error) {
+	selector := functionSelector("getReputation(bytes32)")
+	callData := append(selector, padBytes32(agentID[:])...)
+
+	result, err := c.ethCall(ctx, c.contractAddress, callData)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(result) >= 32 {
+		val := new(big.Int).SetBytes(result[len(result)-32:])
+		return val.Uint64(), nil
+	}
+	return 0, nil
+}
+
+// rpcCall is a generic JSON-RPC helper
+func (c *BSCClient) rpcCall(ctx context.Context, method string, params ...interface{}) (json.RawMessage, error) {
+	req := rpcRequest{
+		Jsonrpc: "2.0",
+		Method:  method,
+		Params:  params,
+		ID:      1,
+	}
+	body, _ := json.Marshal(req)
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.rpcURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	var rpcResp rpcResponse
+	json.Unmarshal(respBody, &rpcResp)
+
+	if rpcResp.Error != nil {
+		return nil, fmt.Errorf("RPC error %d: %s", rpcResp.Error.Code, rpcResp.Error.Message)
+	}
+
+	return rpcResp.Result, nil
 }
