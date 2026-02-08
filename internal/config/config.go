@@ -24,7 +24,8 @@ type Config struct {
 	// Evolution engine settings
 	Evolution EvolutionConfig `json:"evolution"`
 
-	// On-chain settings (BSC/opBNB)
+	// On-chain integration (BSC/opBNB)
+
 	OnChain OnChainConfig `json:"onchain"`
 
 	// Agent definitions
