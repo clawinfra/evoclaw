@@ -24,3 +24,4 @@ data/
 *.pem
 .env
 evoclaw-new
+deploy/wallet.json
