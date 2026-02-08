@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/clawinfra/evoclaw/internal/config"
+	"github.com/clawinfra/evoclaw/internal/onchain"
 )
 
 // Message represents a message from any channel
@@ -117,6 +118,8 @@ type Orchestrator struct {
 	cancel    context.CancelFunc
 	// Evolution engine (optional, set via SetEvolutionEngine)
 	evolution EvolutionEngine
+	// On-chain integration (BSC/opBNB)
+	chainRegistry *onchain.ChainRegistry
 }
 
 // New creates a new Orchestrator
@@ -203,8 +206,51 @@ func (o *Orchestrator) Start() error {
 		go o.evolutionLoop()
 	}
 
+	// Initialize on-chain integration if enabled
+	if o.cfg.OnChain.Enabled {
+		if err := o.initOnChain(); err != nil {
+			o.logger.Warn("on-chain integration failed (non-fatal)", "error", err)
+		}
+	}
+
 	o.logger.Info("EvoClaw orchestrator running")
 	return nil
+}
+
+// initOnChain sets up BSC/opBNB chain adapter
+func (o *Orchestrator) initOnChain() error {
+	o.chainRegistry = onchain.NewChainRegistry(o.logger)
+
+	bscCfg := onchain.Config{
+		RPCURL:          o.cfg.OnChain.RPCURL,
+		ContractAddress: o.cfg.OnChain.ContractAddress,
+		PrivateKey:      o.cfg.OnChain.PrivateKey,
+		ChainID:         o.cfg.OnChain.ChainID,
+	}
+
+	bscClient, err := onchain.NewBSCClient(bscCfg, o.logger)
+	if err != nil {
+		return fmt.Errorf("init BSC client: %w", err)
+	}
+
+	o.chainRegistry.Register(bscClient)
+
+	if err := o.chainRegistry.ConnectAll(o.ctx); err != nil {
+		return fmt.Errorf("connect chains: %w", err)
+	}
+
+	o.logger.Info("on-chain integration ready",
+		"chain", bscClient.ChainName(),
+		"chainId", o.cfg.OnChain.ChainID,
+		"contract", o.cfg.OnChain.ContractAddress,
+	)
+
+	return nil
+}
+
+// GetChainRegistry returns the chain registry for external access (API, dashboard)
+func (o *Orchestrator) GetChainRegistry() *onchain.ChainRegistry {
+	return o.chainRegistry
 }
 
 // Stop gracefully shuts down the orchestrator
@@ -418,6 +464,24 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 		"elapsed", elapsed,
 		"tokens", resp.TokensInput+resp.TokensOutput,
 	)
+
+	// Log action on-chain if enabled
+	if o.chainRegistry != nil {
+		go func() {
+			reporter := onchain.NewActionReporter(o.chainRegistry, o.logger)
+			action := onchain.Action{
+				AgentDID:    agent.ID,
+				Chain:       "bsc",
+				ActionType:  "chat",
+				Description: fmt.Sprintf("Processed message via %s (%dms)", model, elapsed.Milliseconds()),
+				Success:     true,
+				Timestamp:   time.Now(),
+			}
+			if err := reporter.ExecuteAndReport(o.ctx, action); err != nil {
+				o.logger.Debug("on-chain action log failed (non-fatal)", "error", err)
+			}
+		}()
+	}
 }
 
 // findProvider locates the right provider for a model string like "anthropic/claude-opus"

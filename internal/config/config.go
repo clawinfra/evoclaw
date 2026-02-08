@@ -24,8 +24,20 @@ type Config struct {
 	// Evolution engine settings
 	Evolution EvolutionConfig `json:"evolution"`
 
+	// On-chain integration (BSC/opBNB)
+	OnChain OnChainConfig `json:"onchain"`
+
 	// Agent definitions
 	Agents []AgentDef `json:"agents"`
+}
+
+// OnChainConfig holds blockchain integration settings
+type OnChainConfig struct {
+	Enabled         bool   `json:"enabled"`
+	RPCURL          string `json:"rpcUrl"`          // BSC/opBNB RPC endpoint
+	ContractAddress string `json:"contractAddress"` // AgentRegistry contract
+	PrivateKey      string `json:"privateKey"`      // Signing key (hex, 0x-prefixed)
+	ChainID         int64  `json:"chainId"`         // 56=BSC, 97=BSCTestnet, 204=opBNB, 5611=opBNBTestnet
 }
 
 type ServerConfig struct {
