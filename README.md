@@ -22,41 +22,48 @@ EvoClaw is a lightweight, evolution-powered agent orchestration framework design
 
 ## Quick Start
 
-### Docker (3 commands)
+### Native Binary (Default)
+
+Full OS access — bash, filesystem, network. Maximum power.
 
 ```bash
-# 1. Configure
-cp evoclaw.example.json evoclaw.json
-cp edge-agent/agent.example.toml edge-agent/agent.toml
-# Edit both files with your API keys
+# One-liner install
+curl -fsSL https://evoclaw.win/install.sh | sh
 
-# 2. Launch the full stack
-docker compose up -d
-
-# 3. Check status
-curl http://localhost:8420/api/status
-```
-
-This starts the MQTT broker, Go orchestrator, and Rust edge agent.
-
-### From Source
-
-```bash
-# Build orchestrator
+# Or build from source
 go build -ldflags="-s -w" -o evoclaw ./cmd/evoclaw
-
-# Build edge agent
 cd edge-agent && cargo build --release
 
-# Run (requires MQTT broker on localhost:1883)
+# Run
 ./evoclaw --config evoclaw.json
 ```
+
+### Podman Container (Opt-in Sandbox)
+
+Local sandbox — rootless, daemonless. Your machine, contained.
+
+```bash
+podman run -d --name evoclaw \
+  -v evoclaw-data:/data \
+  -p 8080:8080 \
+  ghcr.io/clawinfra/evoclaw
+```
+
+### E2B Cloud Sandbox (Opt-in Cloud)
+
+Remote sandbox — zero local footprint. Try without installing.
+
+```bash
+evoclaw sandbox --provider e2b
+```
+
+> **See [docs/EXECUTION-TIERS.md](docs/EXECUTION-TIERS.md) for full details on all three tiers.**
 
 ### Development Mode
 
 ```bash
-# Hot-reloading dev environment
-docker compose -f docker-compose.dev.yml up
+# Build from source with hot-reload
+podman compose -f compose.dev.yml up
 ```
 
 ## Architecture
