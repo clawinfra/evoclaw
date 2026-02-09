@@ -72,7 +72,7 @@ chmod +x evoclaw-*
 | Package installation | ✅ |
 | Self-evolution (modify own config) | ✅ |
 | Tiered memory (local + cloud) | ✅ |
-| On-chain identity (ClawChain + execution chains) | ✅ |
+| On-chain identity (ClawChain + optional execution chains) | ✅ |
 
 ### When to Use
 

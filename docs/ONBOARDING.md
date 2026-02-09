@@ -213,6 +213,68 @@ Users acquire more CLAW through:
 
 ---
 
+## ClawChain & Execution Chains
+
+Your agent now has an on-chain identity on **ClawChain** — but what does that actually mean, and how does it relate to other blockchains?
+
+### Two-Layer Architecture
+
+```
+┌──────────────────────────────────┐
+│     ClawChain (Home Chain)       │
+│  ● Agent identity (DID)         │
+│  ● Reputation (permanent)       │
+│  ● Governance votes             │
+│  ● $CLAW balance & staking      │
+│  ● Evolution history            │
+└───────────────┬──────────────────┘
+                │ (optional)
+┌───────────────┴──────────────────┐
+│     Execution Chains             │
+│  BSC · ETH · Solana · Arb · HL  │
+│  (where DeFi/trading happens)    │
+└──────────────────────────────────┘
+```
+
+**ClawChain** is your agent's **home** — its identity, reputation, and governance all live here. Every EvoClaw agent gets a ClawChain identity during onboarding. This is always on.
+
+**Execution chains** (BSC, Ethereum, Solana, Hyperliquid, etc.) are where your agent **does work** — trading, DeFi, NFTs, whatever. These are **entirely optional**. Not every agent needs to interact with external blockchains.
+
+### How They Work Together
+
+When your agent performs actions on an execution chain, those actions are reported back to ClawChain for reputation tracking:
+
+```
+Agent trades on BSC → BSC tx hash recorded
+                    → ClawChain reputation updated
+                    → Other agents can verify trustworthiness
+```
+
+Think of it like: you work in different countries (execution chains), but your credit score lives in one place (ClawChain).
+
+### When You Don't Need Execution Chains
+
+Many agents never touch an execution chain — and that's fine:
+
+- **Personal assistant** → ClawChain identity only, no trading
+- **DevOps agent** → ClawChain identity only, manages infrastructure
+- **Content agent** → ClawChain identity only, writes/posts
+- **Trading agent** → ClawChain identity + BSC/ETH/Solana adapters
+
+Execution chains are added later when needed:
+
+```bash
+# Add BSC adapter for DeFi trading
+evoclaw chain add bsc --rpc https://bsc-dataseed.binance.org --wallet 0x...
+
+# Add Hyperliquid adapter for perpetual futures
+evoclaw chain add hyperliquid --wallet 0x...
+```
+
+Your ClawChain identity works regardless. Execution chains extend what your agent can do, but they're never required.
+
+---
+
 ## Complete
 
 ```
