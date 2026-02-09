@@ -30,6 +30,9 @@ type Config struct {
 	// Cloud sync configuration
 	CloudSync CloudSyncConfig `json:"cloudSync,omitempty"`
 
+	// Memory system configuration
+	Memory MemoryConfigSettings `json:"memory,omitempty"`
+
 	// Agent definitions
 	Agents []AgentDef `json:"agents"`
 }
@@ -73,6 +76,55 @@ type CloudSyncConfig struct {
 	FullSyncIntervalHours    int    `json:"fullSyncIntervalHours"`
 	FullSyncRequireWiFi      bool   `json:"fullSyncRequireWifi"`
 	MaxOfflineQueueSize      int    `json:"maxOfflineQueueSize"`
+}
+
+// MemoryConfigSettings holds tiered memory system configuration
+type MemoryConfigSettings struct {
+	Enabled    bool               `json:"enabled"`
+	Tree       TreeConfig         `json:"tree"`
+	Hot        HotConfig          `json:"hot"`
+	Warm       WarmConfig         `json:"warm"`
+	Cold       ColdConfig         `json:"cold"`
+	Distillation DistillationConfig `json:"distillation"`
+	Scoring    ScoringConfig      `json:"scoring"`
+}
+
+type TreeConfig struct {
+	MaxNodes           int `json:"maxNodes"`
+	MaxDepth           int `json:"maxDepth"`
+	MaxSizeBytes       int `json:"maxSizeBytes"`
+	RebuildIntervalDays int `json:"rebuildIntervalDays"`
+}
+
+type HotConfig struct {
+	MaxSizeBytes       int `json:"maxSizeBytes"`
+	MaxLessons         int `json:"maxLessons"`
+	MaxActiveProjects  int `json:"maxActiveProjects"`
+}
+
+type WarmConfig struct {
+	MaxSizeKb          int     `json:"maxSizeKb"`
+	RetentionDays      int     `json:"retentionDays"`
+	EvictionThreshold  float64 `json:"evictionThreshold"`
+	Backend            string  `json:"backend"` // "memory" or "sqlite"
+}
+
+type ColdConfig struct {
+	Backend         string `json:"backend"` // "turso"
+	DatabaseUrl     string `json:"databaseUrl"`
+	AuthToken       string `json:"authToken"`
+	RetentionYears  int    `json:"retentionYears"`
+}
+
+type DistillationConfig struct {
+	Aggression        float64 `json:"aggression"` // 0-1
+	Model             string  `json:"model"` // "local" or model name
+	MaxDistilledBytes int     `json:"maxDistilledBytes"`
+}
+
+type ScoringConfig struct {
+	HalfLifeDays        float64 `json:"halfLifeDays"`
+	ReinforcementBoost  float64 `json:"reinforcementBoost"`
 }
 
 type TUIConfig struct {
