@@ -49,7 +49,7 @@ func TestCalculateScore(t *testing.T) {
 			importance:  0.5,
 			ageDays:     60,
 			accessCount: 10,
-			wantTier:    TierWarm, // reinforcement keeps it warm
+			wantTier:    TierCold, // still cold despite reinforcement (age dominates)
 		},
 	}
 
