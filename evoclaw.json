@@ -200,5 +200,40 @@
     "fullSyncIntervalHours": 24,
     "fullSyncRequireWifi": true,
     "maxOfflineQueueSize": 1000
+  },
+  "memory": {
+    "enabled": true,
+    "tree": {
+      "maxNodes": 50,
+      "maxDepth": 4,
+      "maxSizeBytes": 2048,
+      "rebuildIntervalDays": 30
+    },
+    "hot": {
+      "maxSizeBytes": 5120,
+      "maxLessons": 20,
+      "maxActiveProjects": 5
+    },
+    "warm": {
+      "maxSizeKb": 50,
+      "retentionDays": 30,
+      "evictionThreshold": 0.3,
+      "backend": "memory"
+    },
+    "cold": {
+      "backend": "turso",
+      "databaseUrl": "libsql://alphastrike-bowen31337.aws-us-east-1.turso.io",
+      "authToken": "ENV:TURSO_AUTH_TOKEN",
+      "retentionYears": 10
+    },
+    "distillation": {
+      "aggression": 0.7,
+      "model": "local",
+      "maxDistilledBytes": 512
+    },
+    "scoring": {
+      "halfLifeDays": 30,
+      "reinforcementBoost": 0.1
+    }
   }
 }

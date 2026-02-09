@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	MaxDistilledBytes = 100 // Stage 2: distilled fact
+	MaxDistilledBytes = 512 // Stage 2: distilled fact (JSON with entities)
 	MaxCoreSummaryBytes = 30  // Stage 3: core summary
 )
 

@@ -2,9 +2,15 @@ package memory
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 )
+
+func init() {
+	// Use short timeout for tests to avoid hanging on Turso connections
+	os.Setenv("MEMORY_TEST_MODE", "1")
+}
 
 func TestNewManager(t *testing.T) {
 	cfg := DefaultMemoryConfig()
@@ -156,8 +162,10 @@ func TestRetrieve(t *testing.T) {
 
 	mgr.ProcessConversation(context.Background(), conv, "projects/garden", 0.7)
 
-	// Retrieve memories about garden
-	results, err := mgr.Retrieve(context.Background(), "tell me about the garden", 5)
+	// Retrieve memories about garden (short timeout to avoid hanging on cold tier)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	results, err := mgr.Retrieve(ctx, "tell me about the garden", 5)
 	if err != nil {
 		t.Fatalf("retrieve failed: %v", err)
 	}
@@ -220,7 +228,9 @@ func TestGetStats(t *testing.T) {
 
 	mgr, _ := NewManager(cfg, nil)
 
-	stats, err := mgr.GetStats(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	stats, err := mgr.GetStats(ctx)
 	if err != nil {
 		t.Fatalf("get stats failed: %v", err)
 	}

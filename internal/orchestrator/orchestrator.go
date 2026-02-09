@@ -9,6 +9,7 @@ import (
 
 	"github.com/clawinfra/evoclaw/internal/cloudsync"
 	"github.com/clawinfra/evoclaw/internal/config"
+	"github.com/clawinfra/evoclaw/internal/memory"
 	"github.com/clawinfra/evoclaw/internal/onchain"
 )
 
@@ -123,6 +124,8 @@ type Orchestrator struct {
 	chainRegistry *onchain.ChainRegistry
 	// Cloud sync (Turso)
 	cloudSync *cloudsync.Manager
+	// Tiered memory system
+	memory *memory.Manager
 }
 
 // New creates a new Orchestrator
@@ -223,6 +226,13 @@ func (o *Orchestrator) Start() error {
 		}
 	}
 
+	// Initialize tiered memory system if enabled
+	if o.cfg.Memory.Enabled {
+		if err := o.initMemory(); err != nil {
+			o.logger.Warn("tiered memory failed to initialize (non-fatal)", "error", err)
+		}
+	}
+
 	o.logger.Info("EvoClaw orchestrator running")
 	return nil
 }
@@ -256,6 +266,80 @@ func (o *Orchestrator) initCloudSync() error {
 // GetCloudSync returns the cloud sync manager for external access
 func (o *Orchestrator) GetCloudSync() *cloudsync.Manager {
 	return o.cloudSync
+}
+
+// GetMemory returns the tiered memory manager for external access
+func (o *Orchestrator) GetMemory() *memory.Manager {
+	return o.memory
+}
+
+// initMemory sets up the tiered memory system
+func (o *Orchestrator) initMemory() error {
+	// Build memory config from orchestrator config
+	memCfg := memory.DefaultMemoryConfig()
+	memCfg.Enabled = true
+
+	// Agent identity — use first agent or orchestrator defaults
+	if len(o.cfg.Agents) > 0 {
+		memCfg.AgentID = o.cfg.Agents[0].ID
+		memCfg.AgentName = o.cfg.Agents[0].Name
+	} else {
+		memCfg.AgentID = "evoclaw-orchestrator"
+		memCfg.AgentName = "EvoClaw"
+	}
+	memCfg.OwnerName = "owner" // Will be updated from hot memory
+
+	// Turso connection — prefer memory config, fall back to cloud sync config
+	if o.cfg.Memory.Cold.DatabaseUrl != "" {
+		memCfg.DatabaseURL = o.cfg.Memory.Cold.DatabaseUrl
+		memCfg.AuthToken = o.cfg.Memory.Cold.AuthToken
+	} else if o.cfg.CloudSync.DatabaseURL != "" {
+		memCfg.DatabaseURL = o.cfg.CloudSync.DatabaseURL
+		memCfg.AuthToken = o.cfg.CloudSync.AuthToken
+	} else {
+		return fmt.Errorf("no database URL configured for memory cold tier")
+	}
+
+	// Apply config overrides
+	if o.cfg.Memory.Tree.MaxNodes > 0 {
+		memCfg.TreeMaxNodes = o.cfg.Memory.Tree.MaxNodes
+	}
+	if o.cfg.Memory.Tree.MaxDepth > 0 {
+		memCfg.TreeMaxDepth = o.cfg.Memory.Tree.MaxDepth
+	}
+	if o.cfg.Memory.Hot.MaxSizeBytes > 0 {
+		memCfg.HotMaxBytes = o.cfg.Memory.Hot.MaxSizeBytes
+	}
+	if o.cfg.Memory.Warm.MaxSizeKb > 0 {
+		memCfg.WarmMaxKB = o.cfg.Memory.Warm.MaxSizeKb
+	}
+	if o.cfg.Memory.Warm.RetentionDays > 0 {
+		memCfg.WarmRetentionDays = o.cfg.Memory.Warm.RetentionDays
+	}
+	if o.cfg.Memory.Scoring.HalfLifeDays > 0 {
+		memCfg.HalfLifeDays = o.cfg.Memory.Scoring.HalfLifeDays
+	}
+	if o.cfg.Memory.Distillation.Aggression > 0 {
+		memCfg.DistillationAggression = o.cfg.Memory.Distillation.Aggression
+	}
+
+	mgr, err := memory.NewManager(memCfg, o.logger)
+	if err != nil {
+		return fmt.Errorf("create memory manager: %w", err)
+	}
+
+	if err := mgr.Start(o.ctx); err != nil {
+		return fmt.Errorf("start memory manager: %w", err)
+	}
+
+	o.memory = mgr
+	o.logger.Info("tiered memory system initialized",
+		"agent", memCfg.AgentID,
+		"warm_max_kb", memCfg.WarmMaxKB,
+		"half_life_days", memCfg.HalfLifeDays,
+	)
+
+	return nil
 }
 
 // initOnChain sets up BSC/opBNB chain adapter
@@ -298,6 +382,11 @@ func (o *Orchestrator) GetChainRegistry() *onchain.ChainRegistry {
 func (o *Orchestrator) Stop() error {
 	o.logger.Info("stopping EvoClaw orchestrator")
 	o.cancel()
+
+	// Stop tiered memory (flushes consolidation)
+	if o.memory != nil {
+		o.memory.Stop()
+	}
 
 	// Stop cloud sync (flushes offline queue)
 	if o.cloudSync != nil {
@@ -564,7 +653,7 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 				},
 			}
 
-			memory := &cloudsync.AgentMemory{
+			agentMemory := &cloudsync.AgentMemory{
 				AgentID:      agent.ID,
 				Name:         agent.Def.Name,
 				Model:        model,
@@ -576,10 +665,39 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			if err := o.cloudSync.SyncCritical(ctx, memory); err != nil {
+			if err := o.cloudSync.SyncCritical(ctx, agentMemory); err != nil {
 				o.logger.Debug("cloud sync critical failed (non-fatal)", "error", err)
 			} else {
 				o.logger.Debug("cloud synced after conversation", "agent", agent.ID)
+			}
+		}()
+	}
+
+	// Tiered memory — distill and store conversation
+	if o.memory != nil {
+		go func() {
+			conv := memory.RawConversation{
+				Messages: []memory.Message{
+					{Role: "user", Content: msg.Content},
+					{Role: "agent", Content: resp.Content},
+				},
+				Timestamp: time.Now(),
+			}
+
+			// Categorize by channel for now (tree search will improve this)
+			category := fmt.Sprintf("conversations/%s", msg.Channel)
+			importance := 0.5 // Default; could be tuned by message content analysis
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			if err := o.memory.ProcessConversation(ctx, conv, category, importance); err != nil {
+				o.logger.Debug("memory processing failed (non-fatal)", "error", err)
+			} else {
+				o.logger.Debug("conversation stored in tiered memory",
+					"agent", agent.ID,
+					"category", category,
+				)
 			}
 		}()
 	}

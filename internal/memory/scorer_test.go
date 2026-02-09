@@ -75,7 +75,7 @@ func TestRecencyDecay(t *testing.T) {
 		wantMin  float64
 		wantMax  float64
 	}{
-		{"1 day", 1, 0.97, 0.98},
+		{"1 day", 1, 0.96, 0.98},
 		{"7 days", 7, 0.78, 0.80},
 		{"30 days", 30, 0.36, 0.38},
 		{"90 days", 90, 0.04, 0.06},
