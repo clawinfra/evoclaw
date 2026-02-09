@@ -18,9 +18,13 @@ type Manager struct {
 	cold          *ColdMemory
 	tree          *MemoryTree
 	distiller     *Distiller
+	llmDistiller  *LLMDistiller     // LLM-powered distiller
 	searcher      *TreeSearcher
+	llmSearcher   *LLMTreeSearcher  // LLM-powered tree search
+	rebuilder     *TreeRebuilder    // LLM-powered tree rebuilding
 	consolidator  *Consolidator
 	cfg           MemoryConfig
+	llmFunc       LLMCallFunc       // LLM call function
 	logger        *slog.Logger
 }
 
@@ -148,9 +152,13 @@ func NewManager(cfg MemoryConfig, logger *slog.Logger) (*Manager, error) {
 		cold:         cold,
 		tree:         tree,
 		distiller:    distiller,
+		llmDistiller: nil,  // Set via SetLLMFunc
 		searcher:     searcher,
+		llmSearcher:  nil,  // Set via SetLLMFunc
+		rebuilder:    nil,  // Set via SetLLMFunc
 		consolidator: consolidator,
 		cfg:          cfg,
+		llmFunc:      nil,
 		logger:       logger,
 	}
 
@@ -186,8 +194,16 @@ func (m *Manager) Stop() {
 
 // ProcessConversation processes a raw conversation and stores it in memory
 func (m *Manager) ProcessConversation(ctx context.Context, conv RawConversation, category string, importance float64) error {
-	// Stage 1 → 2: Distill conversation
-	distilled, err := m.distiller.DistillConversation(conv)
+	// Stage 1 → 2: Distill conversation (use LLM if available)
+	var distilled *DistilledFact
+	var err error
+	
+	if m.llmDistiller != nil {
+		distilled, err = m.llmDistiller.DistillConversation(conv)
+	} else {
+		distilled, err = m.distiller.DistillConversation(conv)
+	}
+	
 	if err != nil {
 		return fmt.Errorf("distill conversation: %w", err)
 	}
@@ -236,8 +252,13 @@ func (m *Manager) ProcessConversation(ctx context.Context, conv RawConversation,
 
 // Retrieve finds relevant memories for a query
 func (m *Manager) Retrieve(ctx context.Context, query string, maxResults int) ([]*WarmEntry, error) {
-	// Search tree index
-	searchResults := m.searcher.Search(query, maxResults)
+	// Search tree index (use LLM searcher if available)
+	var searchResults []SearchResult
+	if m.llmSearcher != nil {
+		searchResults = m.llmSearcher.Search(query, maxResults)
+	} else {
+		searchResults = m.searcher.Search(query, maxResults)
+	}
 
 	if len(searchResults) == 0 {
 		m.logger.Debug("no relevant memories found", "query", query)
@@ -384,4 +405,39 @@ func (m *Manager) AddProject(name, description string) error {
 	}
 
 	return m.hot.AddProject(project)
+}
+
+// SetLLMFunc sets the LLM call function and initializes LLM-powered components
+func (m *Manager) SetLLMFunc(llmFunc LLMCallFunc, model string) {
+	m.llmFunc = llmFunc
+
+	if llmFunc == nil {
+		m.logger.Info("LLM function cleared, using rule-based memory only")
+		m.llmDistiller = nil
+		m.llmSearcher = nil
+		m.rebuilder = nil
+		return
+	}
+
+	m.logger.Info("setting up LLM-powered memory components", "model", model)
+
+	// Create LLM-powered distiller
+	m.llmDistiller = NewLLMDistiller(m.distiller, llmFunc, model, m.logger)
+
+	// Create LLM-powered tree searcher
+	m.llmSearcher = NewLLMTreeSearcher(m.tree, m.searcher, llmFunc, m.logger)
+
+	// Create tree rebuilder
+	m.rebuilder = NewTreeRebuilder(m.tree, m.warm, llmFunc, m.logger)
+
+	m.logger.Info("LLM-powered memory components initialized")
+}
+
+// RebuildTree uses LLM to restructure the memory tree
+func (m *Manager) RebuildTree(ctx context.Context) error {
+	if m.rebuilder == nil {
+		return fmt.Errorf("tree rebuilder not initialized (call SetLLMFunc first)")
+	}
+
+	return m.rebuilder.RebuildTree(ctx)
 }

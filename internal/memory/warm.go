@@ -289,7 +289,30 @@ func (w *WarmMemory) GetStats() WarmStats {
 		}
 	}
 
+	// Calculate top categories
+	categoryCounts := make(map[string]int)
+	for _, entry := range w.entries {
+		categoryCounts[entry.Category]++
+	}
+
+	// Sort by count descending
+	topCats := make([]CategoryCount, 0, len(categoryCounts))
+	for cat, count := range categoryCounts {
+		topCats = append(topCats, CategoryCount{cat, count})
+	}
+	sort.Slice(topCats, func(i, j int) bool {
+		return topCats[i].Count > topCats[j].Count
+	})
+
+	stats.TopCategories = topCats
+
 	return stats
+}
+
+// CategoryCount holds category statistics
+type CategoryCount struct {
+	Category string
+	Count    int
 }
 
 // WarmStats holds statistics about warm memory
@@ -299,6 +322,23 @@ type WarmStats struct {
 	CapacityBytes   int
 	OldestEntry     time.Time
 	NewestEntry     time.Time
+	TopCategories   []CategoryCount
+}
+
+// UpdateCategory updates the category for all entries matching oldCategory
+func (w *WarmMemory) UpdateCategory(oldCategory, newCategory string) int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	updated := 0
+	for _, entry := range w.entries {
+		if entry.Category == oldCategory {
+			entry.Category = newCategory
+			updated++
+		}
+	}
+
+	return updated
 }
 
 // Serialize exports all entries to JSON
