@@ -333,10 +333,36 @@ func (o *Orchestrator) initMemory() error {
 	}
 
 	o.memory = mgr
+
+	// Inject LLM callback for intelligent distillation + search
+	llmModel := "default" // Use whatever model the orchestrator has configured
+	if o.cfg.Memory.Distillation.Model != "" {
+		llmModel = o.cfg.Memory.Distillation.Model
+	}
+
+	mgr.SetLLMFunc(func(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+		provider := o.findProvider(llmModel)
+		if provider == nil {
+			return "", fmt.Errorf("no LLM provider available for model %s", llmModel)
+		}
+		resp, err := provider.Chat(ctx, ChatRequest{
+			Model:        llmModel,
+			SystemPrompt: systemPrompt,
+			Messages:     []ChatMessage{{Role: "user", Content: userPrompt}},
+			MaxTokens:    512,
+			Temperature:  0.3,
+		})
+		if err != nil {
+			return "", err
+		}
+		return resp.Content, nil
+	}, llmModel)
+
 	o.logger.Info("tiered memory system initialized",
 		"agent", memCfg.AgentID,
 		"warm_max_kb", memCfg.WarmMaxKB,
 		"half_life_days", memCfg.HalfLifeDays,
+		"llm_model", llmModel,
 	)
 
 	return nil
