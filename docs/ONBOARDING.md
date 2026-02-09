@@ -273,6 +273,55 @@ evoclaw chain add hyperliquid --wallet 0x...
 
 Your ClawChain identity works regardless. Execution chains extend what your agent can do, but they're never required.
 
+### What Execution Chains Unlock
+
+Once you connect an execution chain, your agent gains real on-chain capabilities:
+
+```
+evoclaw init                                    → ClawChain identity
+evoclaw chain add bsc-testnet --wallet 0x...    → Execution chain connected
+evoclaw start                                   → Agent is live
+```
+
+Now your agent can:
+
+- **Trade** — Token swaps, arbitrage, limit orders across DEXs
+- **DEX** — Provide liquidity, interact with AMMs (PancakeSwap, Uniswap, etc.)
+- **DAO** — Vote on proposals, delegate governance tokens, participate in DAOs
+- **NFT** — Mint, trade, and manage NFT collections
+- **DeFi** — Lending, borrowing, yield farming, staking
+
+Every action is reported back to ClawChain for reputation tracking. An agent that consistently makes good trades builds a verifiable on-chain track record.
+
+### Managing Chains
+
+```bash
+# List configured chains
+evoclaw chain list
+
+# Output:
+#   ID             Type         Name                        Status
+#   bsc-testnet    EVM (97)     BNB Smart Chain Testnet     ✅ enabled
+#   hyperliquid    Hyperliquid  Hyperliquid DEX             ✅ enabled
+
+# Remove a chain
+evoclaw chain remove bsc-testnet
+```
+
+### Supported Chains
+
+| Chain | Type | Use Case |
+|-------|------|----------|
+| BSC / opBNB | EVM | Low-fee DeFi, token trading |
+| Ethereum | EVM | High-value DeFi, NFTs, ENS |
+| Arbitrum / Optimism / Base | EVM | L2 DeFi, lower gas |
+| Polygon | EVM | Gaming, social, low-fee DeFi |
+| Solana | Solana | High-frequency trading, speed-critical |
+| Hyperliquid | Hyperliquid | Perpetual futures, derivatives |
+| ClawChain | Substrate | Home chain (auto-configured) |
+
+Any EVM-compatible chain can be added with `--rpc` and `--chain-id` flags.
+
 ---
 
 ## Complete

@@ -44,6 +44,13 @@
   - Expose TUI via web for demos and remote access
   - Auth layer (Cloudflare Access or app-level)
   - Embed in dashboard as a "Terminal" tab
+- 🔜 Multi-Chain CLI (`evoclaw chain`)
+  - `evoclaw chain add <id>` — connect execution chains (BSC, ETH, Solana, HL, etc.)
+  - `evoclaw chain list` — show all configured chains with status
+  - `evoclaw chain remove <id>` — disconnect a chain
+  - Presets for known chains (BSC, ETH, Arbitrum, Base, opBNB, Polygon, etc.)
+  - Unlocks: Trading, DEX, DAO, NFT, DeFi on any connected chain
+  - All actions report back to ClawChain for reputation tracking
 - 🔜 Contract Deployment
   - Deploy AgentRegistry to BSC testnet
   - Real transaction signing
