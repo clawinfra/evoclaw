@@ -24,8 +24,11 @@ type Config struct {
 	// Evolution engine settings
 	Evolution EvolutionConfig `json:"evolution"`
 
-	// On-chain integration (BSC/opBNB)
+	// On-chain integration (BSC/opBNB) - DEPRECATED: Use Chains instead
 	OnChain OnChainConfig `json:"onchain"`
+
+	// Multi-chain configuration (execution chains)
+	Chains map[string]ChainConfig `json:"chains,omitempty"`
 
 	// Cloud sync configuration
 	CloudSync CloudSyncConfig `json:"cloudSync,omitempty"`
@@ -56,12 +59,24 @@ type ChannelConfig struct {
 }
 
 // OnChainConfig holds BSC/opBNB blockchain settings
+// DEPRECATED: Use Chains map instead for multi-chain support
 type OnChainConfig struct {
 	Enabled         bool   `json:"enabled"`
 	RPCURL          string `json:"rpcUrl"`
 	ContractAddress string `json:"contractAddress"`
 	PrivateKey      string `json:"privateKey,omitempty"` // signing key (hex, 0x-prefixed)
 	ChainID         int64  `json:"chainId"`              // 56=BSC, 97=BSCTestnet, 204=opBNB
+}
+
+// ChainConfig holds configuration for a blockchain (execution chain)
+type ChainConfig struct {
+	Enabled  bool   `json:"enabled"`
+	Type     string `json:"type"`              // "evm", "solana", "substrate", "hyperliquid"
+	Name     string `json:"name"`              // Human-readable: "BNB Smart Chain Testnet"
+	RPCURL   string `json:"rpcUrl"`
+	ChainID  int64  `json:"chainId,omitempty"` // EVM chains only
+	Wallet   string `json:"wallet,omitempty"`  // Wallet address
+	Explorer string `json:"explorer,omitempty"` // Block explorer URL
 }
 
 type CloudSyncConfig struct {

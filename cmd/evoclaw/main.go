@@ -16,9 +16,11 @@ import (
 	"github.com/clawinfra/evoclaw/internal/agents"
 	"github.com/clawinfra/evoclaw/internal/api"
 	"github.com/clawinfra/evoclaw/internal/channels"
+	"github.com/clawinfra/evoclaw/internal/cli"
 	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/evolution"
 	"github.com/clawinfra/evoclaw/internal/models"
+	"github.com/clawinfra/evoclaw/internal/onchain"
 	"github.com/clawinfra/evoclaw/internal/orchestrator"
 )
 
@@ -32,16 +34,17 @@ var (
 
 // App holds all the runtime components
 type App struct {
-	Config       *config.Config
-	Logger       *slog.Logger
-	Registry     *agents.Registry
-	MemoryStore  *agents.MemoryStore
-	Router       *models.Router
-	EvoEngine    *evolution.Engine
-	Orchestrator *orchestrator.Orchestrator
-	APIServer    *api.Server
-	apiContext   context.Context
-	apiCancel    context.CancelFunc
+	Config        *config.Config
+	Logger        *slog.Logger
+	Registry      *agents.Registry
+	MemoryStore   *agents.MemoryStore
+	Router        *models.Router
+	EvoEngine     *evolution.Engine
+	ChainRegistry *onchain.ChainRegistry
+	Orchestrator  *orchestrator.Orchestrator
+	APIServer     *api.Server
+	apiContext    context.Context
+	apiCancel     context.CancelFunc
 }
 
 func main() {
@@ -49,9 +52,66 @@ func main() {
 }
 
 func run() int {
-	configPath := flag.String("config", "evoclaw.json", "Path to config file")
-	showVersion := flag.Bool("version", false, "Show version")
-	flag.Parse()
+	// Check for subcommands (look through all args, not just first)
+	configPath := "evoclaw.json"
+	var subCmd string
+	var subCmdIdx int
+	
+	// First pass: find config flag
+	skipNext := false
+	for i := 1; i < len(os.Args); i++ {
+		if skipNext {
+			skipNext = false
+			continue
+		}
+		arg := os.Args[i]
+		if arg == "--config" || arg == "-config" {
+			if i+1 < len(os.Args) {
+				configPath = os.Args[i+1]
+				skipNext = true
+			}
+		}
+	}
+	
+	// Second pass: find subcommand (first non-flag, non-flag-value arg)
+	skipNext = false
+	for i := 1; i < len(os.Args); i++ {
+		if skipNext {
+			skipNext = false
+			continue
+		}
+		arg := os.Args[i]
+		
+		// Skip known flag patterns
+		if arg == "--config" || arg == "-config" || arg == "--version" || arg == "-version" {
+			if arg == "--config" || arg == "-config" {
+				skipNext = true
+			}
+			continue
+		}
+		
+		// This must be a subcommand or positional arg
+		if len(arg) > 0 && arg[0] != '-' {
+			subCmd = arg
+			subCmdIdx = i
+			break
+		}
+	}
+	
+	// Handle subcommands
+	if subCmd != "" {
+		switch subCmd {
+		case "chain":
+			// Pass args after the subcommand
+			return cli.ChainCommand(os.Args[subCmdIdx+1:], configPath)
+		}
+	}
+
+	// No subcommand - parse as normal server start
+	fs := flag.NewFlagSet("evoclaw", flag.ExitOnError)
+	configPathFlag := fs.String("config", "evoclaw.json", "Path to config file")
+	showVersion := fs.Bool("version", false, "Show version")
+	fs.Parse(os.Args[1:])
 
 	if *showVersion {
 		fmt.Printf("EvoClaw v%s (built %s)\n", version, buildTime)
@@ -59,9 +119,14 @@ func run() int {
 		fmt.Println("https://github.com/clawinfra/evoclaw")
 		return 0
 	}
+	
+	// Use the config path from flag if provided
+	if *configPathFlag != "evoclaw.json" {
+		configPath = *configPathFlag
+	}
 
 	// Setup application
-	app, err := setup(*configPath)
+	app, err := setup(configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Setup failed: %v\n", err)
 		return 1
@@ -153,6 +218,12 @@ func setup(configPath string) (*App, error) {
 		)
 	}
 
+	// Create chain registry and setup chains
+	app.ChainRegistry = onchain.NewChainRegistry(app.Logger)
+	if err := setupChains(app.ChainRegistry, cfg, app.Logger); err != nil {
+		return nil, fmt.Errorf("setup chains: %w", err)
+	}
+
 	// Create orchestrator
 	app.Orchestrator = orchestrator.New(cfg, app.Logger)
 
@@ -237,6 +308,80 @@ func initializeAgents(registry *agents.Registry, cfg *config.Config, logger *slo
 			return fmt.Errorf("create agent %s: %w", agentDef.ID, err)
 		}
 	}
+	return nil
+}
+
+// setupChains initializes blockchain adapters from config
+func setupChains(registry *onchain.ChainRegistry, cfg *config.Config, logger *slog.Logger) error {
+	// Migrate old OnChain config if needed
+	cfg.MigrateOnChainConfig()
+
+	// No chains configured - that's ok
+	if len(cfg.Chains) == 0 {
+		logger.Info("no chains configured")
+		return nil
+	}
+
+	ctx := context.Background()
+
+	// Setup each configured chain
+	for chainID, chainCfg := range cfg.Chains {
+		if !chainCfg.Enabled {
+			logger.Info("chain disabled, skipping", "chain", chainID)
+			continue
+		}
+
+		logger.Info("setting up chain",
+			"chain", chainID,
+			"type", chainCfg.Type,
+			"name", chainCfg.Name,
+		)
+
+		switch chainCfg.Type {
+		case "evm":
+			// Create EVM adapter (BSCClient works for any EVM chain)
+			bscCfg := onchain.Config{
+				RPCURL:  chainCfg.RPCURL,
+				ChainID: chainCfg.ChainID,
+			}
+			client, err := onchain.NewBSCClient(bscCfg, logger)
+			if err != nil {
+				logger.Error("failed to create EVM client",
+					"chain", chainID,
+					"error", err,
+				)
+				continue
+			}
+
+			// Connect to the chain
+			if err := client.Connect(ctx); err != nil {
+				logger.Warn("failed to connect to chain (will retry later)",
+					"chain", chainID,
+					"error", err,
+				)
+			}
+
+			registry.Register(client)
+			logger.Info("chain registered",
+				"chain", chainID,
+				"chainId", chainCfg.ChainID,
+			)
+
+		case "solana", "hyperliquid", "substrate":
+			logger.Warn("chain type not yet implemented",
+				"chain", chainID,
+				"type", chainCfg.Type,
+			)
+			// TODO: Implement other chain types
+
+		default:
+			logger.Error("unknown chain type",
+				"chain", chainID,
+				"type", chainCfg.Type,
+			)
+		}
+	}
+
 	return nil
 }
 
