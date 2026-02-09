@@ -332,6 +332,11 @@ func (m *Manager) GetHotMemory() *HotMemory {
 	return m.hot
 }
 
+// GetWarm returns the warm memory tier
+func (m *Manager) GetWarm() *WarmMemory {
+	return m.warm
+}
+
 // GetTree returns the memory tree index
 func (m *Manager) GetTree() *MemoryTree {
 	return m.tree

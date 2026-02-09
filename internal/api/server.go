@@ -63,6 +63,9 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/costs", s.handleCosts)
 	mux.HandleFunc("/api/dashboard", s.handleDashboard)
 	mux.HandleFunc("/api/logs/stream", s.handleLogStream)
+	mux.HandleFunc("/api/memory/stats", s.handleMemoryStats)
+	mux.HandleFunc("/api/memory/tree", s.handleMemoryTree)
+	mux.HandleFunc("/api/memory/retrieve", s.handleMemoryRetrieve)
 
 	// Serve embedded web dashboard
 	if s.webFS != nil {
