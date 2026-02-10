@@ -1,14 +1,96 @@
 # EvoClaw Evolution Engine
 
-> *Agents that improve themselves. Automatically.* 🧬
+> *The genome is the soul. Evolution is the journey.* 🧬
 
 ---
 
 ## Overview
 
-EvoClaw's evolution engine is what makes it "self-evolving" — agents automatically measure their own performance, and when they underperform, the system mutates their strategy parameters to find better configurations. No human intervention required.
+EvoClaw's evolution engine is what makes agents "self-evolving." Every agent has a **genome** — a complete description of what it is and what it can become. The evolution engine explores that genome space, mutating parameters, selecting winning traits, and discarding what doesn't work.
 
-This is **not** traditional machine learning. It's **genetic/evolutionary optimization** — the same approach nature uses. Strategies that work survive. Strategies that don't get mutated until they do.
+This is **not** traditional machine learning. It's **genetic/evolutionary optimization** — the same approach nature uses. What works survives. What doesn't gets mutated until it does.
+
+---
+
+## The Genome
+
+> *"The Genome is the Soul"* — [PHILOSOPHY.md](PHILOSOPHY.md)
+
+Every agent's genome (`genome` field in config) defines the full space of what that agent can become. Hard boundaries (safety, ethics, risk limits) are walls. Everything else is water — flowing toward fitness.
+
+```json
+{
+  "genome": {
+    "identity": {
+      "name": "alpha-trader",
+      "persona": "disciplined, data-driven",
+      "voice": "concise"
+    },
+    "skills": {
+      "trading": {
+        "enabled": true,
+        "strategies": ["FundingArbitrage"],
+        "params": {
+          "funding_threshold": -0.1,
+          "exit_funding": 0.0,
+          "position_size_usd": 100,
+          "max_positions": 3
+        }
+      },
+      "market-monitor": {
+        "enabled": true,
+        "params": {
+          "check_interval_secs": 60,
+          "alert_threshold_pct": 5.0
+        }
+      },
+      "evo-lens": {
+        "enabled": false
+      }
+    },
+    "behavior": {
+      "risk_tolerance": 0.3,
+      "verbosity": 0.5,
+      "autonomy": 0.8
+    },
+    "constraints": {
+      "max_loss_usd": 500,
+      "allowed_assets": ["BTC", "ETH", "SOL"],
+      "blocked_actions": ["withdraw"]
+    }
+  }
+}
+```
+
+### Genome Layers
+
+| Layer | What Evolves | What Doesn't |
+|-------|-------------|-------------|
+| **Identity** | Persona tone, communication style | Name, DID, owner |
+| **Skills** | Skill parameters, skill selection, strategy configs | Skill code itself (that's a developer update) |
+| **Behavior** | Risk tolerance, verbosity, autonomy level | Safety constraints, ethics boundaries |
+| **Constraints** | Nothing — constraints are walls | Max loss, blocked actions, allowed assets |
+
+**Skills are the primary unit of evolution.** Trading is just a skill. Monitoring is a skill. Image generation is a skill. Each skill has parameters that the evolution engine can tune.
+
+---
+
+## Evolution Scope
+
+Evolution applies to **any skill**, not just trading. Every skill exposes tunable parameters, and the evolution engine optimizes them based on skill-specific fitness metrics.
+
+### Examples Across Skill Types
+
+| Skill | Evolvable Parameters | Fitness Metric |
+|-------|---------------------|----------------|
+| **Trading** | Thresholds, position sizes, timing | PnL, Sharpe ratio, win rate |
+| **Market Monitor** | Check interval, alert thresholds, sources | Alert accuracy, false positive rate |
+| **Companion** | Response length, topic preferences, check-in frequency | User engagement, sentiment |
+| **DevOps** | Retry counts, timeout values, escalation thresholds | Uptime, incident response time |
+| **Content** | Posting frequency, topic selection, tone | Engagement rate, reach |
+| **Evo-Lens** | Style parameters, prompt templates | Image quality score, user approval rate |
+
+The evolution engine doesn't know or care what the skill does — it just sees parameters in, fitness out.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -35,7 +117,7 @@ This is **not** traditional machine learning. It's **genetic/evolutionary optimi
 
 ### 1. Performance Tracking
 
-Every agent action is tracked by the orchestrator:
+Every agent action is tracked by the orchestrator with **universal metrics** that apply to all skills:
 
 | Metric | What It Measures |
 |--------|-----------------|
@@ -43,9 +125,9 @@ Every agent action is tracked by the orchestrator:
 | **Avg Response Time** | Latency in milliseconds |
 | **Cost (USD)** | API spend per action |
 | **Total Actions** | Number of actions taken |
-| **Custom Metrics** | Strategy-specific (e.g., PnL, win rate) |
+| **Custom Metrics** | Skill-specific (see below) |
 
-For trading agents, the Rust edge agent tracks additional metrics via `EvolutionTracker`:
+Each skill can report its own custom metrics. For example, the **trading skill** reports via `EvolutionTracker`:
 
 | Metric | What It Measures |
 |--------|-----------------|
@@ -54,6 +136,8 @@ For trading agents, the Rust edge agent tracks additional metrics via `Evolution
 | **Sharpe Ratio** | Risk-adjusted returns (higher = better) |
 | **Max Drawdown** | Worst peak-to-trough decline |
 | **Avg Profit/Trade** | Mean PnL per trade |
+
+Other skills report different custom metrics — a monitoring skill might report alert accuracy, a companion skill might report user engagement scores.
 
 ### 2. Fitness Score
 
@@ -125,36 +209,58 @@ Over time, agents converge on parameter configurations that maximize their fitne
 
 ---
 
-## Strategies
+## Skills & Strategies
 
-Strategies are pluggable modules that define how an agent makes decisions. Each strategy implements the `Strategy` trait:
+**Trading is just a skill.** The evolution engine doesn't have special knowledge of trading — it sees skills with parameters and fitness scores. Any skill can evolve.
+
+### Skill Evolution Interface
+
+Every evolvable skill exposes parameters and accepts mutations through a standard interface:
 
 ```rust
 trait Strategy {
     fn evaluate(&mut self, data: &MarketData) -> Vec<Signal>;
-    fn get_params(&self) -> Value;
-    fn update_params(&mut self, params: Value) -> Result<(), String>;
+    fn get_params(&self) -> Value;          // Current parameters
+    fn update_params(&mut self, params: Value) -> Result<(), String>; // Apply mutation
     fn name(&self) -> &str;
     fn reset(&mut self);
 }
 ```
 
-### Built-in: FundingArbitrage
+### Example: Trading Skill (FundingArbitrage)
 
-A trading strategy that exploits negative funding rates on perpetual futures:
+A trading strategy within the trading skill that exploits negative funding rates:
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `funding_threshold` | -0.1% | Enter when funding rate drops below this |
-| `exit_funding` | 0.0% | Exit when funding rate rises above this |
-| `position_size_usd` | $100 | USD size per position |
-| `max_positions` | 3 | Maximum concurrent positions |
+| Parameter | Default | Evolvable | Description |
+|-----------|---------|-----------|-------------|
+| `funding_threshold` | -0.1% | ✅ | Enter when funding rate drops below this |
+| `exit_funding` | 0.0% | ✅ | Exit when funding rate rises above this |
+| `position_size_usd` | $100 | ✅ | USD size per position |
+| `max_positions` | 3 | ✅ | Maximum concurrent positions |
 
-**Logic:** When traders are heavily short (negative funding), longs get paid. The strategy goes long to collect funding payments, then exits when funding normalizes.
+**Fitness:** PnL, Sharpe ratio, win rate, drawdown.
 
-### Custom Strategies
+### Example: Companion Skill
 
-Add your own strategy by implementing the `Strategy` trait. The evolution engine will automatically track its performance and mutate its parameters.
+A companion agent for elderly care:
+
+| Parameter | Default | Evolvable | Description |
+|-----------|---------|-----------|-------------|
+| `check_in_interval_min` | 120 | ✅ | How often to proactively check in |
+| `response_length` | "medium" | ✅ | Short/medium/long responses |
+| `topic_weights` | {"health": 0.3, "family": 0.4, "hobbies": 0.3} | ✅ | Conversation topic mix |
+| `morning_greeting` | true | ✅ | Whether to send morning greetings |
+
+**Fitness:** User engagement (responses per check-in), sentiment score, session duration.
+
+### Custom Skills
+
+Any skill can participate in evolution by:
+1. Exposing parameters via `get_params()`
+2. Accepting mutations via `update_params()`
+3. Reporting custom metrics to the orchestrator
+
+The evolution engine will automatically track performance and mutate parameters when fitness drops.
 
 ---
 
@@ -347,6 +453,52 @@ Evolution history is synced to Turso cloud storage:
 - **Fitness trends** are persisted across restarts
 - **Strategy versions** are tracked (can roll back to previous generation)
 - If a device is lost, evolution history survives in the cloud
+
+---
+
+## Genome Evolution Roadmap
+
+The current implementation covers **Layer 1** (skill parameter mutation). The full genome evolution vision is broader:
+
+### Layer 1: Skill Parameter Mutation ✅ (Current)
+- Tune numeric/categorical parameters within a skill
+- Fitness-based evaluation and selection
+- Single-agent optimization
+
+### Layer 2: Skill Selection & Composition (Planned)
+- Agent discovers which skills work best for its tasks
+- Enable/disable skills based on fitness contribution
+- Skill weight optimization (how much to rely on each skill)
+- Example: A monitoring agent evolves to rely more on Twitter skill vs Reddit skill based on alert accuracy
+
+### Layer 3: Behavioral Evolution (Planned)
+- System prompt mutation (tone, verbosity, reasoning style)
+- Tool usage pattern optimization (which tools, in what order)
+- Communication style adaptation to user preferences
+- Autonomy level tuning (when to act vs ask)
+
+### Layer 4: Cross-Agent Breeding (Future)
+- High-fitness agents share genome traits with low-fitness agents
+- Crossover: combine successful parameters from two agents
+- Population-level evolution across agent fleets
+- Speciation: agents diverge into specialized roles
+
+### Layer 5: Genome Marketplace (Future)
+- Share evolved genomes on ClawChain
+- Reputation-weighted genome trading
+- Agents can "buy" proven genome configurations from successful agents
+- On-chain fitness verification
+
+```
+Current                                              Future
+Layer 1                                              Layer 5
+│                                                         │
+│  📊 Param     🧩 Skill      🎭 Behavior   🧬 Breeding  🏪 Market │
+│  Tuning      Selection    Evolution    Crossover    Genome    │
+│  ✅           🔜           🔜           🔮           🔮        │
+│                                                         │
+└──────────── Same genome format throughout ─────────────┘
+```
 
 ---
 
