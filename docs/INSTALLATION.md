@@ -207,16 +207,25 @@ cd edge-agent && cargo build --release
 
 ### Step 3: Configure Edge Agent
 
-Create `~/.evoclaw/agent.toml` on each edge device:
+The edge agent supports **auto-discovery** via mDNS (DNS-SD). Just power it on and it finds the orchestrator automatically:
+
+```bash
+evoclaw-edge init
+# → Scanning for orchestrator via mDNS...
+# → Found: evoclaw-orch._evoclaw._tcp.local (192.168.1.100:8420)
+# → Connected! Agent registered as "living-room-pi"
+```
+
+If auto-discovery isn't available (no mDNS on network, or custom setup), create `~/.evoclaw/agent.toml` manually:
 
 ```toml
-# Edge Agent Configuration
+# Edge Agent Configuration (manual fallback)
 agent_id = "living-room-pi"
 agent_type = "monitor"
 name = "Living Room Eye 👁️"
 
 [mqtt]
-broker = "192.168.1.100"    # Orchestrator's IP
+broker = "192.168.1.100"    # Orchestrator's IP (only needed if mDNS unavailable)
 port = 1883
 keep_alive_secs = 30
 
@@ -429,7 +438,7 @@ E2B VMs are ephemeral, but your agent's identity and memory survive:
 
 | Data | Where It Lives | Survives Destruction? |
 |------|---------------|----------------------|
-| Hot memory (session) | VM RAM | ❌ Rebuilt from warm tier |
+| Hot memory (session) | VM RAM | ✅ Rebuilt from warm tier on next boot |
 | Warm memory | Turso cloud DB | ✅ Always |
 | Cold archive | Turso cloud DB | ✅ Always |
 | Agent config | Turso / re-provision | ✅ With cloud sync |
@@ -532,6 +541,28 @@ evoclaw memory stats       # Memory tier statistics
 | **ClawChain** | ✅ | ✅ (shared identity) | ✅ | ✅ |
 | **Best For** | Power users | IoT/distributed | Compliance/security | Demos/CI |
 | **Cost** | Free | Free | Free | E2B pricing |
+
+---
+
+## Memory Recovery Across Tiers
+
+Hot memory is a **cache** — not a separate data store. If it's lost (crash, reboot, sandbox destruction), it rebuilds automatically:
+
+```
+Agent boots → Hot memory empty
+           → Query warm tier for recent context + core facts
+           → Reconstruct hot memory (~2-5 seconds)
+           → Agent resumes with full context
+```
+
+| Tier | Hot Memory | Warm Memory | Cold Archive |
+|------|-----------|-------------|-------------|
+| Native | In-process RAM | Local + Turso sync | Turso DB |
+| Multi-Device | Per-device RAM | Orchestrator + Turso | Turso DB |
+| Podman | Container RAM | Volume + Turso sync | Turso DB |
+| E2B | VM RAM | Turso (real-time sync) | Turso DB |
+
+**Warm is the source of truth.** Hot memory is rebuilt from warm on every boot. Cold archive provides deep history on-demand. Losing a device or container loses nothing — warm and cold persist in Turso cloud storage.
 
 ---
 
