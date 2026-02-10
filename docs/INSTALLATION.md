@@ -134,30 +134,64 @@ evoclaw status         # Check health + on-chain status
 
 One orchestrator (Go) coordinates multiple edge agents (Rust) across devices. Communication via MQTT.
 
-### Architecture
+### Architecture & Component Relationships
 
 ```
-┌─────────────────────────────────┐
-│   Orchestrator (Go, 6.9MB)      │
-│   Desktop / Server / Pi         │
-│   - Agent registry              │
-│   - Evolution engine            │
-│   - Model routing               │
-│   - HTTP API (:8420)            │
-└──────────┬──────────────────────┘
-           │ MQTT
-    ┌──────┴──────┐
-    │             │
-┌───┴───┐   ┌────┴──┐   ┌────────┐
-│ Edge 1│   │Edge 2 │   │Edge N  │
-│ Pi    │   │Laptop │   │IoT    │
-│ 1.8MB │   │ 1.8MB │   │ 1.8MB │
-└───────┘   └───────┘   └────────┘
+┌──────────────────────────────────────────┐
+│         Hub Machine                       │
+│   (Desktop / Server / Capable Pi)         │
+│                                           │
+│   ┌──────────────────────────────────┐   │
+│   │   MQTT Broker (Mosquitto)        │   │
+│   │   Message bus between all parts  │   │
+│   │   Port 1883                      │   │
+│   └──────────────┬───────────────────┘   │
+│                  │                        │
+│   ┌──────────────┴───────────────────┐   │
+│   │   Orchestrator (Go, 6.9MB)       │   │
+│   │   - Agent registry & discovery   │   │
+│   │   - Evolution engine             │   │
+│   │   - Model routing (LLM calls)    │   │
+│   │   - HTTP API (:8420)             │   │
+│   │   - Subscribes to MQTT topics    │   │
+│   └──────────────────────────────────┘   │
+└──────────────────┬───────────────────────┘
+                   │ MQTT (network)
+        ┌──────────┼──────────┐
+        │          │          │
+   ┌────┴───┐ ┌───┴────┐ ┌───┴────┐
+   │ Edge 1 │ │ Edge 2 │ │ Edge N │
+   │ Pi     │ │ Laptop │ │ IoT    │
+   │ 1.8MB  │ │ 1.8MB  │ │ 1.8MB  │
+   └────────┘ └────────┘ └────────┘
+   Rust agent  Rust agent  Rust agent
+   (no LLM)   (no LLM)    (no LLM)
 ```
 
-### Step 1: Install the Orchestrator
+### How They Relate
 
-On your main machine (desktop, server, or capable Pi):
+| Component | Role | Where It Runs |
+|-----------|------|--------------|
+| **MQTT Broker** | Message bus — routes messages between orchestrator and all edge agents | Hub machine (co-located with orchestrator) |
+| **Orchestrator** | Brain — registers agents, routes LLM calls, runs evolution engine, serves HTTP API | Hub machine |
+| **Edge Agent** | Hands — runs tools (cameras, sensors, scripts), reports to orchestrator via MQTT | Any device on the network |
+
+**Message flow:**
+```
+Edge agent runs tool (camera, sensor, script)
+  → Publishes result to MQTT broker
+    → Orchestrator receives, decides next action (may call LLM)
+      → Orchestrator publishes command to MQTT broker
+        → Edge agent receives and executes
+```
+
+Edge agents are **lightweight and stateless** — they don't call LLMs directly. The orchestrator handles all intelligence. Edge agents just run tools and report back.
+
+> **The broker always runs on the hub machine**, alongside the orchestrator. Edge devices only need the 1.8MB Rust agent binary — no broker, no LLM, no heavy dependencies.
+
+### Step 1: Install the Orchestrator + Broker (Hub Machine)
+
+On your main machine (desktop, server, or capable Pi). This machine runs **both** the orchestrator and the MQTT broker:
 
 ```bash
 curl -fsSL https://evoclaw.win/install.sh | sh
