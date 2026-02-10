@@ -122,7 +122,7 @@ func TestOpenAIChatSuccess(t *testing.T) {
 func TestOpenAIChatError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error": {"message": "Invalid API key", "type": "invalid_request_error"}}`))
+		_, _ = w.Write([]byte(`{"error": {"message": "Invalid API key", "type": "invalid_request_error"}}`))
 	}))
 	defer server.Close()
 
@@ -148,7 +148,7 @@ func TestOpenAIChatError(t *testing.T) {
 func TestOpenAIChatWithSystemPrompt(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody openAIRequest
-		json.NewDecoder(r.Body).Decode(&reqBody)
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 
 		// Should have system message + user message
 		if len(reqBody.Messages) != 2 {
@@ -160,7 +160,7 @@ func TestOpenAIChatWithSystemPrompt(t *testing.T) {
 		}
 
 		resp := `{"id": "chatcmpl-123", "model": "gpt-4", "choices": [{"message": {"role": "assistant", "content": "OK"}, "finish_reason": "stop"}]}`
-		w.Write([]byte(resp))
+		_, _ = w.Write([]byte(resp))
 	}))
 	defer server.Close()
 

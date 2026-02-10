@@ -329,7 +329,7 @@ func TestTreeRebuilder_SummarizeWarmMemory(t *testing.T) {
 			Content:   &DistilledFact{Fact: "test"},
 			Importance: 0.5,
 		}
-		warm.Add(entry)
+		_ = warm.Add(entry)
 	}
 
 	tree := NewMemoryTree()

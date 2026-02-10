@@ -304,7 +304,7 @@ func TestMaxNodesConstraint(t *testing.T) {
 	// Add nodes using nested paths to respect max children per node (10)
 	parents := []string{"a", "b", "c", "d", "e"}
 	for _, p := range parents {
-		tree.AddNode(p, "parent")
+		_ = tree.AddNode(p, "parent")
 	}
 	// Now add children under each parent to fill up to near max
 	count := tree.NodeCount

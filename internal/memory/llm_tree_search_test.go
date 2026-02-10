@@ -131,7 +131,7 @@ func TestLLMTreeSearcher_TopKLimit(t *testing.T) {
 
 	tree := NewMemoryTree()
 	for i := 1; i <= 6; i++ {
-		tree.AddNode("path", "Path")
+		_ = tree.AddNode("path", "Path")
 	}
 
 	fallback := NewTreeSearcher(tree, DefaultScoreConfig())

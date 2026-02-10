@@ -61,7 +61,7 @@ func TestOllamaChatSuccess(t *testing.T) {
 
 		// Decode request to verify format
 		var reqBody ollamaChatRequest
-		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		if err := _ = json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 			t.Fatalf("failed to decode request: %v", err)
 		}
 
@@ -166,7 +166,7 @@ func TestOllamaChatError(t *testing.T) {
 func TestOllamaChatWithSystemPrompt(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody ollamaChatRequest
-		_ = json.NewDecoder(r.Body).Decode(&reqBody)
+		_ = _ = json.NewDecoder(r.Body).Decode(&reqBody)
 
 		// Should have system message + user message
 		if len(reqBody.Messages) != 2 {
@@ -212,7 +212,7 @@ func TestOllamaChatWithSystemPrompt(t *testing.T) {
 func TestOllamaChatMultipleMessages(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody ollamaChatRequest
-		json.NewDecoder(r.Body).Decode(&reqBody)
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 
 		// Should have 3 messages
 		if len(reqBody.Messages) != 3 {

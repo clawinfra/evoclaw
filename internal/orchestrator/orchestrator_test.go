@@ -329,7 +329,7 @@ func TestMessageRouting(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	// Wait for agent to be created
 	time.Sleep(50 * time.Millisecond)
@@ -378,7 +378,7 @@ func TestListAgents(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -404,7 +404,7 @@ func TestGetAgentMetrics(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -447,7 +447,7 @@ func TestSelectAgent(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -495,7 +495,7 @@ func TestEvolutionLoop(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	// Wait for agent creation
 	time.Sleep(50 * time.Millisecond)
@@ -536,7 +536,7 @@ func TestRouteOutgoing_UnknownChannel(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -571,7 +571,7 @@ func TestSelectModel_UseAgentModel(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -601,7 +601,7 @@ func TestSelectModel_UseDefaultComplex(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -627,7 +627,7 @@ func TestProcessWithAgent_NoProvider(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -670,7 +670,7 @@ func TestProcessWithAgent_LLMError(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -717,7 +717,7 @@ func TestProcessWithAgent_WithEvolution(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -775,7 +775,7 @@ func TestHandleMessage_NoAgents(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -806,7 +806,7 @@ func TestHandleMessage_AgentNotFound(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -855,7 +855,7 @@ func TestEvaluateAgents_InsufficientSamples(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -894,7 +894,7 @@ func TestEvaluateAgents_HighFitness(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
