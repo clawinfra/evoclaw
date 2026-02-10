@@ -121,6 +121,12 @@ pub struct HttpRpcClient {
     client: reqwest::Client,
 }
 
+impl Default for HttpRpcClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HttpRpcClient {
     pub fn new() -> Self {
         Self {
@@ -701,6 +707,7 @@ mod tests {
             }
         }
 
+        #[allow(dead_code)]
         async fn set_response(&self, method: &str, response: Value) {
             self.responses
                 .lock()

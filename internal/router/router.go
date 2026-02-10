@@ -156,13 +156,13 @@ func (r *Router) GetSavings() CostSavings {
 func (r *Router) SavingsReport() string {
 	s := r.GetSavings()
 
-	report := fmt.Sprintf("=== LLM Router Cost Report ===\n")
+	report := "=== LLM Router Cost Report ===\n"
 	report += fmt.Sprintf("Total Requests:    %d\n", s.TotalRequests)
 	report += fmt.Sprintf("Baseline Cost:     $%.4f (all %s)\n", s.BaselineCost, r.cfg.DefaultTier)
 	report += fmt.Sprintf("Routed Cost:       $%.4f\n", s.EstimatedCost)
 	report += fmt.Sprintf("Saved:             $%.4f (%.1f%%)\n", s.SavedUSD, s.SavingsPercent)
 	report += fmt.Sprintf("Avg Tokens/Req:    %.0f\n", s.AvgTokens)
-	report += fmt.Sprintf("\nTier Distribution:\n")
+	report += "\nTier Distribution:\n"
 	for _, tier := range []Tier{TierSimple, TierMedium, TierComplex, TierReasoning} {
 		count := s.RequestsByTier[tier]
 		pct := 0.0

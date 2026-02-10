@@ -55,7 +55,7 @@ type Engine struct {
 // NewEngine creates a new evolution engine
 func NewEngine(dataDir string, logger *slog.Logger) *Engine {
 	dir := filepath.Join(dataDir, "evolution")
-	os.MkdirAll(dir, 0750)
+	_ = os.MkdirAll(dir, 0750)
 
 	e := &Engine{
 		strategies: make(map[string]*Strategy),
@@ -251,7 +251,7 @@ func (e *Engine) saveStrategy(s *Strategy) {
 		e.logger.Error("failed to marshal strategy", "error", err)
 		return
 	}
-	os.WriteFile(path, data, 0640)
+	_ = os.WriteFile(path, data, 0640)
 }
 
 func (e *Engine) loadStrategies() {

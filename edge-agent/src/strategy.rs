@@ -695,7 +695,7 @@ mod tests {
         let signals = engine.evaluate_all(&data);
         
         // Should get signals from the funding arbitrage strategy
-        assert!(signals.len() > 0);
+        assert!(!signals.is_empty());
     }
 
     #[test]

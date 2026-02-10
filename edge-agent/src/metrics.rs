@@ -206,8 +206,8 @@ mod tests {
         #[cfg(target_os = "linux")]
         {
             // On Linux, memory_bytes might be updated
-            // We can't assert exact value, but it should be non-negative
-            assert!(metrics.memory_bytes >= 0);
+            // We can't assert exact value, just verify it was set
+            let _ = metrics.memory_bytes; // always valid for u64
         }
     }
 

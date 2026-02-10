@@ -135,7 +135,7 @@ mod tests {
         let cmd = parse_command(json.as_bytes()).unwrap();
         assert_eq!(cmd.command, "ping");
         assert_eq!(cmd.request_id, "req123");
-        assert_eq!(cmd.payload.get("test").unwrap().as_bool().unwrap(), true);
+        assert!(cmd.payload.get("test").unwrap().as_bool().unwrap());
     }
 
     #[test]

@@ -154,7 +154,7 @@ mod tests {
         let initial_uptime = agent.metrics.uptime_sec;
         
         // Heartbeat should increment uptime
-        let result = agent.heartbeat().await;
+        let _result = agent.heartbeat().await;
         // May fail if MQTT not running, but shouldn't panic
         
         // Uptime should be incremented regardless

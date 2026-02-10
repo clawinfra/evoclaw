@@ -39,8 +39,8 @@ const (
 type BSCClient struct {
 	rpcURL          string
 	contractAddress string
-	privateKey      *ecdsa.PrivateKey
-	walletAddress   string
+	privateKey      *ecdsa.PrivateKey //nolint:unused // reserved for tx signing
+	walletAddress   string           //nolint:unused // reserved for tx signing
 	chainID         *big.Int
 	logger          *slog.Logger
 	client          *http.Client
@@ -315,10 +315,14 @@ func (c *BSCClient) GetBalance(ctx context.Context, address string) (*Balance, e
 
 	respBody, _ := io.ReadAll(resp.Body)
 	var rpcResp rpcResponse
-	json.Unmarshal(respBody, &rpcResp)
+	if err := json.Unmarshal(respBody, &rpcResp); err != nil {
+		return nil, fmt.Errorf("unmarshal rpc response: %w", err)
+	}
 
 	var hexVal string
-	json.Unmarshal(rpcResp.Result, &hexVal)
+	if err := json.Unmarshal(rpcResp.Result, &hexVal); err != nil {
+		return nil, fmt.Errorf("unmarshal hex value: %w", err)
+	}
 	hexVal = strings.TrimPrefix(hexVal, "0x")
 
 	val := new(big.Int)
@@ -338,7 +342,9 @@ func (c *BSCClient) GetTransaction(ctx context.Context, txHash string) (*Transac
 	}
 
 	var txData map[string]interface{}
-	json.Unmarshal(result, &txData)
+	if err := json.Unmarshal(result, &txData); err != nil {
+		return nil, fmt.Errorf("unmarshal transaction: %w", err)
+	}
 
 	return &Transaction{
 		Hash: txHash,

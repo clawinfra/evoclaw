@@ -390,7 +390,7 @@ func TestRevert(t *testing.T) {
 	e.SetStrategy("agent-1", v1)
 
 	// Mutate to v2
-	e.Mutate("agent-1", 0.2)
+	_, _ = e.Mutate("agent-1", 0.2)
 
 	// Current should be v2
 	current := e.GetStrategy("agent-1").(*Strategy)
