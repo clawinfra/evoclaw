@@ -497,12 +497,12 @@ func TestRegistrySaveAndLoad(t *testing.T) {
 		Model: "test/model2",
 	}
 
-	r1.Create(def1)
-	r1.Create(def2)
+	_, _ = r1.Create(def1)
+	_, _ = r1.Create(def2)
 
 	// Record some activity
-	r1.RecordMessage("agent-1")
-	r1.UpdateMetrics("agent-1", 1000, 0.05, 500, true)
+	_ = r1.RecordMessage("agent-1")
+	_ = r1.UpdateMetrics("agent-1", 1000, 0.05, 500, true)
 
 	// Save all
 	err = r1.SaveAll()
@@ -615,7 +615,7 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 	// Concurrent reads
 	for i := 0; i < 10; i++ {
 		go func() {
-			r.Get("test-agent-1")
+			_, _ = r.Get("test-agent-1")
 			done <- true
 		}()
 	}
@@ -668,7 +668,7 @@ func TestSaveError(t *testing.T) {
 	
 	// Make the data directory read-only to force a save error
 	_ = os.Chmod(r.dataDir, 0444)
-	defer os.Chmod(r.dataDir, 0755)
+	defer func() { _ = os.Chmod(r.dataDir, 0755) }()
 	
 	// SaveAll should continue despite errors
 	err = r.SaveAll()
@@ -693,10 +693,10 @@ func TestRegistry_LoadErrorHandling(t *testing.T) {
 		Type: "monitor",
 		Model: "test",
 	}
-	registry.Create(def)
+	_, _ = registry.Create(def)
 
 	// Save it
-	registry.SaveAll()
+	_ = registry.SaveAll()
 
 	// Create corrupted file
 	agentPath := filepath.Join(tmpDir, "agents", "test-agent.json")
@@ -723,7 +723,7 @@ func TestRegistry_SaveErrorHandling(t *testing.T) {
 		Type: "monitor",
 		Model: "test",
 	}
-	registry.Create(def)
+	_, _ = registry.Create(def)
 
 	// Make directory read-only to trigger save error
 	agentDir := filepath.Join(tmpDir, "agents")
@@ -748,7 +748,7 @@ func TestMemoryStore_LoadErrorHandling(t *testing.T) {
 	// Create memory and save
 	mem := memory.Get("test-agent")
 	mem.Add("user", "Hello")
-	memory.Save("test-agent")
+	_ = memory.Save("test-agent")
 
 	// Corrupt the file
 	memPath := filepath.Join(tmpDir, "memory", "test-agent.json")
