@@ -44,7 +44,7 @@ fn test_strategy_signal_generation() {
     let signals = strategy.evaluate(&market_data);
     
     // Should generate buy signal for BTC
-    assert!(signals.len() > 0);
+    assert!(!signals.is_empty());
     match &signals[0] {
         strategy::Signal::Buy { asset, price, size, .. } => {
             assert_eq!(asset, "BTC");

@@ -91,7 +91,7 @@ func TestAnthropicChatSuccess(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = _ = json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -195,7 +195,7 @@ func TestAnthropicChatWithSystemPrompt(t *testing.T) {
 			Model:      "claude-sonnet-4",
 			StopReason: "end_turn",
 		}
-		_ = _ = json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
