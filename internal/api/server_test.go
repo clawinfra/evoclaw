@@ -287,7 +287,7 @@ func TestHandleAgentDetail(t *testing.T) {
 	
 	// Create test agent
 	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 	
 	// Test GET /api/agents/{id}
 	req := httptest.NewRequest(http.MethodGet, "/api/agents/test-agent", nil)
@@ -342,7 +342,7 @@ func TestHandleAgentMetrics(t *testing.T) {
 	
 	// Create test agent
 	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 	
 	// Test GET /api/agents/{id}/metrics
 	req := httptest.NewRequest(http.MethodGet, "/api/agents/test-agent/metrics", nil)
@@ -373,7 +373,7 @@ func TestHandleAgentEvolve(t *testing.T) {
 	
 	// Create test agent
 	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 	
 	// Test POST /api/agents/{id}/evolve
 	req := httptest.NewRequest(http.MethodPost, "/api/agents/test-agent/evolve", nil)
@@ -400,7 +400,7 @@ func TestHandleAgentMemory(t *testing.T) {
 	
 	// Create test agent
 	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 	
 	// Add some memory
 	mem := s.memory.Get("test-agent")
@@ -437,7 +437,7 @@ func TestHandleClearMemory(t *testing.T) {
 	
 	// Create test agent
 	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 	
 	// Add some memory
 	mem := s.memory.Get("test-agent")
@@ -566,7 +566,7 @@ func TestHandleAgentDetail_WrongMethodForMemory(t *testing.T) {
 		Type: "monitor",
 		Model: "test",
 	}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 
 	// POST to memory (only GET and DELETE allowed)
 	req := httptest.NewRequest(http.MethodPost, "/api/agents/test-agent/memory", nil)
@@ -588,7 +588,7 @@ func TestHandleAgentDetail_WrongMethodForMetrics(t *testing.T) {
 		Type: "monitor",
 		Model: "test",
 	}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 
 	// POST to metrics (only GET allowed)
 	req := httptest.NewRequest(http.MethodPost, "/api/agents/test-agent/metrics", nil)
@@ -610,7 +610,7 @@ func TestHandleAgentDetail_WrongMethodForEvolve(t *testing.T) {
 		Type: "monitor",
 		Model: "test",
 	}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 
 	// GET to evolve (only POST allowed)
 	req := httptest.NewRequest(http.MethodGet, "/api/agents/test-agent/evolve", nil)

@@ -75,7 +75,9 @@ func main() {
 	<-ctx.Done()
 
 	logger.Info("shutting down")
-	orch.Stop()
+	if err := orch.Stop(); err != nil {
+		fmt.Printf("Error stopping orchestrator: %v\n", err)
+	}
 }
 
 // registerProviders sets up LLM providers from config

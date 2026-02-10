@@ -30,7 +30,6 @@ type TUIChannel struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	program  *tea.Program
-	mu       sync.Mutex
 	agentsFn func() []orchestrator.AgentInfo // callback to get live agent state
 }
 
@@ -119,9 +118,7 @@ var (
 	secondaryColor = lipgloss.Color("#06B6D4") // cyan
 	mutedColor     = lipgloss.Color("#6B7280") // gray
 	successColor   = lipgloss.Color("#10B981") // green
-	errorColor     = lipgloss.Color("#EF4444") // red
 	warnColor      = lipgloss.Color("#F59E0B") // amber
-	bgColor        = lipgloss.Color("#1F2937") // dark
 
 	// Sidebar styles
 	sidebarStyle = lipgloss.NewStyle().

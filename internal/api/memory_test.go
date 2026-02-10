@@ -130,16 +130,3 @@ func TestHandleMemoryRetrieve_NoMemory(t *testing.T) {
 }
 
 // Helper function
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsRec(s, substr, 0))
-}
-
-func containsRec(s, substr string, pos int) bool {
-	if pos+len(substr) > len(s) {
-		return false
-	}
-	if s[pos:pos+len(substr)] == substr {
-		return true
-	}
-	return containsRec(s, substr, pos+1)
-}
