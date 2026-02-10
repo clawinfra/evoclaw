@@ -164,7 +164,7 @@ func (c *Config) GetChain(chainID string) (ChainConfig, bool) {
 // This maintains backward compatibility
 func (c *Config) MigrateOnChainConfig() {
 	// If Chains is empty but OnChain is enabled, auto-migrate
-	if (c.Chains == nil || len(c.Chains) == 0) && c.OnChain.Enabled {
+	if len(c.Chains) == 0 && c.OnChain.Enabled {
 		chainID := "bsc-testnet" // default
 		if c.OnChain.ChainID == 56 {
 			chainID = "bsc"
