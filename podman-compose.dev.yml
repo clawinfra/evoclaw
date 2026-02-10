@@ -1,7 +1,7 @@
-# EvoClaw — Docker Compose (Development with Hot Reload)
+# EvoClaw — Podman Compose (Development with Hot Reload)
 #
 # Usage:
-#   docker compose -f docker-compose.dev.yml up
+#   podman compose -f podman-compose.dev.yml up
 #
 # Features:
 #   - Source code mounted for hot reload

@@ -14,7 +14,7 @@ agent_type = "trader"
 # ─── MQTT Broker ──────────────────────────────────────────────────
 # Connection to the MQTT broker (shared with orchestrator)
 [mqtt]
-broker = "localhost"       # Use "mosquitto" if running in docker-compose
+broker = "localhost"       # Use "mosquitto" if running in podman-compose
 port = 1883
 keep_alive_secs = 30       # Heartbeat interval to maintain connection
 

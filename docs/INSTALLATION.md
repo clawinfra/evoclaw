@@ -216,7 +216,7 @@ Enable MQTT in the config:
 You'll also need an MQTT broker (e.g., Mosquitto):
 
 ```bash
-# Docker/Podman
+# Podman
 podman run -d --name mosquitto -p 1883:1883 eclipse-mosquitto
 
 # Or install natively

@@ -393,8 +393,8 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-### Docker
-```dockerfile
+### Container
+```containerfile
 FROM rust:1.93-slim as builder
 WORKDIR /app
 COPY . .

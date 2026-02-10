@@ -11,8 +11,8 @@ End-to-end integration tests that verify the Go orchestrator and Rust edge agent
 ## Quick Start
 
 ```bash
-# Start MQTT broker (Docker)
-docker run -d --name mosquitto -p 1883:1883 eclipse-mosquitto:2 \
+# Start MQTT broker (Podman)
+podman run -d --name mosquitto -p 1883:1883 eclipse-mosquitto:2 \
   mosquitto -c /mosquitto-no-auth.conf
 
 # Run integration tests

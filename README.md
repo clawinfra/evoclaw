@@ -63,7 +63,7 @@ evoclaw sandbox --provider e2b
 
 ```bash
 # Build from source with hot-reload
-podman compose -f compose.dev.yml up
+podman compose -f podman-compose.dev.yml up
 ```
 
 ## Architecture
@@ -225,7 +225,7 @@ evoclaw/
 │   │   └── config.rs     # TOML config
 │   └── tests/            # Integration tests
 ├── integration/          # E2E MQTT protocol tests
-├── docker/               # Docker configs
+├── docker/               # Container configs
 ├── docs/                 # Documentation
 └── assets/               # Logos and images
 ```
@@ -269,7 +269,7 @@ evoclaw/
 - [x] HTTP API
 - [x] Evolution engine integration
 - [x] Rust edge agent with trading/monitoring
-- [x] Docker Compose deployment
+- [x] Podman Compose deployment
 - [x] CI/CD pipeline
 - [x] Integration test suite
 - [ ] WhatsApp channel

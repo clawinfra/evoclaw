@@ -1,0 +1,22 @@
+[Unit]
+Description=EvoClaw Orchestrator (Go)
+After=evoclaw-mosquitto.service
+
+[Container]
+Image=ghcr.io/clawinfra/evoclaw:latest
+ContainerName=evoclaw-orchestrator
+PublishPort=8420:8420
+Volume=evoclaw-config:/app/evoclaw.json:ro
+Volume=evoclaw-orchestrator-data:/app/data
+Environment=LOG_LEVEL=info
+HealthCmd=wget -qO- http://localhost:8420/api/status || exit 1
+HealthInterval=15s
+HealthTimeout=5s
+HealthStartPeriod=15s
+HealthRetries=3
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

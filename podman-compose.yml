@@ -1,9 +1,9 @@
-# EvoClaw — Docker Compose (Production-like)
+# EvoClaw — Podman Compose (Production-like)
 #
 # Usage:
-#   docker compose up -d
-#   docker compose logs -f
-#   docker compose down
+#   podman compose up -d
+#   podman compose logs -f
+#   podman compose down
 #
 # Prerequisites:
 #   cp evoclaw.example.json evoclaw.json  (edit with your API keys)
@@ -31,7 +31,7 @@ services:
   orchestrator:
     build:
       context: .
-      dockerfile: orchestrator.Dockerfile
+      dockerfile: orchestrator.Containerfile
     container_name: evoclaw-orchestrator
     ports:
       - "8420:8420"
@@ -55,7 +55,7 @@ services:
   edge-agent:
     build:
       context: ./edge-agent
-      dockerfile: Dockerfile
+      dockerfile: Containerfile
     container_name: evoclaw-edge-agent
     volumes:
       - ./edge-agent/agent.toml:/app/agent.toml:ro

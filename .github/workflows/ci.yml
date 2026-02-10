@@ -172,7 +172,7 @@ jobs:
           listener 1883
           allow_anonymous true
           EOF
-          docker run -d --name mosquitto -p 1883:1883 \
+          podman run -d --name mosquitto -p 1883:1883 \
             -v /tmp/mosquitto.conf:/mosquitto/config/mosquitto.conf \
             eclipse-mosquitto:2
           # Wait for mosquitto to be ready

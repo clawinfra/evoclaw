@@ -1,0 +1,20 @@
+[Unit]
+Description=EvoClaw MQTT Broker (Mosquitto)
+
+[Container]
+Image=docker.io/eclipse-mosquitto:2
+ContainerName=evoclaw-mqtt
+PublishPort=1883:1883
+Volume=./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+Volume=evoclaw-mosquitto-data:/mosquitto/data
+HealthCmd=mosquitto_sub -t '$$SYS/#' -C 1 -W 3 || exit 1
+HealthInterval=10s
+HealthTimeout=5s
+HealthStartPeriod=5s
+HealthRetries=3
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
