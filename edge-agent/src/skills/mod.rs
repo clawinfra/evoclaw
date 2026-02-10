@@ -87,7 +87,10 @@ mod tests {
         let info = SkillInfo {
             name: "clawchain".to_string(),
             enabled: true,
-            capabilities: vec!["clawchain.register".to_string(), "clawchain.vote".to_string()],
+            capabilities: vec![
+                "clawchain.register".to_string(),
+                "clawchain.vote".to_string(),
+            ],
             tick_interval_secs: 120,
             last_tick: Some(1234567890),
         };

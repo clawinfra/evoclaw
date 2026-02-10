@@ -364,10 +364,7 @@ impl ClawChainSkill {
             .to_string();
 
         let result = self
-            .rpc_call(
-                "clawchain_getReputation",
-                serde_json::json!([did]),
-            )
+            .rpc_call("clawchain_getReputation", serde_json::json!([did]))
             .await?;
 
         // Cache if it's our own reputation
@@ -397,10 +394,7 @@ impl ClawChainSkill {
             .to_string();
 
         let result = self
-            .rpc_call(
-                "clawchain_getBalance",
-                serde_json::json!([did]),
-            )
+            .rpc_call("clawchain_getBalance", serde_json::json!([did]))
             .await?;
 
         // Cache if it's our own balance
@@ -472,11 +466,8 @@ impl ClawChainSkill {
             .ok_or("missing 'did' field and no agent DID configured")?
             .to_string();
 
-        self.rpc_call(
-            "clawchain_getAgentInfo",
-            serde_json::json!([did]),
-        )
-        .await
+        self.rpc_call("clawchain_getAgentInfo", serde_json::json!([did]))
+            .await
     }
 
     /// List governance proposals
@@ -489,10 +480,7 @@ impl ClawChainSkill {
             .and_then(|v| v.as_str())
             .unwrap_or("active");
 
-        let limit = payload
-            .get("limit")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(10);
+        let limit = payload.get("limit").and_then(|v| v.as_u64()).unwrap_or(10);
 
         self.rpc_call(
             "clawchain_listProposals",
@@ -546,16 +534,14 @@ impl Skill for ClawChainSkill {
             "vote" => self.vote(&payload).await,
             "get_agent_info" => self.get_agent_info(&payload).await,
             "list_proposals" => self.list_proposals(&payload).await,
-            "status" => {
-                Ok(serde_json::json!({
-                    "agent_id": self.agent_id,
-                    "agent_did": self.agent_did,
-                    "node_url": self.node_url,
-                    "cached_reputation": self.cached_state.reputation,
-                    "cached_balance": self.cached_state.balance.map(|b| b.to_string()),
-                    "cache_updated_at": self.cached_state.last_updated,
-                }))
-            }
+            "status" => Ok(serde_json::json!({
+                "agent_id": self.agent_id,
+                "agent_did": self.agent_did,
+                "node_url": self.node_url,
+                "cached_reputation": self.cached_state.reputation,
+                "cached_balance": self.cached_state.balance.map(|b| b.to_string()),
+                "cache_updated_at": self.cached_state.last_updated,
+            })),
             _ => Err(format!("unknown clawchain command: {}", command).into()),
         }
     }
@@ -565,10 +551,7 @@ impl Skill for ClawChainSkill {
 
         // Fetch reputation
         let reputation_result = self
-            .rpc_call(
-                "clawchain_getReputation",
-                serde_json::json!([did]),
-            )
+            .rpc_call("clawchain_getReputation", serde_json::json!([did]))
             .await;
 
         let reputation = match reputation_result {
@@ -581,10 +564,7 @@ impl Skill for ClawChainSkill {
 
         // Fetch balance
         let balance_result = self
-            .rpc_call(
-                "clawchain_getBalance",
-                serde_json::json!([did]),
-            )
+            .rpc_call("clawchain_getBalance", serde_json::json!([did]))
             .await;
 
         let balance = match balance_result {
@@ -754,7 +734,11 @@ mod tests {
         )
     }
 
-    async fn new_skill_with_mock_rpc() -> (ClawChainSkill, Arc<Mutex<HashMap<String, Value>>>, Arc<AtomicU32>) {
+    async fn new_skill_with_mock_rpc() -> (
+        ClawChainSkill,
+        Arc<Mutex<HashMap<String, Value>>>,
+        Arc<AtomicU32>,
+    ) {
         let mock_rpc = MockRpcClient::new();
         let responses = Arc::clone(&mock_rpc.responses);
         let call_count = Arc::clone(&mock_rpc.call_count);
@@ -903,9 +887,7 @@ mod tests {
     async fn test_handle_register_agent_missing_did() {
         let (mut skill, _, _) = new_skill_with_mock_rpc().await;
 
-        let result = skill
-            .handle("register_agent", serde_json::json!({}))
-            .await;
+        let result = skill.handle("register_agent", serde_json::json!({})).await;
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("missing 'did'"));
@@ -920,9 +902,7 @@ mod tests {
             serde_json::json!({"score": 85, "total_tasks": 100, "successful_tasks": 85}),
         );
 
-        let result = skill
-            .handle("get_reputation", serde_json::json!({}))
-            .await;
+        let result = skill.handle("get_reputation", serde_json::json!({})).await;
 
         assert!(result.is_ok());
         let val = result.unwrap();
@@ -957,9 +937,7 @@ mod tests {
         let mut skill = new_test_skill();
         skill.rpc_client = Some(Box::new(MockRpcClient::new()));
 
-        let result = skill
-            .handle("get_reputation", serde_json::json!({}))
-            .await;
+        let result = skill.handle("get_reputation", serde_json::json!({})).await;
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("no agent DID"));
@@ -1083,10 +1061,7 @@ mod tests {
         skill.rpc_client = Some(Box::new(MockRpcClient::new()));
 
         let result = skill
-            .handle(
-                "vote",
-                serde_json::json!({"proposal_id": 1, "vote": "for"}),
-            )
+            .handle("vote", serde_json::json!({"proposal_id": 1, "vote": "for"}))
             .await;
 
         assert!(result.is_err());
@@ -1108,9 +1083,7 @@ mod tests {
             }),
         );
 
-        let result = skill
-            .handle("get_agent_info", serde_json::json!({}))
-            .await;
+        let result = skill.handle("get_agent_info", serde_json::json!({})).await;
 
         assert!(result.is_ok());
         let val = result.unwrap();
@@ -1131,9 +1104,7 @@ mod tests {
             }),
         );
 
-        let result = skill
-            .handle("list_proposals", serde_json::json!({}))
-            .await;
+        let result = skill.handle("list_proposals", serde_json::json!({})).await;
 
         assert!(result.is_ok());
         let val = result.unwrap();
@@ -1258,14 +1229,10 @@ mod tests {
         let failing_mqtt = Arc::new(MockMqttPublisher::failing());
         let mock_rpc = MockRpcClient::new();
         let call_count = Arc::clone(&mock_rpc.call_count);
-        mock_rpc
-            .responses
-            .lock()
-            .await
-            .insert(
-                "clawchain_getReputation".to_string(),
-                serde_json::json!({"score": 77}),
-            );
+        mock_rpc.responses.lock().await.insert(
+            "clawchain_getReputation".to_string(),
+            serde_json::json!({"score": 77}),
+        );
 
         let mut skill = ClawChainSkill::new(
             "test-agent".to_string(),
@@ -1276,9 +1243,7 @@ mod tests {
         .with_mqtt_publisher(failing_mqtt)
         .with_rpc_client(Box::new(mock_rpc));
 
-        let result = skill
-            .handle("get_reputation", serde_json::json!({}))
-            .await;
+        let result = skill.handle("get_reputation", serde_json::json!({})).await;
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap()["score"], 77);
@@ -1292,14 +1257,10 @@ mod tests {
         let mqtt = Arc::new(MockMqttPublisher::new());
         let mock_rpc = MockRpcClient::new();
         let call_count = Arc::clone(&mock_rpc.call_count);
-        mock_rpc
-            .responses
-            .lock()
-            .await
-            .insert(
-                "clawchain_getBalance".to_string(),
-                serde_json::json!({"balance": 999}),
-            );
+        mock_rpc.responses.lock().await.insert(
+            "clawchain_getBalance".to_string(),
+            serde_json::json!({"balance": 999}),
+        );
 
         let mut skill = ClawChainSkill::new(
             "test-agent".to_string(),
@@ -1313,9 +1274,7 @@ mod tests {
         // Don't inject any MQTT response, so it will timeout
         // Note: We override the timeout behavior by not waiting 10s in tests
         // The MQTT path will timeout and fall back to HTTP
-        let result = skill
-            .handle("get_balance", serde_json::json!({}))
-            .await;
+        let result = skill.handle("get_balance", serde_json::json!({})).await;
 
         assert!(result.is_ok());
         // Fallback to HTTP should have been used
@@ -1562,9 +1521,7 @@ mod tests {
             serde_json::json!({"score": 0, "total_tasks": 0, "successful_tasks": 0}),
         );
 
-        let rep_result = skill
-            .handle("get_reputation", serde_json::json!({}))
-            .await;
+        let rep_result = skill.handle("get_reputation", serde_json::json!({})).await;
         assert!(rep_result.is_ok());
     }
 
@@ -1627,19 +1584,13 @@ mod tests {
 
         // Vote
         let vote = skill
-            .handle(
-                "vote",
-                serde_json::json!({"proposal_id": 1, "vote": "for"}),
-            )
+            .handle("vote", serde_json::json!({"proposal_id": 1, "vote": "for"}))
             .await
             .unwrap();
         assert_eq!(vote["status"], "voted");
 
         // Check status
-        let status = skill
-            .handle("status", serde_json::json!({}))
-            .await
-            .unwrap();
+        let status = skill.handle("status", serde_json::json!({})).await.unwrap();
         assert_eq!(status["agent_id"], "test-agent-01");
         assert_eq!(status["cached_reputation"], 95);
 

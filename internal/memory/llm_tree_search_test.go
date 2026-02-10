@@ -24,10 +24,10 @@ func mockFailingSearchLLM(ctx context.Context, systemPrompt, userPrompt string) 
 
 func TestLLMTreeSearcher_Search(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("projects", "Active projects")
-	tree.AddNode("projects/evoclaw", "EvoClaw agent orchestrator")
-	tree.AddNode("work", "Work-related")
-	tree.AddNode("work/meetings", "Meeting notes")
+	_ = tree.AddNode("projects", "Active projects")
+	_ = tree.AddNode("projects/evoclaw", "EvoClaw agent orchestrator")
+	_ = tree.AddNode("work", "Work-related")
+	_ = tree.AddNode("work/meetings", "Meeting notes")
 
 	fallback := NewTreeSearcher(tree, DefaultScoreConfig())
 	searcher := NewLLMTreeSearcher(tree, fallback, mockSearchLLM, nil)
@@ -56,7 +56,7 @@ func TestLLMTreeSearcher_Search(t *testing.T) {
 
 func TestLLMTreeSearcher_FallbackOnFailure(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("test", "Test node")
+	_ = tree.AddNode("test", "Test node")
 
 	fallback := NewTreeSearcher(tree, DefaultScoreConfig())
 	searcher := NewLLMTreeSearcher(tree, fallback, mockFailingSearchLLM, nil)
@@ -71,7 +71,7 @@ func TestLLMTreeSearcher_FallbackOnFailure(t *testing.T) {
 
 func TestLLMTreeSearcher_NoLLMFunc(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("example", "Example node")
+	_ = tree.AddNode("example", "Example node")
 
 	fallback := NewTreeSearcher(tree, DefaultScoreConfig())
 	searcher := NewLLMTreeSearcher(tree, fallback, nil, nil)
@@ -96,10 +96,10 @@ func TestLLMTreeSearcher_RelevanceFiltering(t *testing.T) {
 	}
 
 	tree := NewMemoryTree()
-	tree.AddNode("irrelevant", "Irrelevant")
-	tree.AddNode("irrelevant/path", "Irrelevant path")
-	tree.AddNode("relevant", "Relevant")
-	tree.AddNode("relevant/path", "Relevant path")
+	_ = tree.AddNode("irrelevant", "Irrelevant")
+	_ = tree.AddNode("irrelevant/path", "Irrelevant path")
+	_ = tree.AddNode("relevant", "Relevant")
+	_ = tree.AddNode("relevant/path", "Relevant path")
 
 	fallback := NewTreeSearcher(tree, DefaultScoreConfig())
 	searcher := NewLLMTreeSearcher(tree, fallback, lowRelevanceLLM, nil)
@@ -167,11 +167,11 @@ func TestParseTreeSearchResponse_WithMarkdown(t *testing.T) {
 
 func TestSerializeTreeForLLM(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("projects", "Active projects")
-	tree.AddNode("projects/evoclaw", "EvoClaw orchestrator")
-	tree.AddNode("personal", "Personal life")
+	_ = tree.AddNode("projects", "Active projects")
+	_ = tree.AddNode("projects/evoclaw", "EvoClaw orchestrator")
+	_ = tree.AddNode("personal", "Personal life")
 
-	tree.IncrementCounts("projects/evoclaw", 5, 10)
+	_ = tree.IncrementCounts("projects/evoclaw", 5, 10)
 
 	fallback := NewTreeSearcher(tree, DefaultScoreConfig())
 	searcher := NewLLMTreeSearcher(tree, fallback, nil, nil)

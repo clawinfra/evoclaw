@@ -118,8 +118,8 @@ func TestProcessConversation(t *testing.T) {
 	}
 
 	// Add a tree node first
-	mgr.tree.AddNode("projects", "Active projects")
-	mgr.tree.AddNode("projects/evoclaw", "EvoClaw development")
+	_ = mgr.tree.AddNode("projects", "Active projects")
+	_ = mgr.tree.AddNode("projects/evoclaw", "EvoClaw development")
 
 	err := mgr.ProcessConversation(context.Background(), conv, "projects/evoclaw", 0.8)
 	if err != nil {
@@ -149,8 +149,8 @@ func TestRetrieve(t *testing.T) {
 	mgr, _ := NewManager(cfg, nil)
 
 	// Setup tree
-	mgr.tree.AddNode("projects", "Projects")
-	mgr.tree.AddNode("projects/garden", "Garden work")
+	_ = mgr.tree.AddNode("projects", "Projects")
+	_ = mgr.tree.AddNode("projects/garden", "Garden work")
 
 	// Add conversation about garden
 	conv := RawConversation{

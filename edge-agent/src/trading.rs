@@ -385,7 +385,7 @@ mod tests {
     fn test_record_trade_winning() {
         let mut tracker = PnLTracker::new();
         tracker.record_trade(100.0);
-        
+
         assert_eq!(tracker.total_trades, 1);
         assert_eq!(tracker.win_count, 1);
         assert_eq!(tracker.loss_count, 0);
@@ -397,7 +397,7 @@ mod tests {
     fn test_record_trade_losing() {
         let mut tracker = PnLTracker::new();
         tracker.record_trade(-50.0);
-        
+
         assert_eq!(tracker.total_trades, 1);
         assert_eq!(tracker.win_count, 0);
         assert_eq!(tracker.loss_count, 1);
@@ -412,7 +412,7 @@ mod tests {
         tracker.record_trade(-30.0);
         tracker.record_trade(50.0);
         tracker.record_trade(-20.0);
-        
+
         assert_eq!(tracker.total_trades, 4);
         assert_eq!(tracker.win_count, 2);
         assert_eq!(tracker.loss_count, 2);
@@ -424,7 +424,7 @@ mod tests {
         let mut tracker = PnLTracker::new();
         tracker.record_trade(100.0);
         tracker.update_unrealized(50.0);
-        
+
         assert_eq!(tracker.unrealized_pnl, 50.0);
         assert_eq!(tracker.total_pnl, 150.0);
         assert_eq!(tracker.realized_pnl, 100.0);
@@ -435,7 +435,7 @@ mod tests {
         let mut tracker = PnLTracker::new();
         tracker.record_trade(100.0);
         tracker.update_unrealized(-30.0);
-        
+
         assert_eq!(tracker.unrealized_pnl, -30.0);
         assert_eq!(tracker.total_pnl, 70.0);
     }
@@ -452,7 +452,7 @@ mod tests {
         tracker.record_trade(100.0);
         tracker.record_trade(50.0);
         tracker.record_trade(75.0);
-        
+
         assert_eq!(tracker.win_rate(), 100.0);
     }
 
@@ -461,7 +461,7 @@ mod tests {
         let mut tracker = PnLTracker::new();
         tracker.record_trade(-100.0);
         tracker.record_trade(-50.0);
-        
+
         assert_eq!(tracker.win_rate(), 0.0);
     }
 
@@ -472,7 +472,7 @@ mod tests {
         tracker.record_trade(-50.0);
         tracker.record_trade(75.0);
         tracker.record_trade(-25.0);
-        
+
         // 2 wins out of 4 = 50%
         assert_eq!(tracker.win_rate(), 50.0);
     }
@@ -481,7 +481,7 @@ mod tests {
     fn test_hyperliquid_client_new() {
         let config = create_test_config();
         let client = HyperliquidClient::new(config.clone());
-        
+
         assert_eq!(client.config.wallet_address, "0x1234567890abcdef");
         assert_eq!(client.config.max_position_size_usd, 5000.0);
     }
@@ -496,7 +496,7 @@ mod tests {
             reduce_only: false,
             timestamp: 1234567890,
         };
-        
+
         assert_eq!(order.asset, 0);
         assert!(order.is_buy);
         assert_eq!(order.limit_px, 50000000);
@@ -514,10 +514,10 @@ mod tests {
             reduce_only: true,
             timestamp: 9876543210,
         };
-        
+
         let json = serde_json::to_string(&order).unwrap();
         let deserialized: OrderRequest = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.asset, 0);
         assert!(!deserialized.is_buy);
         assert!(deserialized.reduce_only);
@@ -530,10 +530,10 @@ mod tests {
             s: "0xdef456".to_string(),
             v: 27,
         };
-        
+
         let json = serde_json::to_string(&sig).unwrap();
         let deserialized: Signature = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.r, "0xabc123");
         assert_eq!(deserialized.s, "0xdef456");
         assert_eq!(deserialized.v, 27);
@@ -549,7 +549,7 @@ mod tests {
             "unrealizedPnl": "500.0",
             "returnOnEquity": "0.02"
         }"#;
-        
+
         let position: Position = serde_json::from_str(json).unwrap();
         assert_eq!(position.coin, "BTC");
         assert_eq!(position.szi, "0.5");
@@ -562,7 +562,7 @@ mod tests {
             "status": "success",
             "response": {"orderId": 12345}
         }"#;
-        
+
         let response: OrderResponse = serde_json::from_str(json).unwrap();
         assert_eq!(response.status, "success");
     }
@@ -573,10 +573,10 @@ mod tests {
         tracker.record_trade(100.0);
         tracker.record_trade(-30.0);
         tracker.update_unrealized(50.0);
-        
+
         let json = serde_json::to_string(&tracker).unwrap();
         let deserialized: PnLTracker = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.total_trades, 2);
         assert_eq!(deserialized.win_count, 1);
         assert_eq!(deserialized.loss_count, 1);
@@ -594,7 +594,7 @@ mod tests {
                 "SOL": "150.25"
             }
         }"#;
-        
+
         let response: AllMidsResponse = serde_json::from_str(json).unwrap();
         assert_eq!(response.mids.len(), 3);
         assert_eq!(response.mids.get("BTC"), Some(&"50000.0".to_string()));
@@ -606,7 +606,7 @@ mod tests {
         let price = 50000.0;
         let price_bp = (price * 1000.0) as u64;
         assert_eq!(price_bp, 50000000);
-        
+
         let size = 0.1;
         let size_bp = (size * 1000.0) as u64;
         assert_eq!(size_bp, 100);

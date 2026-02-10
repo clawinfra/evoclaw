@@ -83,7 +83,7 @@ func TestTursoClient_Query(t *testing.T) {
 func TestTursoClient_BatchExecute(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req PipelineRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 
 		if len(req.Requests) != 3 {
 			t.Errorf("expected 3 requests, got %d", len(req.Requests))

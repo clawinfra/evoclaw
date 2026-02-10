@@ -168,7 +168,7 @@ mod tests {
         assert_eq!(config.mqtt.keep_alive_secs, 30);
         assert!(config.trading.is_some());
         assert!(config.monitor.is_none());
-        
+
         let trading = config.trading.unwrap();
         assert_eq!(trading.max_position_size_usd, 1000.0);
         assert_eq!(trading.max_leverage, 3.0);
@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(config.agent_type, "monitor");
         assert!(config.trading.is_none());
         assert!(config.monitor.is_some());
-        
+
         let monitor = config.monitor.unwrap();
         assert_eq!(monitor.price_alert_threshold_pct, 5.0);
         assert_eq!(monitor.funding_rate_threshold_pct, 0.1);
@@ -220,15 +220,18 @@ max_leverage = 5.0
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(toml_content.as_bytes()).unwrap();
-        
+
         let config = Config::from_file(temp_file.path()).unwrap();
         assert_eq!(config.agent_id, "test_agent");
         assert_eq!(config.agent_type, "trader");
         assert_eq!(config.mqtt.broker, "mqtt.example.com");
         assert_eq!(config.mqtt.port, 8883);
         assert_eq!(config.mqtt.keep_alive_secs, 60);
-        assert_eq!(config.orchestrator.url, "http://orchestrator.example.com:9000");
-        
+        assert_eq!(
+            config.orchestrator.url,
+            "http://orchestrator.example.com:9000"
+        );
+
         let trading = config.trading.unwrap();
         assert_eq!(trading.wallet_address, "0x1234567890abcdef");
         assert_eq!(trading.max_position_size_usd, 5000.0);
@@ -251,7 +254,7 @@ url = "http://localhost:8420"
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(toml_content.as_bytes()).unwrap();
-        
+
         let config = Config::from_file(temp_file.path()).unwrap();
         assert_eq!(config.agent_id, "minimal_agent");
         assert_eq!(config.mqtt.keep_alive_secs, 30); // Default value
@@ -272,7 +275,7 @@ url = "http://localhost:8420"
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(toml_content.as_bytes()).unwrap();
-        
+
         let result = Config::from_file(temp_file.path());
         assert!(result.is_err());
     }
@@ -280,10 +283,10 @@ url = "http://localhost:8420"
     #[test]
     fn test_config_from_file_invalid_toml() {
         let toml_content = "this is not valid toml {{[}}";
-        
+
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(toml_content.as_bytes()).unwrap();
-        
+
         let result = Config::from_file(temp_file.path());
         assert!(result.is_err());
     }

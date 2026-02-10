@@ -371,11 +371,11 @@ mod tests {
         let mut prices = HashMap::new();
         prices.insert("BTC".to_string(), 50000.0);
         prices.insert("ETH".to_string(), 3000.0);
-        
+
         let mut funding_rates = HashMap::new();
         funding_rates.insert("BTC".to_string(), -0.001); // -0.1%
-        funding_rates.insert("ETH".to_string(), 0.0005);  // 0.05%
-        
+        funding_rates.insert("ETH".to_string(), 0.0005); // 0.05%
+
         MarketData {
             prices,
             funding_rates,
@@ -398,13 +398,18 @@ mod tests {
     fn test_funding_arbitrage_entry_signal() {
         let mut strategy = FundingArbitrage::new(-0.05, 0.0, 1000.0);
         let data = create_test_market_data();
-        
+
         let signals = strategy.evaluate(&data);
-        
+
         // BTC funding is -0.1%, below -0.05% threshold
         assert_eq!(signals.len(), 1);
         match &signals[0] {
-            Signal::Buy { asset, price, size, reason } => {
+            Signal::Buy {
+                asset,
+                price,
+                size,
+                reason,
+            } => {
                 assert_eq!(asset, "BTC");
                 assert_eq!(*price, 50000.0);
                 assert!((size - 0.02).abs() < 0.001); // 1000/50000 = 0.02
@@ -412,7 +417,7 @@ mod tests {
             }
             _ => panic!("Expected Buy signal"),
         }
-        
+
         assert_eq!(strategy.active_positions.len(), 1);
         assert!(strategy.active_positions.contains(&"BTC".to_string()));
     }
@@ -421,12 +426,12 @@ mod tests {
     fn test_funding_arbitrage_exit_signal() {
         let mut strategy = FundingArbitrage::new(-0.2, 0.0, 1000.0);
         strategy.active_positions.push("BTC".to_string());
-        
+
         let mut data = create_test_market_data();
         data.funding_rates.insert("BTC".to_string(), 0.001); // 0.1%, above 0.0% exit
-        
+
         let signals = strategy.evaluate(&data);
-        
+
         assert_eq!(signals.len(), 1);
         match &signals[0] {
             Signal::Sell { asset, reason, .. } => {
@@ -435,7 +440,7 @@ mod tests {
             }
             _ => panic!("Expected Sell signal"),
         }
-        
+
         assert!(strategy.active_positions.is_empty());
     }
 
@@ -443,11 +448,11 @@ mod tests {
     fn test_funding_arbitrage_no_duplicate_entry() {
         let mut strategy = FundingArbitrage::new(-0.05, 0.0, 1000.0);
         let data = create_test_market_data();
-        
+
         // First evaluation - should generate signal
         let signals1 = strategy.evaluate(&data);
         assert_eq!(signals1.len(), 1);
-        
+
         // Second evaluation - should not generate duplicate signal
         let signals2 = strategy.evaluate(&data);
         assert_eq!(signals2.len(), 0);
@@ -457,15 +462,15 @@ mod tests {
     fn test_funding_arbitrage_max_positions() {
         let mut strategy = FundingArbitrage::new(-0.05, 0.0, 1000.0);
         strategy.max_positions = 2;
-        
+
         let mut data = create_test_market_data();
         data.funding_rates.insert("SOL".to_string(), -0.15);
         data.prices.insert("SOL".to_string(), 150.0);
         data.funding_rates.insert("AVAX".to_string(), -0.12);
         data.prices.insert("AVAX".to_string(), 40.0);
-        
+
         let signals = strategy.evaluate(&data);
-        
+
         // Should only open 2 positions (max_positions limit)
         assert!(signals.len() <= 2);
         assert!(strategy.active_positions.len() <= 2);
@@ -475,7 +480,7 @@ mod tests {
     fn test_funding_arbitrage_get_params() {
         let strategy = FundingArbitrage::new(-0.1, 0.05, 2000.0);
         let params = strategy.get_params();
-        
+
         assert_eq!(params["funding_threshold"], -0.1);
         assert_eq!(params["exit_funding"], 0.05);
         assert_eq!(params["position_size_usd"], 2000.0);
@@ -485,16 +490,16 @@ mod tests {
     #[test]
     fn test_funding_arbitrage_update_params() {
         let mut strategy = FundingArbitrage::new(-0.1, 0.0, 1000.0);
-        
+
         let new_params = serde_json::json!({
             "funding_threshold": -0.15,
             "exit_funding": 0.02,
             "position_size_usd": 2500.0,
             "max_positions": 5
         });
-        
+
         strategy.update_params(new_params).unwrap();
-        
+
         assert_eq!(strategy.funding_threshold, -0.15);
         assert_eq!(strategy.exit_funding, 0.02);
         assert_eq!(strategy.position_size_usd, 2500.0);
@@ -506,9 +511,9 @@ mod tests {
         let mut strategy = FundingArbitrage::new(-0.1, 0.0, 1000.0);
         strategy.active_positions.push("BTC".to_string());
         strategy.active_positions.push("ETH".to_string());
-        
+
         strategy.reset();
-        
+
         assert!(strategy.active_positions.is_empty());
     }
 
@@ -527,10 +532,10 @@ mod tests {
     fn test_mean_reversion_insufficient_history() {
         let mut strategy = MeanReversion::new(2.0, 2.0, 1000.0);
         strategy.lookback_periods = 20;
-        
+
         let data = create_test_market_data();
         let signals = strategy.evaluate(&data);
-        
+
         // Not enough history yet
         assert_eq!(signals.len(), 0);
     }
@@ -539,75 +544,89 @@ mod tests {
     fn test_mean_reversion_buy_signal() {
         let mut strategy = MeanReversion::new(5.0, 5.0, 1000.0);
         strategy.lookback_periods = 4;
-        
+
         // Manually set up history for BTC with known prices (mean = 50000)
-        strategy.price_history.insert("BTC".to_string(), vec![50000.0, 50000.0, 50000.0]);
-        
+        strategy
+            .price_history
+            .insert("BTC".to_string(), vec![50000.0, 50000.0, 50000.0]);
+
         // Create market data with very low price
         // After adding this price, history becomes [50000, 50000, 50000, 47000]
         // Mean = 196000 / 4 = 49000
-        // Deviation = (47000 - 49000) / 49000 * 100 = -4.08% 
+        // Deviation = (47000 - 49000) / 49000 * 100 = -4.08%
         // But we need > -5% to trigger, so let's use an even lower price
         let mut data = create_test_market_data();
-        data.prices.insert("BTC".to_string(), 45000.0); 
+        data.prices.insert("BTC".to_string(), 45000.0);
         // Mean will be (50000+50000+50000+45000)/4 = 48750
         // Deviation = (45000 - 48750) / 48750 * 100 = -7.69% which triggers
-        
+
         let signals = strategy.evaluate(&data);
-        
+
         // Should generate buy signal for BTC
-        let btc_buy_signals: Vec<_> = signals.iter().filter(|s| {
-            match s {
+        let btc_buy_signals: Vec<_> = signals
+            .iter()
+            .filter(|s| match s {
                 Signal::Buy { asset, .. } => asset == "BTC",
                 _ => false,
-            }
-        }).collect();
-        
-        assert_eq!(btc_buy_signals.len(), 1, "Expected exactly one BTC buy signal");
+            })
+            .collect();
+
+        assert_eq!(
+            btc_buy_signals.len(),
+            1,
+            "Expected exactly one BTC buy signal"
+        );
     }
 
     #[test]
     fn test_mean_reversion_sell_signal() {
         let mut strategy = MeanReversion::new(5.0, 5.0, 1000.0);
         strategy.lookback_periods = 4;
-        
+
         // Manually set up history for BTC with known prices (mean = 50000)
-        strategy.price_history.insert("BTC".to_string(), vec![50000.0, 50000.0, 50000.0]);
-        
+        strategy
+            .price_history
+            .insert("BTC".to_string(), vec![50000.0, 50000.0, 50000.0]);
+
         // Create market data with very high price
         // After adding this price, history becomes [50000, 50000, 50000, 55000]
         // Mean = 205000 / 4 = 51250
         // Deviation = (55000 - 51250) / 51250 * 100 = 7.32% which triggers (>5%)
         let mut data = create_test_market_data();
         data.prices.insert("BTC".to_string(), 55000.0);
-        
+
         let signals = strategy.evaluate(&data);
-        
+
         // Should generate sell signal for BTC
-        let btc_sell_signals: Vec<_> = signals.iter().filter(|s| {
-            match s {
+        let btc_sell_signals: Vec<_> = signals
+            .iter()
+            .filter(|s| match s {
                 Signal::Sell { asset, .. } => asset == "BTC",
                 _ => false,
-            }
-        }).collect();
-        
-        assert_eq!(btc_sell_signals.len(), 1, "Expected exactly one BTC sell signal");
+            })
+            .collect();
+
+        assert_eq!(
+            btc_sell_signals.len(),
+            1,
+            "Expected exactly one BTC sell signal"
+        );
     }
 
     #[test]
     fn test_mean_reversion_no_signal_within_bounds() {
         let mut strategy = MeanReversion::new(5.0, 5.0, 1000.0);
         strategy.lookback_periods = 5;
-        
+
         // Build price history
         for _ in 0..6 {
             let data = create_test_market_data();
             strategy.evaluate(&data);
         }
-        
+
         // Should have no signals if price is within bounds
         let last_signals = strategy.evaluate(&create_test_market_data());
-        
+
         // Depends on whether deviation exceeds threshold
         // With consistent prices, should be minimal signals
         assert!(last_signals.len() <= 2); // At most one per asset
@@ -616,10 +635,10 @@ mod tests {
     #[test]
     fn test_mean_reversion_calculate_mean() {
         let mut strategy = MeanReversion::new(2.0, 2.0, 1000.0);
-        
+
         let history = vec![100.0, 110.0, 105.0, 95.0, 100.0];
         strategy.price_history.insert("BTC".to_string(), history);
-        
+
         let mean = strategy.calculate_mean("BTC").unwrap();
         assert_eq!(mean, 102.0); // (100+110+105+95+100)/5
     }
@@ -628,7 +647,7 @@ mod tests {
     fn test_mean_reversion_get_params() {
         let strategy = MeanReversion::new(3.0, 4.0, 1500.0);
         let params = strategy.get_params();
-        
+
         assert_eq!(params["support_level"], 3.0);
         assert_eq!(params["resistance_level"], 4.0);
         assert_eq!(params["position_size_usd"], 1500.0);
@@ -638,16 +657,16 @@ mod tests {
     #[test]
     fn test_mean_reversion_update_params() {
         let mut strategy = MeanReversion::new(2.0, 2.0, 1000.0);
-        
+
         let new_params = serde_json::json!({
             "support_level": 5.0,
             "resistance_level": 6.0,
             "position_size_usd": 3000.0,
             "lookback_periods": 30
         });
-        
+
         strategy.update_params(new_params).unwrap();
-        
+
         assert_eq!(strategy.support_level, 5.0);
         assert_eq!(strategy.resistance_level, 6.0);
         assert_eq!(strategy.position_size_usd, 3000.0);
@@ -657,11 +676,15 @@ mod tests {
     #[test]
     fn test_mean_reversion_reset() {
         let mut strategy = MeanReversion::new(2.0, 2.0, 1000.0);
-        strategy.price_history.insert("BTC".to_string(), vec![100.0, 110.0]);
-        strategy.price_history.insert("ETH".to_string(), vec![3000.0, 3100.0]);
-        
+        strategy
+            .price_history
+            .insert("BTC".to_string(), vec![100.0, 110.0]);
+        strategy
+            .price_history
+            .insert("ETH".to_string(), vec![3000.0, 3100.0]);
+
         strategy.reset();
-        
+
         assert!(strategy.price_history.is_empty());
     }
 
@@ -674,26 +697,26 @@ mod tests {
     #[test]
     fn test_strategy_engine_add_strategy() {
         let mut engine = StrategyEngine::new();
-        
+
         let strategy1 = FundingArbitrage::new(-0.1, 0.0, 1000.0);
         let strategy2 = MeanReversion::new(2.0, 2.0, 1500.0);
-        
+
         engine.add_strategy(Box::new(strategy1));
         engine.add_strategy(Box::new(strategy2));
-        
+
         assert_eq!(engine.strategy_count(), 2);
     }
 
     #[test]
     fn test_strategy_engine_evaluate_all() {
         let mut engine = StrategyEngine::new();
-        
+
         let strategy = FundingArbitrage::new(-0.05, 0.0, 1000.0);
         engine.add_strategy(Box::new(strategy));
-        
+
         let data = create_test_market_data();
         let signals = engine.evaluate_all(&data);
-        
+
         // Should get signals from the funding arbitrage strategy
         assert!(!signals.is_empty());
     }
@@ -701,15 +724,15 @@ mod tests {
     #[test]
     fn test_strategy_engine_get_all_params() {
         let mut engine = StrategyEngine::new();
-        
+
         let strategy1 = FundingArbitrage::new(-0.1, 0.0, 1000.0);
         let strategy2 = MeanReversion::new(2.0, 2.0, 1500.0);
-        
+
         engine.add_strategy(Box::new(strategy1));
         engine.add_strategy(Box::new(strategy2));
-        
+
         let all_params = engine.get_all_params();
-        
+
         assert_eq!(all_params.len(), 2);
         assert!(all_params[0].get("funding_threshold").is_some());
         assert!(all_params[1].get("support_level").is_some());
@@ -718,15 +741,15 @@ mod tests {
     #[test]
     fn test_strategy_engine_update_strategy_params() {
         let mut engine = StrategyEngine::new();
-        
+
         let strategy = FundingArbitrage::new(-0.1, 0.0, 1000.0);
         engine.add_strategy(Box::new(strategy));
-        
+
         let new_params = serde_json::json!({
             "funding_threshold": -0.2,
             "position_size_usd": 2000.0
         });
-        
+
         let result = engine.update_strategy_params("FundingArbitrage", new_params);
         assert!(result.is_ok());
     }
@@ -734,10 +757,10 @@ mod tests {
     #[test]
     fn test_strategy_engine_update_nonexistent_strategy() {
         let mut engine = StrategyEngine::new();
-        
+
         let new_params = serde_json::json!({"threshold": 5.0});
         let result = engine.update_strategy_params("NonExistent", new_params);
-        
+
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("strategy not found"));
     }
@@ -745,13 +768,13 @@ mod tests {
     #[test]
     fn test_strategy_engine_reset_all() {
         let mut engine = StrategyEngine::new();
-        
+
         let mut strategy = FundingArbitrage::new(-0.1, 0.0, 1000.0);
         strategy.active_positions.push("BTC".to_string());
-        
+
         engine.add_strategy(Box::new(strategy));
         engine.reset_all();
-        
+
         // All strategies should be reset (can't verify internal state easily)
         assert_eq!(engine.strategy_count(), 1);
     }
@@ -764,12 +787,17 @@ mod tests {
             size: 0.1,
             reason: "Test buy".to_string(),
         };
-        
+
         let json = serde_json::to_string(&signal).unwrap();
         let deserialized: Signal = serde_json::from_str(&json).unwrap();
-        
+
         match deserialized {
-            Signal::Buy { asset, price, size, reason } => {
+            Signal::Buy {
+                asset,
+                price,
+                size,
+                reason,
+            } => {
                 assert_eq!(asset, "BTC");
                 assert_eq!(price, 50000.0);
                 assert_eq!(size, 0.1);
@@ -782,10 +810,10 @@ mod tests {
     #[test]
     fn test_market_data_serialization() {
         let data = create_test_market_data();
-        
+
         let json = serde_json::to_string(&data).unwrap();
         let deserialized: MarketData = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.timestamp, 1234567890);
         assert_eq!(deserialized.prices.len(), 2);
         assert_eq!(deserialized.funding_rates.len(), 2);

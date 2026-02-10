@@ -419,7 +419,7 @@ mod tests {
 
     fn create_test_agent_config(agent_type: &str) -> Config {
         let mut config = Config::default_for_type("test_agent".to_string(), agent_type.to_string());
-        
+
         if agent_type == "trader" {
             config.trading = Some(TradingConfig {
                 hyperliquid_api: "https://api.test.com".to_string(),
@@ -435,7 +435,7 @@ mod tests {
                 check_interval_secs: 60,
             });
         }
-        
+
         config
     }
 
@@ -443,13 +443,13 @@ mod tests {
     async fn test_handle_ping() {
         let config = create_test_agent_config("trader");
         let (agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "ping".to_string(),
             payload: serde_json::json!({}),
             request_id: "req1".to_string(),
         };
-        
+
         let result = agent.handle_ping(&cmd).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap()["pong"], true);
@@ -459,16 +459,16 @@ mod tests {
     async fn test_handle_get_metrics() {
         let config = create_test_agent_config("trader");
         let (agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "get_metrics".to_string(),
             payload: serde_json::json!({}),
             request_id: "req2".to_string(),
         };
-        
+
         let result = agent.handle_get_metrics(&cmd).await;
         assert!(result.is_ok());
-        
+
         let response = result.unwrap();
         assert!(response.get("agent_metrics").is_some());
         assert!(response.get("evolution_metrics").is_some());
@@ -479,13 +479,13 @@ mod tests {
     async fn test_handle_execute_trader_no_action() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({}),
             request_id: "req3".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap()["agent_type"], "trader");
@@ -495,7 +495,7 @@ mod tests {
     async fn test_handle_execute_monitor_add_alert() {
         let config = create_test_agent_config("monitor");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({
@@ -506,7 +506,7 @@ mod tests {
             }),
             request_id: "req4".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap()["status"], "success");
@@ -516,7 +516,7 @@ mod tests {
     async fn test_handle_execute_monitor_status() {
         let config = create_test_agent_config("monitor");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({
@@ -524,7 +524,7 @@ mod tests {
             }),
             request_id: "req5".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -536,13 +536,13 @@ mod tests {
     async fn test_handle_execute_sensor() {
         let config = create_test_agent_config("sensor");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({}),
             request_id: "req6".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap()["agent_type"], "sensor");
@@ -552,7 +552,7 @@ mod tests {
     async fn test_handle_update_strategy_add_funding_arbitrage() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "update_strategy".to_string(),
             payload: serde_json::json!({
@@ -563,7 +563,7 @@ mod tests {
             }),
             request_id: "req7".to_string(),
         };
-        
+
         let result = agent.handle_update_strategy(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -575,7 +575,7 @@ mod tests {
     async fn test_handle_update_strategy_add_mean_reversion() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "update_strategy".to_string(),
             payload: serde_json::json!({
@@ -586,7 +586,7 @@ mod tests {
             }),
             request_id: "req8".to_string(),
         };
-        
+
         let result = agent.handle_update_strategy(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -598,7 +598,7 @@ mod tests {
     async fn test_handle_update_strategy_get_params() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         // Add a strategy first
         let add_cmd = AgentCommand {
             command: "update_strategy".to_string(),
@@ -608,7 +608,7 @@ mod tests {
             request_id: "req9a".to_string(),
         };
         agent.handle_update_strategy(&add_cmd).await.unwrap();
-        
+
         // Now get params
         let cmd = AgentCommand {
             command: "update_strategy".to_string(),
@@ -617,7 +617,7 @@ mod tests {
             }),
             request_id: "req9".to_string(),
         };
-        
+
         let result = agent.handle_update_strategy(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -630,7 +630,7 @@ mod tests {
     async fn test_handle_evolution_record_trade() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "evolution".to_string(),
             payload: serde_json::json!({
@@ -642,7 +642,7 @@ mod tests {
             }),
             request_id: "req10".to_string(),
         };
-        
+
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -654,7 +654,7 @@ mod tests {
     async fn test_handle_evolution_get_performance() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "evolution".to_string(),
             payload: serde_json::json!({
@@ -662,7 +662,7 @@ mod tests {
             }),
             request_id: "req11".to_string(),
         };
-        
+
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -675,7 +675,7 @@ mod tests {
     async fn test_handle_evolution_reset() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "evolution".to_string(),
             payload: serde_json::json!({
@@ -683,7 +683,7 @@ mod tests {
             }),
             request_id: "req12".to_string(),
         };
-        
+
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap()["status"], "evolution_tracker_reset");
@@ -693,7 +693,7 @@ mod tests {
     async fn test_handle_execute_monitor_invalid_alert_type() {
         let config = create_test_agent_config("monitor");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({
@@ -704,7 +704,7 @@ mod tests {
             }),
             request_id: "req13".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_err());
     }
@@ -713,7 +713,7 @@ mod tests {
     async fn test_handle_execute_monitor_missing_coin() {
         let config = create_test_agent_config("monitor");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({
@@ -723,7 +723,7 @@ mod tests {
             }),
             request_id: "req14".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_err());
     }
@@ -732,7 +732,7 @@ mod tests {
     async fn test_handle_evolution_missing_fields() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "evolution".to_string(),
             payload: serde_json::json!({
@@ -742,7 +742,7 @@ mod tests {
             }),
             request_id: "req15".to_string(),
         };
-        
+
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_err());
     }
@@ -751,7 +751,7 @@ mod tests {
     async fn test_handle_evolution_get_trade_history() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         // Record a trade first
         let record_cmd = AgentCommand {
             command: "evolution".to_string(),
@@ -765,7 +765,7 @@ mod tests {
             request_id: "req16a".to_string(),
         };
         agent.handle_evolution(&record_cmd).await.unwrap();
-        
+
         // Now get trade history
         let cmd = AgentCommand {
             command: "evolution".to_string(),
@@ -774,7 +774,7 @@ mod tests {
             }),
             request_id: "req16".to_string(),
         };
-        
+
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -787,7 +787,7 @@ mod tests {
     async fn test_handle_execute_monitor_reset_alerts() {
         let config = create_test_agent_config("monitor");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({
@@ -795,7 +795,7 @@ mod tests {
             }),
             request_id: "req17".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap()["action"], "alerts_reset");
@@ -805,7 +805,7 @@ mod tests {
     async fn test_handle_execute_monitor_clear_alerts() {
         let config = create_test_agent_config("monitor");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({
@@ -813,7 +813,7 @@ mod tests {
             }),
             request_id: "req18".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap()["action"], "alerts_cleared");
@@ -823,13 +823,13 @@ mod tests {
     async fn test_handle_execute_governance() {
         let config = create_test_agent_config("governance");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({}),
             request_id: "req19".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap()["agent_type"], "governance");
@@ -840,13 +840,13 @@ mod tests {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
         agent.config.agent_type = "unknown".to_string();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({}),
             request_id: "req20".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_err());
     }
@@ -855,7 +855,7 @@ mod tests {
     async fn test_handle_update_strategy_update_params() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         // Add a strategy first
         let add_cmd = AgentCommand {
             command: "update_strategy".to_string(),
@@ -865,7 +865,7 @@ mod tests {
             request_id: "req21a".to_string(),
         };
         agent.handle_update_strategy(&add_cmd).await.unwrap();
-        
+
         // Now update its params
         let cmd = AgentCommand {
             command: "update_strategy".to_string(),
@@ -878,7 +878,7 @@ mod tests {
             }),
             request_id: "req21".to_string(),
         };
-        
+
         let result = agent.handle_update_strategy(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -890,7 +890,7 @@ mod tests {
     async fn test_handle_update_strategy_update_nonexistent() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "update_strategy".to_string(),
             payload: serde_json::json!({
@@ -900,7 +900,7 @@ mod tests {
             }),
             request_id: "req22".to_string(),
         };
-        
+
         let result = agent.handle_update_strategy(&cmd).await;
         assert!(result.is_err());
     }
@@ -909,7 +909,7 @@ mod tests {
     async fn test_handle_update_strategy_reset() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "update_strategy".to_string(),
             payload: serde_json::json!({
@@ -917,7 +917,7 @@ mod tests {
             }),
             request_id: "req23".to_string(),
         };
-        
+
         let result = agent.handle_update_strategy(&cmd).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap()["status"], "strategies_reset");
@@ -927,17 +927,17 @@ mod tests {
     async fn test_handle_unknown_command() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "unknown_command".to_string(),
             payload: serde_json::json!({}),
             request_id: "req24".to_string(),
         };
-        
+
         // handle_command is called internally, so we'll test the dispatch
         // Instead, we can call handle_command through the agent
         agent.handle_command(cmd).await;
-        
+
         // Verify that metrics recorded a failure
         assert_eq!(agent.metrics.actions_failed, 1);
     }
@@ -946,15 +946,15 @@ mod tests {
     async fn test_handle_command_success_records_metric() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "ping".to_string(),
             payload: serde_json::json!({}),
             request_id: "req25".to_string(),
         };
-        
+
         agent.handle_command(cmd).await;
-        
+
         // Verify that metrics recorded a success
         assert_eq!(agent.metrics.actions_success, 1);
         assert_eq!(agent.metrics.actions_total, 1);
@@ -964,13 +964,13 @@ mod tests {
     async fn test_handle_evolution_no_action() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "evolution".to_string(),
             payload: serde_json::json!({}),
             request_id: "req26".to_string(),
         };
-        
+
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -981,13 +981,13 @@ mod tests {
     async fn test_handle_update_strategy_no_action() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "update_strategy".to_string(),
             payload: serde_json::json!({}),
             request_id: "req27".to_string(),
         };
-        
+
         let result = agent.handle_update_strategy(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -999,7 +999,7 @@ mod tests {
         let mut config = create_test_agent_config("trader");
         config.trading = None; // Remove trading config
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({
@@ -1007,10 +1007,13 @@ mod tests {
             }),
             request_id: "req28".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("trading client not initialized"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("trading client not initialized"));
     }
 
     #[tokio::test]
@@ -1018,7 +1021,7 @@ mod tests {
         let mut config = create_test_agent_config("monitor");
         config.monitor = None; // Remove monitor config
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({
@@ -1026,17 +1029,20 @@ mod tests {
             }),
             request_id: "req29".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("monitor not initialized"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("monitor not initialized"));
     }
 
     #[tokio::test]
     async fn test_handle_execute_monitor_missing_target_price() {
         let config = create_test_agent_config("monitor");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({
@@ -1047,7 +1053,7 @@ mod tests {
             }),
             request_id: "req30".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_err());
     }
@@ -1056,7 +1062,7 @@ mod tests {
     async fn test_handle_execute_monitor_missing_alert_type() {
         let config = create_test_agent_config("monitor");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "execute".to_string(),
             payload: serde_json::json!({
@@ -1067,7 +1073,7 @@ mod tests {
             }),
             request_id: "req31".to_string(),
         };
-        
+
         let result = agent.handle_execute(&cmd).await;
         assert!(result.is_err());
     }
@@ -1076,7 +1082,7 @@ mod tests {
     async fn test_handle_update_strategy_update_params_missing_strategy() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "update_strategy".to_string(),
             payload: serde_json::json!({
@@ -1086,7 +1092,7 @@ mod tests {
             }),
             request_id: "req32".to_string(),
         };
-        
+
         let result = agent.handle_update_strategy(&cmd).await;
         assert!(result.is_err());
     }
@@ -1095,7 +1101,7 @@ mod tests {
     async fn test_handle_update_strategy_update_params_missing_params() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "update_strategy".to_string(),
             payload: serde_json::json!({
@@ -1105,7 +1111,7 @@ mod tests {
             }),
             request_id: "req33".to_string(),
         };
-        
+
         let result = agent.handle_update_strategy(&cmd).await;
         assert!(result.is_err());
     }
@@ -1114,7 +1120,7 @@ mod tests {
     async fn test_handle_evolution_record_trade_missing_entry_price() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "evolution".to_string(),
             payload: serde_json::json!({
@@ -1126,7 +1132,7 @@ mod tests {
             }),
             request_id: "req34".to_string(),
         };
-        
+
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_err());
     }
@@ -1135,7 +1141,7 @@ mod tests {
     async fn test_handle_evolution_record_trade_missing_exit_price() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "evolution".to_string(),
             payload: serde_json::json!({
@@ -1147,7 +1153,7 @@ mod tests {
             }),
             request_id: "req35".to_string(),
         };
-        
+
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_err());
     }
@@ -1156,7 +1162,7 @@ mod tests {
     async fn test_handle_evolution_record_trade_missing_size() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "evolution".to_string(),
             payload: serde_json::json!({
@@ -1168,7 +1174,7 @@ mod tests {
             }),
             request_id: "req36".to_string(),
         };
-        
+
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_err());
     }

@@ -68,7 +68,7 @@ func TestSyncEngine_CriticalSync(t *testing.T) {
 func TestSyncEngine_WarmSync(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req PipelineRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 
 		// Should have 3 statements: 2 warm memory + 1 sync state update
 		if len(req.Requests) != 3 {
@@ -168,7 +168,7 @@ func TestSyncEngine_OfflineQueue(t *testing.T) {
 func TestSyncEngine_FullSync(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req PipelineRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 
 		results := make([]BatchResult, len(req.Requests))
 		for i := range results {
@@ -262,7 +262,7 @@ func TestSyncEngine_StartStop(t *testing.T) {
 	if err := engine2.Start(ctx); err != nil {
 		t.Fatalf("Second engine start failed: %v", err)
 	}
-	engine2.Stop()
+	_ = engine2.Stop()
 }
 
 func TestOfflineQueue_EnqueueDequeue(t *testing.T) {
