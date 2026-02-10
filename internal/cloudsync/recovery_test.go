@@ -42,7 +42,7 @@ func TestRecoveryManager_RestoreAgent(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -94,13 +94,13 @@ func TestRecoveryManager_RestoreToDevice(t *testing.T) {
 					{Type: "ok", Response: &QueryResponse{Rows: [][]interface{}{}}},
 				},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		} else {
 			// Third request: register device
 			resp := PipelineResponse{
 				Results: []BatchResult{{Type: "ok"}},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 	}))
 	defer server.Close()
@@ -152,7 +152,7 @@ func TestRecoveryManager_GetWarmMemory(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -201,7 +201,7 @@ func TestRecoveryManager_GetEvolutionHistory(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -232,7 +232,7 @@ func TestRecoveryManager_MarkDeviceStolen(t *testing.T) {
 		resp := PipelineResponse{
 			Results: []BatchResult{{Type: "ok"}},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -278,7 +278,7 @@ func TestRecoveryManager_ListDevices(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

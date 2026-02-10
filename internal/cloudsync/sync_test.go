@@ -23,7 +23,7 @@ func TestSyncEngine_CriticalSync(t *testing.T) {
 				{Type: "ok"},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -80,7 +80,7 @@ func TestSyncEngine_WarmSync(t *testing.T) {
 			results[i] = BatchResult{Type: "ok"}
 		}
 		resp := PipelineResponse{Results: results}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -175,7 +175,7 @@ func TestSyncEngine_FullSync(t *testing.T) {
 			results[i] = BatchResult{Type: "ok"}
 		}
 		resp := PipelineResponse{Results: results}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -228,7 +228,7 @@ func TestSyncEngine_StartStop(t *testing.T) {
 		resp := PipelineResponse{
 			Results: []BatchResult{{Type: "ok"}},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

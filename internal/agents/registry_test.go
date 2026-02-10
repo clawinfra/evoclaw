@@ -642,7 +642,7 @@ func TestLoadWithInvalidJSON(t *testing.T) {
 	
 	// Write an invalid JSON file
 	invalidPath := tmpDir + "/invalid.json"
-	os.WriteFile(invalidPath, []byte("not valid json"), 0644)
+	_ = os.WriteFile(invalidPath, []byte("not valid json"), 0644)
 	
 	r, err := NewRegistry(tmpDir, logger)
 	if err != nil {
@@ -667,7 +667,7 @@ func TestSaveError(t *testing.T) {
 	}
 	
 	// Make the data directory read-only to force a save error
-	os.Chmod(r.dataDir, 0444)
+	_ = os.Chmod(r.dataDir, 0444)
 	defer os.Chmod(r.dataDir, 0755)
 	
 	// SaveAll should continue despite errors
@@ -700,7 +700,7 @@ func TestRegistry_LoadErrorHandling(t *testing.T) {
 
 	// Create corrupted file
 	agentPath := filepath.Join(tmpDir, "agents", "test-agent.json")
-	os.WriteFile(agentPath, []byte("invalid json{{{"), 0644)
+	_ = os.WriteFile(agentPath, []byte("invalid json{{{"), 0644)
 
 	// Try to load - should handle error gracefully
 	newRegistry, _ := NewRegistry(tmpDir, logger)
@@ -727,8 +727,8 @@ func TestRegistry_SaveErrorHandling(t *testing.T) {
 
 	// Make directory read-only to trigger save error
 	agentDir := filepath.Join(tmpDir, "agents")
-	os.MkdirAll(agentDir, 0755)
-	os.Chmod(agentDir, 0444)
+	_ = os.MkdirAll(agentDir, 0755)
+	_ = os.Chmod(agentDir, 0444)
 
 	err := registry.SaveAll()
 	if err != nil {
@@ -736,7 +736,7 @@ func TestRegistry_SaveErrorHandling(t *testing.T) {
 	}
 
 	// Restore permissions
-	os.Chmod(agentDir, 0755)
+	_ = os.Chmod(agentDir, 0755)
 }
 
 func TestMemoryStore_LoadErrorHandling(t *testing.T) {
@@ -752,7 +752,7 @@ func TestMemoryStore_LoadErrorHandling(t *testing.T) {
 
 	// Corrupt the file
 	memPath := filepath.Join(tmpDir, "memory", "test-agent.json")
-	os.WriteFile(memPath, []byte("invalid json{{{"), 0644)
+	_ = os.WriteFile(memPath, []byte("invalid json{{{"), 0644)
 
 	// Create new memory store and try to load
 	newMemory, _ := NewMemoryStore(tmpDir, logger)
@@ -784,7 +784,7 @@ func TestMemory_SaveErrorHandling(t *testing.T) {
 	// Make directory read-only
 	memDir := filepath.Join(tmpDir, "memory")
 	_ = os.MkdirAll(memDir, 0755)
-	os.Chmod(memDir, 0444)
+	_ = os.Chmod(memDir, 0444)
 
 	err := memory.Save("test-agent")
 	if err != nil {
@@ -792,5 +792,5 @@ func TestMemory_SaveErrorHandling(t *testing.T) {
 	}
 
 	// Restore permissions
-	os.Chmod(memDir, 0755)
+	_ = os.Chmod(memDir, 0755)
 }

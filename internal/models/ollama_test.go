@@ -86,7 +86,7 @@ func TestOllamaChatSuccess(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -186,7 +186,7 @@ func TestOllamaChatWithSystemPrompt(t *testing.T) {
 			Message: ollamaMessage{Role: "assistant", Content: "OK"},
 			Done:    true,
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -224,7 +224,7 @@ func TestOllamaChatMultipleMessages(t *testing.T) {
 			Message: ollamaMessage{Role: "assistant", Content: "Response"},
 			Done:    true,
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

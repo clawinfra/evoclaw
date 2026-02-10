@@ -30,7 +30,7 @@ func TestTursoClient_Execute(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -59,7 +59,7 @@ func TestTursoClient_Query(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -96,7 +96,7 @@ func TestTursoClient_BatchExecute(t *testing.T) {
 				{Type: "ok", RowsAffected: 1},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -128,7 +128,7 @@ func TestTursoClient_RetryOnFailure(t *testing.T) {
 		resp := PipelineResponse{
 			Results: []BatchResult{{Type: "ok"}},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -158,7 +158,7 @@ func TestTursoClient_ErrorResponse(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -181,7 +181,7 @@ func TestTursoClient_Timeout(t *testing.T) {
 		resp := PipelineResponse{
 			Results: []BatchResult{{Type: "ok"}},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

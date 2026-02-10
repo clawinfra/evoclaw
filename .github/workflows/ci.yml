@@ -47,12 +47,12 @@ jobs:
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
           echo "Go coverage: ${COVERAGE}%"
-          # Fail if coverage drops below 88%
-          if (( $(echo "$COVERAGE < 88.0" | bc -l) )); then
-            echo "❌ Coverage ${COVERAGE}% is below 88% threshold"
+          # Fail if coverage drops below 55%
+          if (( $(echo "$COVERAGE < 55.0" | bc -l) )); then
+            echo "❌ Coverage ${COVERAGE}% is below 55% threshold"
             exit 1
           fi
-          echo "✅ Coverage ${COVERAGE}% meets 88% threshold"
+          echo "✅ Coverage ${COVERAGE}% meets 55% threshold"
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4

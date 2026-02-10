@@ -206,15 +206,15 @@ func (r *RecoveryManager) GetEvolutionHistory(ctx context.Context, agentID strin
 		}
 
 		if row[3] != nil {
-			json.Unmarshal([]byte(row[3].(string)), &entry.GenomeBefore)
+			_ = json.Unmarshal([]byte(row[3].(string)), &entry.GenomeBefore)
 		}
 
 		if row[4] != nil {
-			json.Unmarshal([]byte(row[4].(string)), &entry.GenomeAfter)
+			_ = json.Unmarshal([]byte(row[4].(string)), &entry.GenomeAfter)
 		}
 
 		if row[5] != nil {
-			json.Unmarshal([]byte(row[5].(string)), &entry.Metrics)
+			_ = json.Unmarshal([]byte(row[5].(string)), &entry.Metrics)
 		}
 
 		entries = append(entries, entry)
@@ -252,7 +252,7 @@ func (r *RecoveryManager) GetActionHistory(ctx context.Context, agentID string, 
 		}
 
 		if row[2] != nil {
-			json.Unmarshal([]byte(row[2].(string)), &entry.Data)
+			_ = json.Unmarshal([]byte(row[2].(string)), &entry.Data)
 		}
 
 		if row[4] != nil {

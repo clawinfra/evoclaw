@@ -445,7 +445,9 @@ func (c *BSCClient) rpcCall(ctx context.Context, method string, params ...interf
 
 	respBody, _ := io.ReadAll(resp.Body)
 	var rpcResp rpcResponse
-	json.Unmarshal(respBody, &rpcResp)
+	if err := json.Unmarshal(respBody, &rpcResp); err != nil {
+		return nil, fmt.Errorf("unmarshal rpc response: %w", err)
+	}
 
 	if rpcResp.Error != nil {
 		return nil, fmt.Errorf("RPC error %d: %s", rpcResp.Error.Code, rpcResp.Error.Message)
