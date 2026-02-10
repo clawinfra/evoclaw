@@ -160,7 +160,7 @@ func TestRetrieve(t *testing.T) {
 		},
 	}
 
-	mgr.ProcessConversation(context.Background(), conv, "projects/garden", 0.7)
+	_ = mgr.ProcessConversation(context.Background(), conv, "projects/garden", 0.7)
 
 	// Retrieve memories about garden (short timeout to avoid hanging on cold tier)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

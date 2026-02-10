@@ -57,10 +57,10 @@ func TestAddNodeConstraints(t *testing.T) {
 	tree := NewMemoryTree()
 
 	// Test max depth
-	tree.AddNode("a", "level 1")
-	tree.AddNode("a/b", "level 2")
-	tree.AddNode("a/b/c", "level 3")
-	tree.AddNode("a/b/c/d", "level 4")
+	_ = tree.AddNode("a", "level 1")
+	_ = tree.AddNode("a/b", "level 2")
+	_ = tree.AddNode("a/b/c", "level 3")
+	_ = tree.AddNode("a/b/c/d", "level 4")
 	
 	err := tree.AddNode("a/b/c/d/e", "level 5")
 	if err == nil {
@@ -83,9 +83,9 @@ func TestAddNodeConstraints(t *testing.T) {
 
 func TestRemoveNode(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("projects", "Projects")
-	tree.AddNode("projects/evoclaw", "EvoClaw")
-	tree.AddNode("projects/bsc", "BSC integration")
+	_ = tree.AddNode("projects", "Projects")
+	_ = tree.AddNode("projects/evoclaw", "EvoClaw")
+	_ = tree.AddNode("projects/bsc", "BSC integration")
 
 	initialCount := tree.NodeCount
 
@@ -106,10 +106,10 @@ func TestRemoveNode(t *testing.T) {
 
 func TestRemoveNodeWithChildren(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("projects", "Projects")
-	tree.AddNode("projects/evoclaw", "EvoClaw")
-	tree.AddNode("projects/evoclaw/memory", "Memory system")
-	tree.AddNode("projects/evoclaw/bsc", "BSC integration")
+	_ = tree.AddNode("projects", "Projects")
+	_ = tree.AddNode("projects/evoclaw", "EvoClaw")
+	_ = tree.AddNode("projects/evoclaw/memory", "Memory system")
+	_ = tree.AddNode("projects/evoclaw/bsc", "BSC integration")
 
 	beforeCount := tree.NodeCount
 
@@ -128,7 +128,7 @@ func TestRemoveNodeWithChildren(t *testing.T) {
 
 func TestUpdateNode(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("projects", "Initial summary")
+	_ = tree.AddNode("projects", "Initial summary")
 
 	newSummary := "Updated summary"
 	warmCount := 5
@@ -153,13 +153,13 @@ func TestUpdateNode(t *testing.T) {
 
 func TestIncrementCounts(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("projects", "Projects")
+	_ = tree.AddNode("projects", "Projects")
 
 	node := tree.FindNode("projects")
 	initialWarm := node.WarmCount
 	initialCold := node.ColdCount
 
-	tree.IncrementCounts("projects", 3, 5)
+	_ = tree.IncrementCounts("projects", 3, 5)
 
 	node = tree.FindNode("projects")
 	if node.WarmCount != initialWarm+3 {
@@ -172,8 +172,8 @@ func TestIncrementCounts(t *testing.T) {
 
 func TestSerialize(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("projects", "Projects")
-	tree.AddNode("projects/evoclaw", "EvoClaw")
+	_ = tree.AddNode("projects", "Projects")
+	_ = tree.AddNode("projects/evoclaw", "EvoClaw")
 
 	data, err := tree.Serialize()
 	if err != nil {
@@ -191,8 +191,8 @@ func TestSerialize(t *testing.T) {
 
 func TestDeserialize(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("projects", "Projects")
-	tree.AddNode("projects/evoclaw", "EvoClaw")
+	_ = tree.AddNode("projects", "Projects")
+	_ = tree.AddNode("projects/evoclaw", "EvoClaw")
 
 	data, _ := tree.Serialize()
 
@@ -213,9 +213,9 @@ func TestDeserialize(t *testing.T) {
 
 func TestGetAllPaths(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("a", "A")
-	tree.AddNode("a/b", "B")
-	tree.AddNode("c", "C")
+	_ = tree.AddNode("a", "A")
+	_ = tree.AddNode("a/b", "B")
+	_ = tree.AddNode("c", "C")
 
 	paths := tree.GetAllPaths()
 	if len(paths) != 3 {
@@ -235,10 +235,10 @@ func TestGetAllPaths(t *testing.T) {
 
 func TestGetLeafNodes(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("projects", "Projects")
-	tree.AddNode("projects/evoclaw", "EvoClaw")
-	tree.AddNode("projects/evoclaw/memory", "Memory")
-	tree.AddNode("lessons", "Lessons")
+	_ = tree.AddNode("projects", "Projects")
+	_ = tree.AddNode("projects/evoclaw", "EvoClaw")
+	_ = tree.AddNode("projects/evoclaw/memory", "Memory")
+	_ = tree.AddNode("lessons", "Lessons")
 
 	leaves := tree.GetLeafNodes()
 
@@ -250,9 +250,9 @@ func TestGetLeafNodes(t *testing.T) {
 
 func TestPruneDeadNodes(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("active", "Active node")
-	tree.AddNode("old", "Old node")
-	tree.AddNode("dead", "Dead node")
+	_ = tree.AddNode("active", "Active node")
+	_ = tree.AddNode("old", "Old node")
+	_ = tree.AddNode("dead", "Dead node")
 
 	// Set old timestamp on "dead" node
 	node := tree.FindNode("dead")
@@ -286,13 +286,13 @@ func TestGetDepth(t *testing.T) {
 		t.Errorf("empty tree depth: got %d, want 0", tree.GetDepth())
 	}
 
-	tree.AddNode("a", "A")
+	_ = tree.AddNode("a", "A")
 	if tree.GetDepth() != 1 {
 		t.Errorf("depth: got %d, want 1", tree.GetDepth())
 	}
 
-	tree.AddNode("a/b", "B")
-	tree.AddNode("a/b/c", "C")
+	_ = tree.AddNode("a/b", "B")
+	_ = tree.AddNode("a/b/c", "C")
 	if tree.GetDepth() != 3 {
 		t.Errorf("depth: got %d, want 3", tree.GetDepth())
 	}

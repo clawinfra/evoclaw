@@ -56,7 +56,7 @@ func TestWarmGet(t *testing.T) {
 		AccessCount: 0,
 	}
 
-	warm.Add(entry)
+	_ = warm.Add(entry)
 
 	retrieved, err := warm.Get("test-1")
 	if err != nil {
@@ -79,21 +79,21 @@ func TestWarmGetByCategory(t *testing.T) {
 	warm := NewWarmMemory(cfg)
 
 	// Add entries in different categories
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:         "1",
 		Category:   "projects/a",
 		Content:    &DistilledFact{Fact: "A1", Date: time.Now()},
 		Importance: 0.5,
 		Timestamp:  time.Now(),
 	})
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:         "2",
 		Category:   "projects/a",
 		Content:    &DistilledFact{Fact: "A2", Date: time.Now()},
 		Importance: 0.5,
 		Timestamp:  time.Now(),
 	})
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:         "3",
 		Category:   "projects/b",
 		Content:    &DistilledFact{Fact: "B1", Date: time.Now()},
@@ -113,21 +113,21 @@ func TestWarmGetRecent(t *testing.T) {
 
 	// Add entries with different timestamps
 	now := time.Now()
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:         "1",
 		Timestamp:  now.Add(-3 * time.Hour),
 		Category:   "test",
 		Content:    &DistilledFact{Fact: "Old", Date: now},
 		Importance: 0.5,
 	})
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:         "2",
 		Timestamp:  now.Add(-1 * time.Hour),
 		Category:   "test",
 		Content:    &DistilledFact{Fact: "Recent", Date: now},
 		Importance: 0.5,
 	})
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:         "3",
 		Timestamp:  now,
 		Category:   "test",
@@ -150,7 +150,7 @@ func TestWarmDelete(t *testing.T) {
 	cfg := DefaultWarmConfig()
 	warm := NewWarmMemory(cfg)
 
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:         "test-1",
 		Category:   "test",
 		Content:    &DistilledFact{Fact: "Test", Date: time.Now()},
@@ -181,7 +181,7 @@ func TestWarmEvictExpired(t *testing.T) {
 
 	// Add old entry with low score
 	old := time.Now().AddDate(0, 0, -10)
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:          "old",
 		Timestamp:   old,
 		Category:    "test",
@@ -191,7 +191,7 @@ func TestWarmEvictExpired(t *testing.T) {
 	})
 
 	// Add recent entry
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:         "recent",
 		Timestamp:  time.Now(),
 		Category:   "test",
@@ -242,7 +242,7 @@ func TestWarmSerialize(t *testing.T) {
 	cfg := DefaultWarmConfig()
 	warm := NewWarmMemory(cfg)
 
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:         "test",
 		Timestamp:  time.Now(),
 		Category:   "test",
@@ -276,14 +276,14 @@ func TestWarmStats(t *testing.T) {
 	warm := NewWarmMemory(cfg)
 
 	now := time.Now()
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:         "1",
 		Timestamp:  now.Add(-2 * time.Hour),
 		Category:   "test",
 		Content:    &DistilledFact{Fact: "First", Date: now},
 		Importance: 0.5,
 	})
-	warm.Add(&WarmEntry{
+	_ = warm.Add(&WarmEntry{
 		ID:         "2",
 		Timestamp:  now,
 		Category:   "test",

@@ -32,8 +32,8 @@ func mockRebuildLLM(ctx context.Context, systemPrompt, userPrompt string) (strin
 
 func TestTreeRebuilder_RebuildTree(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("temp", "Temporary")
-	tree.AddNode("temp/old", "Old temp files")
+	_ = tree.AddNode("temp", "Temporary")
+	_ = tree.AddNode("temp/old", "Old temp files")
 
 	warm := NewWarmMemory(DefaultWarmConfig())
 
@@ -83,7 +83,7 @@ func TestTreeRebuilder_AddOperation(t *testing.T) {
 	}
 
 	// Need to create parent first
-	tree.AddNode("test", "Test category")
+	_ = tree.AddNode("test", "Test category")
 
 	err := rebuilder.applyOperation(op)
 	if err != nil {
@@ -102,7 +102,7 @@ func TestTreeRebuilder_AddOperation(t *testing.T) {
 
 func TestTreeRebuilder_RemoveOperation(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("toremove", "Node to remove")
+	_ = tree.AddNode("toremove", "Node to remove")
 
 	warm := NewWarmMemory(DefaultWarmConfig())
 	rebuilder := NewTreeRebuilder(tree, warm, nil, nil)
@@ -126,8 +126,8 @@ func TestTreeRebuilder_RemoveOperation(t *testing.T) {
 
 func TestTreeRebuilder_RemoveProtection(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("protected", "Protected node")
-	tree.IncrementCounts("protected", 5, 0) // Has warm memories
+	_ = tree.AddNode("protected", "Protected node")
+	_ = tree.IncrementCounts("protected", 5, 0) // Has warm memories
 
 	warm := NewWarmMemory(DefaultWarmConfig())
 	rebuilder := NewTreeRebuilder(tree, warm, nil, nil)
@@ -152,9 +152,9 @@ func TestTreeRebuilder_RemoveProtection(t *testing.T) {
 
 func TestTreeRebuilder_MergeOperation(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("source", "Source node")
-	tree.AddNode("target", "Target node")
-	tree.IncrementCounts("source", 3, 2)
+	_ = tree.AddNode("source", "Source node")
+	_ = tree.AddNode("target", "Target node")
+	_ = tree.IncrementCounts("source", 3, 2)
 
 	warm := NewWarmMemory(DefaultWarmConfig())
 	
@@ -167,7 +167,7 @@ func TestTreeRebuilder_MergeOperation(t *testing.T) {
 		Content:   &DistilledFact{Fact: "test"},
 		Importance: 0.5,
 	}
-	warm.Add(entry)
+	_ = warm.Add(entry)
 
 	rebuilder := NewTreeRebuilder(tree, warm, nil, nil)
 
@@ -212,8 +212,8 @@ func TestTreeRebuilder_MergeOperation(t *testing.T) {
 
 func TestTreeRebuilder_RenameOperation(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("oldname", "Old name")
-	tree.IncrementCounts("oldname", 2, 1)
+	_ = tree.AddNode("oldname", "Old name")
+	_ = tree.IncrementCounts("oldname", 2, 1)
 
 	warm := NewWarmMemory(DefaultWarmConfig())
 	entry := &WarmEntry{
@@ -224,7 +224,7 @@ func TestTreeRebuilder_RenameOperation(t *testing.T) {
 		Content:   &DistilledFact{Fact: "test"},
 		Importance: 0.5,
 	}
-	warm.Add(entry)
+	_ = warm.Add(entry)
 
 	rebuilder := NewTreeRebuilder(tree, warm, nil, nil)
 
@@ -294,8 +294,8 @@ func TestParseRebuildResponse_WithMarkdown(t *testing.T) {
 
 func TestTreeRebuilder_SerializeTreeState(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("test", "Test node")
-	tree.IncrementCounts("test", 5, 3)
+	_ = tree.AddNode("test", "Test node")
+	_ = tree.IncrementCounts("test", 5, 3)
 
 	warm := NewWarmMemory(DefaultWarmConfig())
 	rebuilder := NewTreeRebuilder(tree, warm, nil, nil)
