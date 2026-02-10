@@ -141,7 +141,7 @@ func TestListAgents(t *testing.T) {
 			ID:   string(rune(i)) + "-agent",
 			Name: "Agent " + string(rune(i)),
 		}
-		r.Create(def)
+		_, _ = r.Create(def)
 	}
 
 	agents = r.List()
@@ -443,13 +443,13 @@ func TestCheckHealth(t *testing.T) {
 			ID:   string(rune('a'+i-1)) + "-agent",
 			Name: "Agent " + string(rune('0'+i)),
 		}
-		r.Create(def)
+		_, _ = r.Create(def)
 	}
 
 	// Record heartbeats at different times
-	r.RecordHeartbeat("a-agent")
+	_ = r.RecordHeartbeat("a-agent")
 	time.Sleep(10 * time.Millisecond)
-	r.RecordHeartbeat("b-agent")
+	_ = r.RecordHeartbeat("b-agent")
 	// Don't record heartbeat for c-agent
 
 	// Simulate old heartbeat for a-agent
@@ -560,8 +560,8 @@ func TestGetSnapshot(t *testing.T) {
 	}
 
 	// Update agent state
-	r.RecordMessage("test-agent-1")
-	r.UpdateMetrics("test-agent-1", 1000, 0.05, 500, true)
+	_ = r.RecordMessage("test-agent-1")
+	_ = r.UpdateMetrics("test-agent-1", 1000, 0.05, 500, true)
 
 	// Get snapshot
 	snapshot := agent.GetSnapshot()
@@ -599,7 +599,7 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 	// Concurrent message recording
 	for i := 0; i < 10; i++ {
 		go func() {
-			r.RecordMessage("test-agent-1")
+			_ = r.RecordMessage("test-agent-1")
 			done <- true
 		}()
 	}
@@ -607,7 +607,7 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 	// Concurrent metric updates
 	for i := 0; i < 10; i++ {
 		go func() {
-			r.UpdateMetrics("test-agent-1", 100, 0.01, 100, true)
+			_ = r.UpdateMetrics("test-agent-1", 100, 0.01, 100, true)
 			done <- true
 		}()
 	}
