@@ -26,7 +26,7 @@
 
 ## Phase 1b: Terminal & Web Access 🖥️ (In Progress)
 
-**Terminal TUI + Web Terminal + BSC On-Chain**
+**Terminal TUI + Web Terminal + BSC On-Chain + Tiered Memory**
 
 - ✅ Terminal TUI — 759 lines, Bubble Tea split-pane chat interface
   - Left pane: agent status, metrics, uptime
@@ -39,6 +39,12 @@
   - `internal/onchain/bsc.go` — BSC/opBNB JSON-RPC client (zero go-ethereum dep)
   - Supports BSC mainnet/testnet + opBNB mainnet/testnet
   - Orchestrator auto-logs agent actions on-chain
+- ✅ Tiered Memory System (Cloud-First)
+  - Hot (MEMORY.md): 4KB on-device cache + critical sync to Turso
+  - Warm (JSON): 50KB local + dual-write to Turso
+  - Cold (Turso): Unlimited archive in cloud
+  - Tree Index: Hierarchical categorization
+  - Full disaster recovery (<2 min) via `cold_restore_hot_state`
 - 🔜 Web Terminal (ttyd/xterm.js)
   - Browser-based terminal — no SSH client needed
   - Expose TUI via web for demos and remote access
@@ -82,7 +88,16 @@
 
 **Target:** Prototype in 4-6 weeks
 
-### 2b. iOS Remote App
+### 2b. Skills System & ClawHub
+**Priority: HIGH — Extend agent capabilities dynamically**
+
+- **ClawHub**: Central registry for agent skills (tools + logic)
+- **Skill Engine**: Runtime loader for Node/Python/Shell skills
+- **Evo-Lens**: Visual identity skill (selfie generation, visual presence)
+- **Market-Monitor**: Real-time social/news monitoring
+- **Router**: Intelligent model routing (cost optimization)
+
+### 2c. iOS Remote App
 **Priority: MEDIUM — dashboard/remote, not full agent**
 
 | Component | Tech | Notes |
@@ -109,7 +124,7 @@
 
 **Target:** Prototype 6-8 weeks after Android
 
-### 2c. WASM Browser Playground
+### 2d. WASM Browser Playground
 **Priority: LOW — demo/marketing tool**
 
 - Compile Rust agent to `wasm32-unknown-unknown`
@@ -121,9 +136,10 @@
 
 ## Phase 3: Companion Devices 🧸
 
-### 3a. Voice Pipeline
+### 3a. Voice & Visual Pipeline
 - Cloud STT integration (Whisper API / Deepgram)
 - Cloud TTS integration (ElevenLabs / OpenAI TTS)
+- **Evo-Lens Integration**: Visual identity generator (ComfyUI / Flux / Fal.ai)
 - Audio streaming over MQTT/WebSocket
 - Wake word detection (lightweight on-device)
 - Emotion detection from voice tone
@@ -213,4 +229,4 @@ Same DNA. Same evolution. Different container.
 
 ---
 
-*Last updated: 2026-02-09*
+*Last updated: 2026-02-10*
