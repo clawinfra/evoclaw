@@ -289,7 +289,7 @@ func TestFirewallConcurrentAccess(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			agentID := "agent-concurrent"
-			_, _ = fw.PreMutationCheck(agentID)
+			_, _, _ = fw.PreMutationCheck(agentID)
 			_ = fw.PostMutationCheck(agentID, 1.0, 0.95)
 			fw.GetFirewallStatus(agentID)
 			g := &config.Genome{Identity: config.GenomeIdentity{Name: "test"}}
