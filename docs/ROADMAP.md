@@ -24,6 +24,18 @@
 
 ---
 
+## Phase 1a: Evolution & Security ✅ (Complete)
+
+**Genome Layers, Agent Patterns & Security**
+
+- ✅ Genome Layer 2: Skill Selection & Composition
+- ✅ Genome Layer 3: Behavioral Evolution
+- ✅ Agent Patterns: WAL, VBR, ADL, VFM
+- ✅ Security: Signed Constraints, JWT Auth, Evolution Firewall
+- ✅ Docs: INSTALLATION.md, EVOLUTION.md, SECURITY.md
+
+---
+
 ## Phase 1b: Terminal & Web Access 🖥️ (In Progress)
 
 **Terminal TUI + Web Terminal + BSC On-Chain + Tiered Memory**
@@ -229,4 +241,4 @@ Same DNA. Same evolution. Different container.
 
 ---
 
-*Last updated: 2026-02-10*
+*Last updated: 2026-02-11*

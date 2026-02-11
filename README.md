@@ -245,6 +245,16 @@ evoclaw/
 - Integration tests must not break existing unit tests
 - All new features need tests
 
+## What's Implemented
+
+> 🧬 EvoClaw has grown beyond parameter-only evolution:
+
+- **Genome Layer 2** — Skill Selection & Composition: agents choose and combine skills dynamically
+- **Genome Layer 3** — Behavioral Evolution: agents evolve high-level behavioral strategies
+- **Agent Patterns** — WAL (Write-Ahead Log), VBR (Version-Based Recovery), ADL (Adaptive Decision Logic), VFM (Volatile Fitness Memory)
+- **Security** — Signed constraints, JWT authentication, evolution firewall (see [docs/SECURITY.md](docs/SECURITY.md))
+- **Docs** — [INSTALLATION.md](docs/INSTALLATION.md), [EVOLUTION.md](docs/EVOLUTION.md), [SECURITY.md](docs/SECURITY.md)
+
 ## Beta Known Limitations
 
 > ⚠️ EvoClaw is in **beta**. The following limitations are known:
@@ -252,7 +262,6 @@ evoclaw/
 - **No TLS/auth on MQTT** — The default Mosquitto config allows anonymous access. For production, configure TLS and authentication.
 - **No container isolation** — The `container` config field exists but Firecracker/gVisor isolation is not yet implemented.
 - **WhatsApp channel** — Declared in config but not yet implemented.
-- **Evolution engine** — Strategy mutation is parameter-only; LLM-powered prompt mutation is on the roadmap.
 - **Single orchestrator** — No HA/clustering support yet. The orchestrator is a single process.
 - **Edge agent auto-discovery** — Agents must be manually configured; no mDNS/auto-registration yet.
 - **Private key management** — Keys are stored as files; no vault/KMS integration.
