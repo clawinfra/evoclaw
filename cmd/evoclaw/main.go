@@ -104,6 +104,14 @@ func run() int {
 		case "chain":
 			// Pass args after the subcommand
 			return cli.ChainCommand(os.Args[subCmdIdx+1:], configPath)
+		case "init":
+			return cli.InitCommand(os.Args[subCmdIdx+1:])
+		case "start":
+			// Explicit start subcommand — falls through to normal server start below
+		default:
+			fmt.Fprintf(os.Stderr, "Unknown command: %s\n", subCmd)
+			fmt.Fprintln(os.Stderr, "Available commands: init, start, chain")
+			return 1
 		}
 	}
 
