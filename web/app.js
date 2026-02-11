@@ -20,6 +20,7 @@ function dashboard() {
         selectedAgent: null,
         agentMemory: [],
         agentEvolution: null,
+        agentGenome: null,
         evolutionData: {},
 
         // Filters
@@ -212,6 +213,10 @@ function dashboard() {
             // Fetch evolution
             const evo = await this.fetchJSON(`/api/agents/${agentId}/evolution`);
             this.agentEvolution = evo;
+
+            // Fetch genome
+            const genome = await this.fetchJSON(`/api/agents/${agentId}/genome`);
+            this.agentGenome = genome;
 
             // Init charts after view renders
             this.$nextTick(() => this.initAgentDetailCharts());

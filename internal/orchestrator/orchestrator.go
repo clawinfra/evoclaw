@@ -755,7 +755,7 @@ func (o *Orchestrator) evolutionLoop() {
 	}
 }
 
-// evaluateAgents runs the evolution engine on all agents
+// evaluateAgents runs the evolution engine on all agents (per-skill evaluation)
 func (o *Orchestrator) evaluateAgents() {
 	if o.evolution == nil {
 		return
@@ -768,52 +768,190 @@ func (o *Orchestrator) evaluateAgents() {
 		agent.mu.RLock()
 		metrics := agent.Metrics
 		agentID := agent.ID
+		genome := agent.Def.Genome
 		agent.mu.RUnlock()
 
 		if metrics.TotalActions < int64(o.cfg.Evolution.MinSamplesForEval) {
 			continue
 		}
 
-		successRate := float64(metrics.SuccessfulActions) / float64(metrics.TotalActions)
-
-		// Prepare metrics for evaluation
-		evalMetrics := map[string]float64{
-			"successRate":   successRate,
-			"avgResponseMs": metrics.AvgResponseMs,
-			"costUSD":       metrics.CostUSD,
-			"totalActions":  float64(metrics.TotalActions),
-		}
-		for k, v := range metrics.Custom {
-			evalMetrics[k] = v
+		if genome == nil {
+			continue
 		}
 
-		// Get current fitness
-		fitness := o.evolution.Evaluate(agentID, evalMetrics)
+		// Evaluate each enabled skill separately
+		for skillName, skill := range genome.Skills {
+			if !skill.Enabled {
+				continue
+			}
 
-		o.logger.Info("agent evaluation",
-			"agent", agentID,
-			"actions", metrics.TotalActions,
-			"successRate", successRate,
-			"avgResponseMs", metrics.AvgResponseMs,
-			"tokensUsed", metrics.TokensUsed,
-			"fitness", fitness,
+			// Prepare skill-specific metrics
+			evalMetrics := o.getSkillMetrics(agent, skillName)
+
+			// Try to cast evolution engine to the extended interface
+			type SkillEvolver interface {
+				EvaluateSkill(agentID, skillName string, metrics map[string]float64) (float64, error)
+				ShouldEvolveSkill(agentID, skillName string, minFitness float64, minSamples int) (bool, error)
+				MutateSkill(agentID, skillName string, mutationRate float64) error
+			}
+
+			if skillEvo, ok := o.evolution.(SkillEvolver); ok {
+				fitness, err := skillEvo.EvaluateSkill(agentID, skillName, evalMetrics)
+				if err != nil {
+					o.logger.Error("skill evaluation failed",
+						"agent", agentID,
+						"skill", skillName,
+						"error", err,
+					)
+					continue
+				}
+
+				o.logger.Info("skill evaluation",
+					"agent", agentID,
+					"skill", skillName,
+					"fitness", fitness,
+					"version", skill.Version,
+				)
+
+				// Check if this skill needs evolution
+				minFitness := 0.6
+				shouldEvolve, err := skillEvo.ShouldEvolveSkill(agentID, skillName, minFitness, o.cfg.Evolution.MinSamplesForEval)
+				if err != nil {
+					o.logger.Error("evolution check failed",
+						"agent", agentID,
+						"skill", skillName,
+						"error", err,
+					)
+					continue
+				}
+
+				if shouldEvolve {
+					o.logger.Warn("skill fitness below threshold, triggering evolution",
+						"agent", agentID,
+						"skill", skillName,
+						"fitness", fitness,
+						"threshold", minFitness,
+					)
+
+					agent.mu.Lock()
+					agent.Status = "evolving"
+					agent.mu.Unlock()
+
+					go o.evolveSkill(agent, skillName, fitness)
+				}
+			} else {
+				// Fallback to legacy agent-level evolution
+				successRate := float64(metrics.SuccessfulActions) / float64(metrics.TotalActions)
+				evalMetrics := map[string]float64{
+					"successRate":   successRate,
+					"avgResponseMs": metrics.AvgResponseMs,
+					"costUSD":       metrics.CostUSD,
+					"totalActions":  float64(metrics.TotalActions),
+				}
+				for k, v := range metrics.Custom {
+					evalMetrics[k] = v
+				}
+
+				fitness := o.evolution.Evaluate(agentID, evalMetrics)
+				minFitness := 0.6
+				if o.evolution.ShouldEvolve(agentID, minFitness) {
+					agent.mu.Lock()
+					agent.Status = "evolving"
+					agent.mu.Unlock()
+					go o.evolveAgent(agent, fitness)
+				}
+			}
+		}
+	}
+}
+
+// getSkillMetrics extracts metrics relevant to a specific skill
+func (o *Orchestrator) getSkillMetrics(agent *AgentState, skillName string) map[string]float64 {
+	agent.mu.RLock()
+	defer agent.mu.RUnlock()
+
+	metrics := agent.Metrics
+	successRate := 0.0
+	if metrics.TotalActions > 0 {
+		successRate = float64(metrics.SuccessfulActions) / float64(metrics.TotalActions)
+	}
+
+	// Base metrics
+	evalMetrics := map[string]float64{
+		"successRate":   successRate,
+		"avgResponseMs": metrics.AvgResponseMs,
+		"costUSD":       metrics.CostUSD,
+		"totalActions":  float64(metrics.TotalActions),
+	}
+
+	// Add skill-specific custom metrics (prefixed with skill name)
+	skillPrefix := skillName + "_"
+	for k, v := range metrics.Custom {
+		if len(k) >= len(skillPrefix) && k[:len(skillPrefix)] == skillPrefix {
+			// Strip prefix and add to eval metrics
+			evalMetrics[k[len(skillPrefix):]] = v
+		}
+	}
+
+	return evalMetrics
+}
+
+// evolveSkill performs evolution on a specific skill
+func (o *Orchestrator) evolveSkill(agent *AgentState, skillName string, currentFitness float64) {
+	defer func() {
+		agent.mu.Lock()
+		agent.Status = "idle"
+		agent.mu.Unlock()
+	}()
+
+	o.logger.Info("starting skill evolution",
+		"agent", agent.ID,
+		"skill", skillName,
+		"fitness", currentFitness,
+	)
+
+	type SkillEvolver interface {
+		MutateSkill(agentID, skillName string, mutationRate float64) error
+	}
+
+	if skillEvo, ok := o.evolution.(SkillEvolver); ok {
+		if err := skillEvo.MutateSkill(agent.ID, skillName, o.cfg.Evolution.MaxMutationRate); err != nil {
+			o.logger.Error("skill mutation failed",
+				"agent", agent.ID,
+				"skill", skillName,
+				"error", err,
+			)
+			return
+		}
+
+		o.logger.Info("skill evolved successfully",
+			"agent", agent.ID,
+			"skill", skillName,
 		)
 
-		// Check if evolution is needed
-		minFitness := 0.6 // Threshold for acceptable performance
-		if o.evolution.ShouldEvolve(agentID, minFitness) {
-			o.logger.Warn("agent fitness below threshold, triggering evolution",
-				"agent", agentID,
-				"fitness", fitness,
-				"threshold", minFitness,
-			)
-
-			// Trigger evolution
-			agent.mu.Lock()
-			agent.Status = "evolving"
-			agent.mu.Unlock()
-
-			go o.evolveAgent(agent, fitness)
+		// Sync evolution event to cloud
+		if o.cloudSync != nil && o.cloudSync.IsEnabled() {
+			go func() {
+				snapshot := &cloudsync.MemorySnapshot{
+					AgentID:   agent.ID,
+					Timestamp: time.Now().Unix(),
+					Evolution: []cloudsync.EvolutionEntry{
+						{
+							EventType:    "skill_mutation",
+							FitnessScore: currentFitness,
+							Metrics: map[string]float64{
+								"mutation_rate": o.cfg.Evolution.MaxMutationRate,
+							},
+							Timestamp: time.Now().Unix(),
+						},
+					},
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				if err := o.cloudSync.SyncWarm(ctx, snapshot); err != nil {
+					o.logger.Debug("cloud sync evolution event failed (non-fatal)", "error", err)
+				}
+			}()
 		}
 	}
 }

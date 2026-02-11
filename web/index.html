@@ -301,30 +301,111 @@
                 </div>
             </div>
 
-            <div class="card" x-show="selectedAgent?.def?.type === 'trader'">
-                <h3>Strategy / Genome Config</h3>
-                <div class="config-grid" x-show="agentEvolution">
-                    <template x-for="[key, value] in Object.entries(agentEvolution?.params || {})" :key="key">
-                        <div class="config-row">
-                            <span class="config-label" x-text="key"></span>
-                            <span class="config-value mono" x-text="typeof value === 'number' ? value.toFixed(4) : value"></span>
+            <div class="card">
+                <h3>Genome</h3>
+                <div class="genome-display" x-show="agentGenome">
+                    <!-- Identity -->
+                    <div class="genome-section">
+                        <h4>🎭 Identity</h4>
+                        <div class="config-grid">
+                            <div class="config-row">
+                                <span class="config-label">Name</span>
+                                <span class="config-value" x-text="agentGenome?.identity?.name || '—'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Persona</span>
+                                <span class="config-value" x-text="agentGenome?.identity?.persona || '—'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Voice</span>
+                                <span class="config-value" x-text="agentGenome?.identity?.voice || '—'"></span>
+                            </div>
                         </div>
-                    </template>
-                    <div class="config-row">
-                        <span class="config-label">Temperature</span>
-                        <span class="config-value mono" x-text="agentEvolution?.temperature?.toFixed(4) || '—'"></span>
                     </div>
-                    <div class="config-row">
-                        <span class="config-label">Fitness</span>
-                        <span class="config-value mono" x-text="agentEvolution?.fitness?.toFixed(4) || '—'"></span>
+                    
+                    <!-- Behavior -->
+                    <div class="genome-section">
+                        <h4>🎨 Behavior</h4>
+                        <div class="config-grid">
+                            <div class="config-row">
+                                <span class="config-label">Risk Tolerance</span>
+                                <span class="config-value">
+                                    <span x-text="((agentGenome?.behavior?.risk_tolerance || 0) * 100).toFixed(0)"></span>%
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" :style="'width: ' + ((agentGenome?.behavior?.risk_tolerance || 0) * 100) + '%'"></div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Verbosity</span>
+                                <span class="config-value">
+                                    <span x-text="((agentGenome?.behavior?.verbosity || 0) * 100).toFixed(0)"></span>%
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" :style="'width: ' + ((agentGenome?.behavior?.verbosity || 0) * 100) + '%'"></div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Autonomy</span>
+                                <span class="config-value">
+                                    <span x-text="((agentGenome?.behavior?.autonomy || 0) * 100).toFixed(0)"></span>%
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" :style="'width: ' + ((agentGenome?.behavior?.autonomy || 0) * 100) + '%'"></div>
+                                    </div>
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="config-row">
-                        <span class="config-label">Version</span>
-                        <span class="config-value mono" x-text="agentEvolution?.version || '—'"></span>
+                    
+                    <!-- Skills -->
+                    <div class="genome-section">
+                        <h4>🧩 Skills</h4>
+                        <template x-for="[skillName, skill] in Object.entries(agentGenome?.skills || {})" :key="skillName">
+                            <div class="skill-card" :class="skill.enabled ? 'skill-enabled' : 'skill-disabled'">
+                                <div class="skill-header">
+                                    <span class="skill-name" x-text="skillName"></span>
+                                    <span class="skill-version">v<span x-text="skill.version"></span></span>
+                                    <span class="skill-status" x-text="skill.enabled ? '✓' : '✗'"></span>
+                                </div>
+                                <div class="skill-fitness" x-show="skill.fitness > 0">
+                                    <span class="fitness-label">Fitness:</span>
+                                    <span :class="getFitnessClass(skill.fitness)" x-text="skill.fitness.toFixed(3)"></span>
+                                </div>
+                                <div class="skill-params">
+                                    <template x-for="[key, value] in Object.entries(skill.params || {})" :key="key">
+                                        <div class="param-row">
+                                            <span class="param-key" x-text="key"></span>
+                                            <span class="param-value mono" x-text="typeof value === 'number' ? value.toFixed(4) : value"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- Constraints -->
+                    <div class="genome-section">
+                        <h4>🔒 Constraints</h4>
+                        <div class="config-grid">
+                            <div class="config-row">
+                                <span class="config-label">Max Loss (USD)</span>
+                                <span class="config-value" x-text="agentGenome?.constraints?.max_loss_usd || '—'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Allowed Assets</span>
+                                <span class="config-value" x-text="(agentGenome?.constraints?.allowed_assets || []).join(', ') || 'All'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Blocked Actions</span>
+                                <span class="config-value" x-text="(agentGenome?.constraints?.blocked_actions || []).join(', ') || 'None'"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                <div class="empty-state" x-show="!agentGenome">
+                    <p>No genome data available</p>
+                </div>
             </div>
-        </div>
 
         <!-- Trading View -->
         <div x-show="currentView === 'trading'" x-transition class="view">

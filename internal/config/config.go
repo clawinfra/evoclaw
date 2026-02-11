@@ -192,17 +192,56 @@ type EvolutionConfig struct {
 }
 
 type AgentDef struct {
-	ID           string                 `json:"id"`
-	Name         string                 `json:"name"`
-	Type         string                 `json:"type"` // "orchestrator", "trader", "monitor", "governance"
-	Model        string                 `json:"model"`
-	SystemPrompt string                 `json:"systemPrompt,omitempty"`
-	Skills       []string               `json:"skills"`
-	Capabilities []string               `json:"capabilities,omitempty"`
-	Genome       map[string]interface{} `json:"genome,omitempty"`
-	Config       map[string]string      `json:"config,omitempty"`
+	ID           string          `json:"id"`
+	Name         string          `json:"name"`
+	Type         string          `json:"type"` // "orchestrator", "trader", "monitor", "governance"
+	Model        string          `json:"model"`
+	SystemPrompt string          `json:"systemPrompt,omitempty"`
+	Skills       []string        `json:"skills"`
+	Capabilities []string        `json:"capabilities,omitempty"`
+	Genome       *Genome         `json:"genome,omitempty"`
+	Config       map[string]string `json:"config,omitempty"`
 	// Container isolation settings
 	Container ContainerConfig `json:"container"`
+}
+
+// Genome defines the complete genetic makeup of an agent
+// This is re-exported from internal/genome for convenience
+type Genome struct {
+	Identity    GenomeIdentity              `json:"identity"`
+	Skills      map[string]SkillGenome      `json:"skills"`
+	Behavior    GenomeBehavior              `json:"behavior"`
+	Constraints GenomeConstraints           `json:"constraints"`
+}
+
+// GenomeIdentity defines the agent's identity layer
+type GenomeIdentity struct {
+	Name    string `json:"name"`
+	Persona string `json:"persona"`
+	Voice   string `json:"voice"` // concise, verbose, balanced, etc.
+}
+
+// SkillGenome defines evolvable parameters for a specific skill
+type SkillGenome struct {
+	Enabled    bool                   `json:"enabled"`
+	Strategies []string               `json:"strategies,omitempty"`
+	Params     map[string]interface{} `json:"params"`
+	Fitness    float64                `json:"fitness"`
+	Version    int                    `json:"version"`
+}
+
+// GenomeBehavior defines behavioral traits
+type GenomeBehavior struct {
+	RiskTolerance float64 `json:"risk_tolerance"` // 0.0-1.0
+	Verbosity     float64 `json:"verbosity"`      // 0.0-1.0
+	Autonomy      float64 `json:"autonomy"`       // 0.0-1.0
+}
+
+// GenomeConstraints defines hard boundaries (non-evolvable)
+type GenomeConstraints struct {
+	MaxLossUSD     float64  `json:"max_loss_usd,omitempty"`
+	AllowedAssets  []string `json:"allowed_assets,omitempty"`
+	BlockedActions []string `json:"blocked_actions,omitempty"`
 }
 
 type ContainerConfig struct {

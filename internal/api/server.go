@@ -66,6 +66,11 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/memory/stats", s.handleMemoryStats)
 	mux.HandleFunc("/api/memory/tree", s.handleMemoryTree)
 	mux.HandleFunc("/api/memory/retrieve", s.handleMemoryRetrieve)
+	
+	// Genome API routes
+	mux.HandleFunc("/api/agents/{id}/genome", s.handleGenomeRoutes)
+	mux.HandleFunc("/api/agents/{id}/genome/skills/{skill}", s.handleSkillRoutes)
+	mux.HandleFunc("/api/agents/{id}/genome/skills/{skill}/params", s.handleUpdateSkillParams)
 
 	// Serve embedded web dashboard
 	if s.webFS != nil {

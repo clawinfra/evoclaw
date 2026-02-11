@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/clawinfra/evoclaw/internal/config"
 )
 
 // Strategy represents an agent's current strategy that can be mutated
@@ -274,4 +276,157 @@ func (e *Engine) loadStrategies() {
 		e.strategies[s.AgentID] = &s
 		e.logger.Info("loaded strategy", "agent", s.AgentID, "version", s.Version)
 	}
+}
+
+// GetGenome returns the current genome for an agent
+func (e *Engine) GetGenome(agentID string) (*config.Genome, error) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	// Load from disk
+	path := filepath.Join(e.dataDir, fmt.Sprintf("%s-genome.json", agentID))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read genome file: %w", err)
+	}
+
+	var genome config.Genome
+	if err := json.Unmarshal(data, &genome); err != nil {
+		return nil, fmt.Errorf("unmarshal genome: %w", err)
+	}
+
+	return &genome, nil
+}
+
+// UpdateGenome saves a genome to disk
+func (e *Engine) UpdateGenome(agentID string, genome *config.Genome) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	path := filepath.Join(e.dataDir, fmt.Sprintf("%s-genome.json", agentID))
+	data, err := json.MarshalIndent(genome, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal genome: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0640); err != nil {
+		return fmt.Errorf("write genome file: %w", err)
+	}
+
+	e.logger.Info("genome updated", "agent", agentID)
+	return nil
+}
+
+// EvaluateSkill evaluates a specific skill within an agent's genome
+func (e *Engine) EvaluateSkill(agentID, skillName string, metrics map[string]float64) (float64, error) {
+	genome, err := e.GetGenome(agentID)
+	if err != nil {
+		return 0, fmt.Errorf("get genome: %w", err)
+	}
+
+	skill, ok := genome.Skills[skillName]
+	if !ok {
+		return 0, fmt.Errorf("skill not found: %s", skillName)
+	}
+
+	// Compute fitness for this skill
+	fitness := computeFitness(metrics)
+
+	// Update skill fitness (exponential moving average)
+	alpha := 0.3
+	if skill.Fitness == 0 {
+		skill.Fitness = fitness
+	} else {
+		skill.Fitness = alpha*fitness + (1-alpha)*skill.Fitness
+	}
+
+	genome.Skills[skillName] = skill
+
+	if err := e.UpdateGenome(agentID, genome); err != nil {
+		return 0, fmt.Errorf("save genome: %w", err)
+	}
+
+	e.logger.Info("skill evaluated",
+		"agent", agentID,
+		"skill", skillName,
+		"fitness", skill.Fitness,
+	)
+
+	return skill.Fitness, nil
+}
+
+// MutateSkill mutates parameters for a specific skill
+func (e *Engine) MutateSkill(agentID, skillName string, mutationRate float64) error {
+	genome, err := e.GetGenome(agentID)
+	if err != nil {
+		return fmt.Errorf("get genome: %w", err)
+	}
+
+	skill, ok := genome.Skills[skillName]
+	if !ok {
+		return fmt.Errorf("skill not found: %s", skillName)
+	}
+
+	// Mutate skill parameters
+	mutatedParams := make(map[string]interface{})
+	for k, v := range skill.Params {
+		switch val := v.(type) {
+		case float64:
+			mutatedParams[k] = mutateFloat(val, mutationRate, -10000, 10000)
+		case int:
+			mutatedParams[k] = int(mutateFloat(float64(val), mutationRate, -10000, 10000))
+		case bool:
+			// Boolean mutation: flip with probability = mutationRate
+			if time.Now().UnixNano()%100 < int64(mutationRate*100) {
+				mutatedParams[k] = !val
+			} else {
+				mutatedParams[k] = val
+			}
+		default:
+			mutatedParams[k] = v // Keep unchanged
+		}
+	}
+
+	skill.Params = mutatedParams
+	skill.Version++
+	skill.Fitness = 0 // Reset fitness for re-evaluation
+
+	genome.Skills[skillName] = skill
+
+	if err := e.UpdateGenome(agentID, genome); err != nil {
+		return fmt.Errorf("save genome: %w", err)
+	}
+
+	e.logger.Info("skill mutated",
+		"agent", agentID,
+		"skill", skillName,
+		"version", skill.Version,
+		"mutationRate", mutationRate,
+	)
+
+	return nil
+}
+
+// ShouldEvolveSkill checks if a specific skill needs evolution
+func (e *Engine) ShouldEvolveSkill(agentID, skillName string, minFitness float64, minSamples int) (bool, error) {
+	genome, err := e.GetGenome(agentID)
+	if err != nil {
+		return false, fmt.Errorf("get genome: %w", err)
+	}
+
+	skill, ok := genome.Skills[skillName]
+	if !ok {
+		return false, fmt.Errorf("skill not found: %s", skillName)
+	}
+
+	if !skill.Enabled {
+		return false, nil
+	}
+
+	// Check if we have enough samples (based on version - older versions have more samples)
+	if skill.Version < minSamples {
+		return false, nil
+	}
+
+	return skill.Fitness < minFitness, nil
 }
