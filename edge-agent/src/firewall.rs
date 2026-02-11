@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 
 /// Configuration for the edge firewall.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct FirewallConfig {
     pub enabled: bool,
     pub max_mutations_per_hour: usize,
@@ -30,12 +31,14 @@ impl Default for FirewallConfig {
 
 /// Circuit breaker state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum CircuitState {
     Closed,
     Open,
     HalfOpen,
 }
 
+#[allow(dead_code)]
 impl std::fmt::Display for CircuitState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -46,6 +49,7 @@ impl std::fmt::Display for CircuitState {
     }
 }
 
+#[allow(dead_code)]
 struct AgentState {
     mutation_timestamps: Vec<Instant>,
     circuit: CircuitState,
@@ -54,6 +58,7 @@ struct AgentState {
 }
 
 impl AgentState {
+    #[allow(dead_code)]
     fn new() -> Self {
         Self {
             mutation_timestamps: Vec::new(),
@@ -66,6 +71,7 @@ impl AgentState {
 
 /// Firewall status returned for monitoring.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct FirewallStatus {
     pub enabled: bool,
     pub rate_limit_remaining: usize,
@@ -73,11 +79,13 @@ pub struct FirewallStatus {
 }
 
 /// Edge evolution firewall combining rate limiter and circuit breaker.
+#[allow(dead_code)]
 pub struct EdgeFirewall {
     config: FirewallConfig,
     agents: Mutex<HashMap<String, AgentState>>,
 }
 
+#[allow(dead_code)]
 impl EdgeFirewall {
     /// Create a new edge firewall.
     pub fn new(config: FirewallConfig) -> Self {
@@ -106,7 +114,7 @@ impl EdgeFirewall {
                     if opened.elapsed() >= self.config.cooldown {
                         state.circuit = CircuitState::HalfOpen;
                     } else {
-                        return Err(format!("circuit breaker open"));
+                        return Err("circuit breaker open".to_string());
                     }
                 } else {
                     return Err("circuit breaker open".to_string());
