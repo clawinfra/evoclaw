@@ -23,12 +23,18 @@ pub struct GenomeIdentity {
 pub struct SkillGenome {
     pub enabled: bool,
     #[serde(default)]
+    pub weight: f64, // Layer 2: skill importance weight (0.0-1.0)
+    #[serde(default)]
     pub strategies: Vec<String>,
     pub params: HashMap<String, serde_json::Value>,
     #[serde(default)]
     pub fitness: f64,
     #[serde(default)]
     pub version: u32,
+    #[serde(default)]
+    pub dependencies: Vec<String>, // Layer 2: skills this skill depends on
+    #[serde(default)]
+    pub eval_count: u32, // Layer 2: number of evaluations
 }
 
 /// Behavioral traits
@@ -37,6 +43,12 @@ pub struct GenomeBehavior {
     pub risk_tolerance: f64, // 0.0-1.0
     pub verbosity: f64,      // 0.0-1.0
     pub autonomy: f64,       // 0.0-1.0
+    #[serde(default)]
+    pub prompt_style: String, // Layer 3: "concise", "detailed", "socratic"
+    #[serde(default)]
+    pub tool_preferences: HashMap<String, f64>, // Layer 3: tool usage weights
+    #[serde(default)]
+    pub response_patterns: Vec<String>, // Layer 3: evolved response templates
 }
 
 /// Hard constraints (non-evolvable)
@@ -64,6 +76,9 @@ impl Genome {
                 risk_tolerance: 0.3,
                 verbosity: 0.5,
                 autonomy: 0.5,
+                prompt_style: "balanced".to_string(),
+                tool_preferences: HashMap::new(),
+                response_patterns: vec![],
             },
             constraints: GenomeConstraints {
                 max_loss_usd: 1000.0,
@@ -196,10 +211,13 @@ mod tests {
         
         let skill = SkillGenome {
             enabled: true,
+            weight: 1.0,
             strategies: vec!["FundingArbitrage".to_string()],
             params,
             fitness: 0.75,
             version: 1,
+            dependencies: vec![],
+            eval_count: 0,
         };
         
         genome.set_skill("trading".to_string(), skill);
@@ -229,10 +247,13 @@ mod tests {
         
         let skill = SkillGenome {
             enabled: true,
+            weight: 1.0,
             strategies: vec![],
             params,
             fitness: 0.0,
             version: 1,
+            dependencies: vec![],
+            eval_count: 0,
         };
         
         assert_eq!(skill.get_f64("threshold"), Some(-0.1));
@@ -250,10 +271,13 @@ mod tests {
         
         let skill = SkillGenome {
             enabled: true,
+            weight: 1.0,
             strategies: vec!["FundingArbitrage".to_string()],
             params,
             fitness: 0.75,
             version: 2,
+            dependencies: vec![],
+            eval_count: 0,
         };
         
         genome.set_skill("trading".to_string(), skill);

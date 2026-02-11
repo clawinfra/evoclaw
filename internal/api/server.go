@@ -22,6 +22,7 @@ type Server struct {
 	registry   *agents.Registry
 	memory     *agents.MemoryStore
 	router     *models.Router
+	evolution  interface{} // Evolution engine interface
 	logger     *slog.Logger
 	httpServer *http.Server
 	webFS      fs.FS // embedded web dashboard assets (optional)
@@ -51,6 +52,11 @@ func (s *Server) SetWebFS(webFS fs.FS) {
 	s.webFS = webFS
 }
 
+// SetEvolution sets the evolution engine interface
+func (s *Server) SetEvolution(evolution interface{}) {
+	s.evolution = evolution
+}
+
 // Start starts the HTTP server
 func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
@@ -71,6 +77,11 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/agents/{id}/genome", s.handleGenomeRoutes)
 	mux.HandleFunc("/api/agents/{id}/genome/skills/{skill}", s.handleSkillRoutes)
 	mux.HandleFunc("/api/agents/{id}/genome/skills/{skill}/params", s.handleUpdateSkillParams)
+	
+	// Layer 3: Behavioral Evolution API routes
+	mux.HandleFunc("/api/agents/{id}/feedback", s.handleFeedbackRoutes)
+	mux.HandleFunc("/api/agents/{id}/genome/behavior", s.handleBehaviorRoutes)
+	mux.HandleFunc("/api/agents/{id}/behavior/history", s.handleBehaviorHistoryRoutes)
 
 	// Serve embedded web dashboard
 	if s.webFS != nil {

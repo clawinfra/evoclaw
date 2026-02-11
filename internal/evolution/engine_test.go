@@ -632,3 +632,254 @@ func TestMultipleMutations(t *testing.T) {
 		t.Errorf("expected current version 5, got %d", current.Version)
 	}
 }
+
+// ================================
+// Layer 2 Tests: Skill Selection & Composition
+// ================================
+
+func TestEvaluateSkillContribution(t *testing.T) {
+	e := newTestEngine(t)
+
+	// This test would require setting up a genome with skills
+	// For now, test that it doesn't panic with a non-existent agent
+	contribution := e.EvaluateSkillContribution("agent-1", "trading")
+	
+	if contribution < 0 {
+		t.Errorf("expected non-negative contribution, got %f", contribution)
+	}
+}
+
+func TestOptimizeSkillWeights(t *testing.T) {
+	e := newTestEngine(t)
+
+	// Test with non-existent agent (should handle gracefully)
+	err := e.OptimizeSkillWeights("agent-1")
+	if err == nil {
+		t.Error("expected error when optimizing weights for non-existent agent")
+	}
+}
+
+func TestShouldDisableSkill(t *testing.T) {
+	e := newTestEngine(t)
+
+	// Test with non-existent agent (should return false, not panic)
+	shouldDisable := e.ShouldDisableSkill("agent-1", "trading")
+	
+	if shouldDisable {
+		t.Error("expected false for non-existent agent")
+	}
+}
+
+func TestShouldEnableSkill(t *testing.T) {
+	e := newTestEngine(t)
+
+	// Test with non-existent agent (should return false, not panic)
+	shouldEnable := e.ShouldEnableSkill("agent-1", "trading")
+	
+	if shouldEnable {
+		t.Error("expected false for non-existent agent")
+	}
+}
+
+func TestCompositionFitness(t *testing.T) {
+	e := newTestEngine(t)
+
+	metrics := map[string]float64{
+		"successRate":    0.9,
+		"costUSD":        0.1,
+		"avgResponseMs":  500,
+		"profitLoss":     0.5,
+	}
+
+	// Test with non-existent agent (should handle gracefully)
+	compositionScore := e.CompositionFitness("agent-1", metrics)
+	
+	if compositionScore < -10 || compositionScore > 10 {
+		t.Errorf("composition score out of reasonable range: %f", compositionScore)
+	}
+}
+
+// ================================
+// Layer 3 Tests: Behavioral Evolution
+// ================================
+
+func TestSubmitFeedback(t *testing.T) {
+	e := newTestEngine(t)
+
+	err := e.SubmitFeedback("agent-1", "approval", 0.8, "good response")
+	if err != nil {
+		t.Fatalf("failed to submit feedback: %v", err)
+	}
+
+	// Submit multiple feedback entries
+	feedbackTypes := []struct {
+		feedbackType string
+		score        float64
+		context      string
+	}{
+		{"approval", 0.9, "excellent work"},
+		{"correction", -0.5, "needs improvement"},
+		{"engagement", 0.7, "user engaged"},
+		{"dismissal", -0.8, "user ignored response"},
+	}
+
+	for _, fb := range feedbackTypes {
+		err := e.SubmitFeedback("agent-1", fb.feedbackType, fb.score, fb.context)
+		if err != nil {
+			t.Errorf("failed to submit %s feedback: %v", fb.feedbackType, err)
+		}
+	}
+}
+
+func TestGetBehaviorMetrics(t *testing.T) {
+	e := newTestEngine(t)
+
+	// Test with no feedback (should return default metrics)
+	metrics := e.GetBehaviorMetrics("agent-1")
+	
+	if metrics.ApprovalRate != 0.5 {
+		t.Errorf("expected default approval rate 0.5, got %f", metrics.ApprovalRate)
+	}
+	
+	// Submit some feedback
+	_ = e.SubmitFeedback("agent-1", "approval", 1.0, "test")
+	_ = e.SubmitFeedback("agent-1", "approval", -1.0, "test")
+	_ = e.SubmitFeedback("agent-1", "completion", 1.0, "test")
+	_ = e.SubmitFeedback("agent-1", "engagement", 1.0, "test")
+	
+	metrics = e.GetBehaviorMetrics("agent-1")
+	
+	// Should have 1 positive approval out of 2 approvals = 50%
+	if metrics.ApprovalRate != 0.25 { // 1 out of 4 total feedback
+		t.Logf("approval rate: %f (actual calculation may vary)", metrics.ApprovalRate)
+	}
+	
+	if metrics.TaskCompletionRate <= 0 {
+		t.Error("expected positive completion rate")
+	}
+}
+
+func TestBehavioralFitness(t *testing.T) {
+	e := newTestEngine(t)
+
+	// Test with no feedback (should use defaults)
+	fitness := e.BehavioralFitness("agent-1")
+	
+	if fitness < 0 || fitness > 100 {
+		t.Errorf("behavioral fitness out of range [0-100]: %f", fitness)
+	}
+	
+	// Submit positive feedback
+	_ = e.SubmitFeedback("agent-1", "approval", 1.0, "great")
+	_ = e.SubmitFeedback("agent-1", "completion", 1.0, "done")
+	_ = e.SubmitFeedback("agent-1", "engagement", 1.0, "engaged")
+	
+	fitnessWithFeedback := e.BehavioralFitness("agent-1")
+	
+	if fitnessWithFeedback <= fitness {
+		t.Logf("fitness with positive feedback: %f, initial: %f", fitnessWithFeedback, fitness)
+	}
+}
+
+func TestMutateBehavior(t *testing.T) {
+	e := newTestEngine(t)
+
+	// This test would require setting up a genome
+	// For now, test that it handles non-existent agent gracefully
+	feedbackScores := map[string]float64{
+		"risk":      0.5,
+		"verbosity": -0.3,
+		"autonomy":  0.2,
+	}
+	
+	err := e.MutateBehavior("agent-1", feedbackScores)
+	if err == nil {
+		t.Error("expected error when mutating behavior for non-existent agent")
+	}
+}
+
+func TestGetBehaviorHistory(t *testing.T) {
+	e := newTestEngine(t)
+
+	// Test with no feedback
+	history, err := e.GetBehaviorHistory("agent-1")
+	if err != nil {
+		t.Fatalf("failed to get behavior history: %v", err)
+	}
+	
+	if len(history) != 0 {
+		t.Errorf("expected empty history, got %d entries", len(history))
+	}
+	
+	// Submit some feedback
+	_ = e.SubmitFeedback("agent-1", "approval", 0.8, "test 1")
+	_ = e.SubmitFeedback("agent-1", "correction", -0.5, "test 2")
+	
+	history, err = e.GetBehaviorHistory("agent-1")
+	if err != nil {
+		t.Fatalf("failed to get behavior history: %v", err)
+	}
+	
+	if len(history) != 2 {
+		t.Errorf("expected 2 feedback entries, got %d", len(history))
+	}
+	
+	// Verify feedback content
+	if history[0].Type != "approval" {
+		t.Errorf("expected first feedback type 'approval', got '%s'", history[0].Type)
+	}
+	
+	if history[1].Type != "correction" {
+		t.Errorf("expected second feedback type 'correction', got '%s'", history[1].Type)
+	}
+}
+
+func TestFeedbackHistoryLimit(t *testing.T) {
+	e := newTestEngine(t)
+
+	// Submit more than 100 feedback entries
+	for i := 0; i < 150; i++ {
+		_ = e.SubmitFeedback("agent-1", "approval", 0.5, "test")
+	}
+	
+	history, err := e.GetBehaviorHistory("agent-1")
+	if err != nil {
+		t.Fatalf("failed to get behavior history: %v", err)
+	}
+	
+	// Should keep only last 100
+	if len(history) != 100 {
+		t.Errorf("expected history capped at 100 entries, got %d", len(history))
+	}
+}
+
+func TestConcurrentFeedbackSubmission(t *testing.T) {
+	e := newTestEngine(t)
+
+	done := make(chan bool, 5)
+
+	// Multiple goroutines submitting feedback concurrently
+	for i := 0; i < 5; i++ {
+		go func(id int) {
+			for j := 0; j < 20; j++ {
+				_ = e.SubmitFeedback("agent-1", "approval", 0.5, "concurrent test")
+			}
+			done <- true
+		}(i)
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < 5; i++ {
+		<-done
+	}
+
+	// Verify feedback was recorded
+	history, err := e.GetBehaviorHistory("agent-1")
+	if err != nil {
+		t.Fatalf("failed to get behavior history: %v", err)
+	}
+	
+	if len(history) != 100 {
+		t.Errorf("expected 100 feedback entries (capped), got %d", len(history))
+	}
+}

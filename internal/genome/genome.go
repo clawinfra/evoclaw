@@ -3,6 +3,7 @@ package genome
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // Genome defines the complete genetic makeup of an agent
@@ -22,18 +23,24 @@ type GenomeIdentity struct {
 
 // SkillGenome defines evolvable parameters for a specific skill
 type SkillGenome struct {
-	Enabled    bool                   `json:"enabled"`
-	Strategies []string               `json:"strategies,omitempty"`
-	Params     map[string]interface{} `json:"params"`
-	Fitness    float64                `json:"fitness"`
-	Version    int                    `json:"version"`
+	Enabled      bool                   `json:"enabled"`
+	Weight       float64                `json:"weight"`        // Layer 2: How much the agent relies on this skill (0.0-1.0)
+	Strategies   []string               `json:"strategies,omitempty"`
+	Params       map[string]interface{} `json:"params"`
+	Fitness      float64                `json:"fitness"`
+	Version      int                    `json:"version"`
+	Dependencies []string               `json:"dependencies,omitempty"` // Layer 2: Skills this skill depends on
+	EvalCount    int                    `json:"eval_count"`             // Layer 2: Number of evaluations for this skill
 }
 
 // GenomeBehavior defines behavioral traits
 type GenomeBehavior struct {
-	RiskTolerance float64 `json:"risk_tolerance"` // 0.0-1.0
-	Verbosity     float64 `json:"verbosity"`      // 0.0-1.0
-	Autonomy      float64 `json:"autonomy"`       // 0.0-1.0
+	RiskTolerance    float64            `json:"risk_tolerance"`    // 0.0-1.0
+	Verbosity        float64            `json:"verbosity"`         // 0.0-1.0
+	Autonomy         float64            `json:"autonomy"`          // 0.0-1.0
+	PromptStyle      string             `json:"prompt_style"`      // Layer 3: "concise", "detailed", "socratic"
+	ToolPreferences  map[string]float64 `json:"tool_preferences"`  // Layer 3: tool usage weights
+	ResponsePatterns []string           `json:"response_patterns"` // Layer 3: evolved response templates
 }
 
 // GenomeConstraints defines hard boundaries (non-evolvable)
@@ -41,6 +48,15 @@ type GenomeConstraints struct {
 	MaxLossUSD     float64  `json:"max_loss_usd,omitempty"`
 	AllowedAssets  []string `json:"allowed_assets,omitempty"`
 	BlockedActions []string `json:"blocked_actions,omitempty"`
+}
+
+// BehaviorFeedback represents user feedback on agent behavior (Layer 3)
+type BehaviorFeedback struct {
+	AgentID   string    `json:"agent_id"`
+	Timestamp time.Time `json:"timestamp"`
+	Type      string    `json:"type"`  // "approval", "correction", "engagement", "dismissal"
+	Score     float64   `json:"score"` // -1.0 to 1.0
+	Context   string    `json:"context"`
 }
 
 // DefaultGenome returns a sensible default genome
@@ -53,9 +69,12 @@ func DefaultGenome() *Genome {
 		},
 		Skills: make(map[string]SkillGenome),
 		Behavior: GenomeBehavior{
-			RiskTolerance: 0.3,
-			Verbosity:     0.5,
-			Autonomy:      0.5,
+			RiskTolerance:    0.3,
+			Verbosity:        0.5,
+			Autonomy:         0.5,
+			PromptStyle:      "balanced",
+			ToolPreferences:  make(map[string]float64),
+			ResponsePatterns: []string{},
 		},
 		Constraints: GenomeConstraints{
 			MaxLossUSD:     1000.0,
