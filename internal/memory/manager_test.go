@@ -9,7 +9,7 @@ import (
 
 func init() {
 	// Use short timeout for tests to avoid hanging on Turso connections
-	os.Setenv("MEMORY_TEST_MODE", "1")
+	_ = os.Setenv("MEMORY_TEST_MODE", "1")
 }
 
 func TestNewManager(t *testing.T) {

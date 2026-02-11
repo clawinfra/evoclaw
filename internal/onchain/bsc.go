@@ -179,7 +179,7 @@ func (c *BSCClient) ethCall(ctx context.Context, to string, data []byte) ([]byte
 	if err != nil {
 		return nil, fmt.Errorf("RPC call failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -283,7 +283,7 @@ func (c *BSCClient) Connect(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("BSC RPC connection failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	c.logger.Info("BSC chain connected", "chainId", c.chainID.Int64())
 	return nil
@@ -311,7 +311,7 @@ func (c *BSCClient) GetBalance(ctx context.Context, address string) (*Balance, e
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, _ := io.ReadAll(resp.Body)
 	var rpcResp rpcResponse
@@ -441,7 +441,7 @@ func (c *BSCClient) rpcCall(ctx context.Context, method string, params ...interf
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, _ := io.ReadAll(resp.Body)
 	var rpcResp rpcResponse

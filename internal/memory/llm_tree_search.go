@@ -120,8 +120,8 @@ func (s *LLMTreeSearcher) serializeNodeForLLM(node *TreeNode, indent int, sb *st
 	if node.Path != "" {
 		prefix := strings.Repeat("  ", indent)
 		// Format: path | summary | warm_count memories
-		sb.WriteString(fmt.Sprintf("%s- %s | %s | %d warm, %d cold\n",
-			prefix, node.Path, node.Summary, node.WarmCount, node.ColdCount))
+		fmt.Fprintf(sb, "%s- %s | %s | %d warm, %d cold\n",
+			prefix, node.Path, node.Summary, node.WarmCount, node.ColdCount)
 	}
 
 	for _, child := range node.Children {

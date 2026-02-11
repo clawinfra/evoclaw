@@ -128,7 +128,7 @@ func (p *AnthropicProvider) Chat(ctx context.Context, req orchestrator.ChatReque
 	if err != nil {
 		return nil, fmt.Errorf("http request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

@@ -80,7 +80,7 @@ func (s *Server) handleGetGenome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(genome)
+	_ = json.NewEncoder(w).Encode(genome)
 }
 
 // handleUpdateGenome updates an agent's genome
@@ -137,7 +137,7 @@ func (s *Server) handleUpdateGenome(w http.ResponseWriter, r *http.Request) {
 	)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":   "success",
 		"agent_id": agentID,
 		"genome":   genome,
@@ -189,7 +189,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(skill)
+	_ = json.NewEncoder(w).Encode(skill)
 }
 
 // handleUpdateSkillParams updates parameters for a specific skill
@@ -255,7 +255,7 @@ func (s *Server) handleUpdateSkillParams(w http.ResponseWriter, r *http.Request)
 	)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "success",
 		"agent":   agentID,
 		"skill":   skillPath,
@@ -356,7 +356,7 @@ func (s *Server) handleSubmitFeedback(w http.ResponseWriter, r *http.Request) {
 	)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":   "success",
 		"agent_id": agentID,
 		"feedback": feedback,
@@ -406,7 +406,7 @@ func (s *Server) handleGetBehavior(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"behavior": behavior,
 		"metrics":  metrics,
 	})
@@ -447,7 +447,7 @@ func (s *Server) handleGetBehaviorHistory(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"agent_id": agentID,
 		"history":  history,
 	})

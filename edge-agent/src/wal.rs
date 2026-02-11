@@ -58,10 +58,7 @@ impl WAL {
     }
 
     pub fn mark_applied(&mut self, index: usize) -> Result<(), Box<dyn std::error::Error>> {
-        let entry = self
-            .entries
-            .get_mut(index)
-            .ok_or("index out of range")?;
+        let entry = self.entries.get_mut(index).ok_or("index out of range")?;
         entry.applied = true;
         self.persist()
     }

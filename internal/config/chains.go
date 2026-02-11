@@ -166,11 +166,12 @@ func (c *Config) MigrateOnChainConfig() {
 	// If Chains is empty but OnChain is enabled, auto-migrate
 	if len(c.Chains) == 0 && c.OnChain.Enabled {
 		chainID := "bsc-testnet" // default
-		if c.OnChain.ChainID == 56 {
+		switch c.OnChain.ChainID {
+		case 56:
 			chainID = "bsc"
-		} else if c.OnChain.ChainID == 204 {
+		case 204:
 			chainID = "opbnb"
-		} else if c.OnChain.ChainID == 5611 {
+		case 5611:
 			chainID = "opbnb-testnet"
 		}
 

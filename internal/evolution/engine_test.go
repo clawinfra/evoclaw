@@ -942,8 +942,8 @@ func TestDivergenceScore(t *testing.T) {
 	}
 
 	// Mutate a few times
-	e.Mutate("agent-1", 0.1)
-	e.Mutate("agent-1", 0.1)
+	_, _ = e.Mutate("agent-1", 0.1)
+	_, _ = e.Mutate("agent-1", 0.1)
 	if s := e.DivergenceScore("agent-1"); s != 3 {
 		t.Errorf("expected 3, got %f", s)
 	}

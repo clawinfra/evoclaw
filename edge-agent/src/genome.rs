@@ -142,7 +142,11 @@ impl Genome {
     }
 
     /// Update skill parameters from evolved genome
-    pub fn update_skill_params(&mut self, skill_name: &str, params: HashMap<String, serde_json::Value>) {
+    pub fn update_skill_params(
+        &mut self,
+        skill_name: &str,
+        params: HashMap<String, serde_json::Value>,
+    ) {
         if let Some(skill) = self.skills.get_mut(skill_name) {
             skill.params = params;
             skill.version += 1;
@@ -164,7 +168,10 @@ impl SkillGenome {
 
     /// Get a parameter as a string
     pub fn get_string(&self, key: &str) -> Option<String> {
-        self.params.get(key).and_then(|v| v.as_str()).map(|s| s.to_string())
+        self.params
+            .get(key)
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
     }
 
     /// Get a parameter as a boolean
@@ -198,17 +205,17 @@ mod tests {
     #[test]
     fn test_genome_validation() {
         let mut genome = Genome::default();
-        
+
         // Valid genome
         assert!(genome.validate().is_ok());
-        
+
         // Invalid risk tolerance
         genome.behavior.risk_tolerance = 1.5;
         assert!(genome.validate().is_err());
-        
+
         genome.behavior.risk_tolerance = 0.5;
         assert!(genome.validate().is_ok());
-        
+
         // Negative max loss
         genome.constraints.max_loss_usd = -100.0;
         assert!(genome.validate().is_err());
@@ -217,11 +224,11 @@ mod tests {
     #[test]
     fn test_skill_operations() {
         let mut genome = Genome::default();
-        
+
         let mut params = HashMap::new();
         params.insert("threshold".to_string(), serde_json::json!(-0.1));
         params.insert("position_size".to_string(), serde_json::json!(100.0));
-        
+
         let skill = SkillGenome {
             enabled: true,
             weight: 1.0,
@@ -234,19 +241,19 @@ mod tests {
             verified: false,
             vfm_score: 0.0,
         };
-        
+
         genome.set_skill("trading".to_string(), skill);
-        
+
         // Test get_skill
         let retrieved = genome.get_skill("trading");
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().fitness, 0.75);
-        
+
         // Test enabled_skills
         let enabled = genome.enabled_skills();
         assert_eq!(enabled.len(), 1);
         assert_eq!(enabled[0], "trading");
-        
+
         // Test disabled skill
         genome.skills.get_mut("trading").unwrap().enabled = false;
         assert!(genome.get_skill("trading").is_none());
@@ -259,7 +266,7 @@ mod tests {
         params.insert("position_size".to_string(), serde_json::json!(100));
         params.insert("enabled".to_string(), serde_json::json!(true));
         params.insert("name".to_string(), serde_json::json!("test"));
-        
+
         let skill = SkillGenome {
             enabled: true,
             weight: 1.0,
@@ -272,7 +279,7 @@ mod tests {
             verified: false,
             vfm_score: 0.0,
         };
-        
+
         assert_eq!(skill.get_f64("threshold"), Some(-0.1));
         assert_eq!(skill.get_i64("position_size"), Some(100));
         assert_eq!(skill.get_bool("enabled"), Some(true));
@@ -282,10 +289,10 @@ mod tests {
     #[test]
     fn test_json_serialization() {
         let mut genome = Genome::default();
-        
+
         let mut params = HashMap::new();
         params.insert("threshold".to_string(), serde_json::json!(-0.1));
-        
+
         let skill = SkillGenome {
             enabled: true,
             weight: 1.0,
@@ -298,15 +305,15 @@ mod tests {
             verified: false,
             vfm_score: 0.0,
         };
-        
+
         genome.set_skill("trading".to_string(), skill);
-        
+
         // Serialize
         let json = serde_json::to_string(&genome).unwrap();
-        
+
         // Deserialize
         let decoded: Genome = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(decoded.identity.name, genome.identity.name);
         let trading_skill = decoded.get_skill("trading").unwrap();
         assert_eq!(trading_skill.fitness, 0.75);

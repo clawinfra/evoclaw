@@ -150,7 +150,7 @@ func (c *Client) doExecutePipeline(ctx context.Context, req PipelineRequest) (*P
 	if err != nil {
 		return nil, fmt.Errorf("http request: %w", err)
 	}
-	defer httpResp.Body.Close()
+	defer httpResp.Body.Close() //nolint:errcheck
 
 	// Read response body
 	respBody, err := io.ReadAll(httpResp.Body)

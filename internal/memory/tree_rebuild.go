@@ -135,8 +135,8 @@ func (r *TreeRebuilder) serializeNode(node *TreeNode, indent int, sb *strings.Bu
 	if node.Path != "" {
 		prefix := strings.Repeat("  ", indent)
 		age := time.Since(node.LastUpdated).Hours() / 24.0
-		sb.WriteString(fmt.Sprintf("%s- %s | %s | %d warm, %d cold | age: %.0f days\n",
-			prefix, node.Path, node.Summary, node.WarmCount, node.ColdCount, age))
+		fmt.Fprintf(sb, "%s- %s | %s | %d warm, %d cold | age: %.0f days\n",
+			prefix, node.Path, node.Summary, node.WarmCount, node.ColdCount, age)
 	}
 	for _, child := range node.Children {
 		r.serializeNode(child, indent+1, sb)

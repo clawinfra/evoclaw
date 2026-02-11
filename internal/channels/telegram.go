@@ -102,7 +102,7 @@ func (t *TelegramChannel) Send(ctx context.Context, msg orchestrator.Response) e
 	if err != nil {
 		return fmt.Errorf("send message: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -129,7 +129,7 @@ func (t *TelegramChannel) verifyToken() error {
 	if err != nil {
 		return fmt.Errorf("get bot info: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -199,7 +199,7 @@ func (t *TelegramChannel) pollOnce() error {
 	if err != nil {
 		return fmt.Errorf("get updates: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

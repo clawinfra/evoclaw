@@ -336,8 +336,8 @@ func (t *MemoryTree) printNodeSummary(node *TreeNode, indent int, sb *strings.Bu
 		if idx := strings.LastIndex(name, "/"); idx >= 0 {
 			name = name[idx+1:]
 		}
-		sb.WriteString(fmt.Sprintf("%s├─ %s: %s [%d warm, %d cold]\n",
-			prefix, name, node.Summary, node.WarmCount, node.ColdCount))
+		fmt.Fprintf(sb, "%s├─ %s: %s [%d warm, %d cold]\n",
+			prefix, name, node.Summary, node.WarmCount, node.ColdCount)
 	}
 
 	for _, child := range node.Children {

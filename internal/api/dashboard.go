@@ -179,6 +179,6 @@ func (s *Server) sendSSE(w http.ResponseWriter, flusher http.Flusher, data inter
 	if err != nil {
 		return
 	}
-	fmt.Fprintf(w, "data: %s\n\n", jsonData)
+	_, _ = fmt.Fprintf(w, "data: %s\n\n", jsonData)
 	flusher.Flush()
 }

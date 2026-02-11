@@ -411,25 +411,28 @@ impl EdgeAgent {
 
         // Extract genome JSON from payload
         let genome_json = cmd.payload.get("genome").ok_or("missing genome field")?;
-        
+
         // Parse genome
         let genome: crate::genome::Genome = serde_json::from_value(genome_json.clone())?;
-        
+
         // Validate genome
         genome.validate()?;
-        
+
         // Update strategy engine from genome skills
         for (skill_name, skill) in &genome.skills {
             if !skill.enabled {
                 continue;
             }
-            
+
             // Update strategy params if this is a trading skill
             if skill_name == "trading" && !skill.strategies.is_empty() {
                 // Extract params for each strategy
                 for strategy in &skill.strategies {
                     if let Ok(params_json) = serde_json::to_value(&skill.params) {
-                        if let Err(e) = self.strategy_engine.update_strategy_params(strategy, params_json.clone()) {
+                        if let Err(e) = self
+                            .strategy_engine
+                            .update_strategy_params(strategy, params_json.clone())
+                        {
                             warn!(
                                 strategy = %strategy,
                                 error = %e,
@@ -447,7 +450,7 @@ impl EdgeAgent {
                 }
             }
         }
-        
+
         Ok(serde_json::json!({
             "status": "genome_updated",
             "identity": genome.identity.name,

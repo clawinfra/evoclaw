@@ -312,7 +312,7 @@ func (h *httpCaller) Call(ctx context.Context, url string, req SubstrateRPCReque
 	if err != nil {
 		return nil, fmt.Errorf("http call: %w", err)
 	}
-	defer httpResp.Body.Close()
+	defer httpResp.Body.Close() //nolint:errcheck
 
 	respBody, err := io.ReadAll(httpResp.Body)
 	if err != nil {

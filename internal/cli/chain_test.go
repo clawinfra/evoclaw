@@ -178,8 +178,8 @@ func TestChainHelp(t *testing.T) {
 	os.Stderr = w
 	defer func() {
 		os.Stderr = oldStderr
-		w.Close()
-		r.Close()
+		_ = w.Close()
+		_ = r.Close()
 	}()
 
 	args := []string{"help"}

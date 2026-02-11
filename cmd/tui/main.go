@@ -46,7 +46,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error opening log file: %v\n", err)
 		os.Exit(1)
 	}
-	defer logFile.Close()
+	defer logFile.Close() //nolint:errcheck
 
 	logger := slog.New(slog.NewJSONHandler(logFile, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
