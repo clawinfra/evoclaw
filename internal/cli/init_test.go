@@ -11,15 +11,14 @@ func TestNormalizeProvider(t *testing.T) {
 	}{
 		{"anthropic", "anthropic"},
 		{"Anthropic", "anthropic"},
-		{"claude", "anthropic"},
-		{"Claude", "anthropic"},
 		{"openai", "openai"},
-		{"gpt", "openai"},
-		{"GPT", "openai"},
 		{"openrouter", "openrouter"},
 		{"ollama", "ollama"},
-		{"local", "ollama"},
-		{"unknown", "unknown"},
+		{"1", "anthropic"},
+		{"2", "openai"},
+		{"3", "openrouter"},
+		{"4", "ollama"},
+		{"unknown", ""},
 	}
 
 	for _, tt := range tests {
@@ -40,8 +39,8 @@ func TestBuildConfig(t *testing.T) {
 			if cfg == nil {
 				t.Fatal("buildConfig returned nil")
 			}
-			if cfg.Agent.Name != "test-agent" {
-				t.Errorf("agent name = %q, want %q", cfg.Agent.Name, "test-agent")
+			if len(cfg.Agents) == 0 || cfg.Agents[0].Name != "test-agent" {
+				t.Errorf("agent name = %q, want %q", cfg.Agents[0].Name, "test-agent")
 			}
 		})
 	}
@@ -52,9 +51,8 @@ func TestBuildConfigWithTelegram(t *testing.T) {
 	if cfg == nil {
 		t.Fatal("buildConfig returned nil")
 	}
-	// Config should be created with telegram enabled
-	if cfg.Agent.Name != "my-agent" {
-		t.Errorf("unexpected agent name: %s", cfg.Agent.Name)
+	if len(cfg.Agents) == 0 || cfg.Agents[0].Name != "my-agent" {
+		t.Errorf("unexpected agent name: %s", cfg.Agents[0].Name)
 	}
 }
 

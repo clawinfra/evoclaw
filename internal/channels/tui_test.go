@@ -1,91 +1,235 @@
 package channels
 
 import (
+	"context"
+	"log/slog"
 	"testing"
 	"time"
 
-	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/orchestrator"
 )
 
-func TestTUIChannelName(t *testing.T) {
-	ch := NewTUI(testLogger(), nil)
+func TestNewTUI(t *testing.T) {
+	logger := slog.Default()
+	ch := NewTUI(logger, nil)
+	if ch == nil {
+		t.Fatal("NewTUI returned nil")
+	}
 	if ch.Name() != "tui" {
-		t.Errorf("expected channel name 'tui', got %q", ch.Name())
+		t.Errorf("Name() = %q, want %q", ch.Name(), "tui")
 	}
 }
 
-func TestTUIChannelSendUserMessage(t *testing.T) {
-	ch := NewTUI(testLogger(), nil)
+func TestTUIReceive(t *testing.T) {
+	logger := slog.Default()
+	ch := NewTUI(logger, nil)
+	recv := ch.Receive()
+	if recv == nil {
+		t.Fatal("Receive() returned nil channel")
+	}
+}
 
-	// Send a user message
-	go ch.sendUserMessage("hello agent")
+func TestTUIStop(t *testing.T) {
+	logger := slog.Default()
+	ch := NewTUI(logger, nil)
+	// Stop before Start should not panic
+	if err := ch.Stop(); err != nil {
+		t.Errorf("Stop() returned error: %v", err)
+	}
+}
 
+func TestTUISendWithoutProgram(t *testing.T) {
+	logger := slog.Default()
+	ch := NewTUI(logger, nil)
+	// Send without a running program should not panic, just buffer
+	err := ch.Send(context.Background(), orchestrator.Response{
+		AgentID: "agent-1",
+		Content: "Hello!",
+	})
+	if err != nil {
+		t.Errorf("Send() returned error: %v", err)
+	}
+}
+
+func TestTUISendUserMessage(t *testing.T) {
+	logger := slog.Default()
+	ch := NewTUI(logger, nil)
+	ch.sendUserMessage("test message")
 	select {
-	case msg := <-ch.Receive():
-		if msg.Content != "hello agent" {
-			t.Errorf("expected 'hello agent', got %q", msg.Content)
+	case msg := <-ch.inbox:
+		if msg.Content != "test message" {
+			t.Errorf("Content = %q, want %q", msg.Content, "test message")
 		}
 		if msg.Channel != "tui" {
-			t.Errorf("expected channel 'tui', got %q", msg.Channel)
+			t.Errorf("Channel = %q, want %q", msg.Channel, "tui")
 		}
 		if msg.From != "user" {
-			t.Errorf("expected from 'user', got %q", msg.From)
+			t.Errorf("From = %q, want %q", msg.From, "user")
 		}
 	case <-time.After(time.Second):
-		t.Fatal("timeout waiting for message")
+		t.Fatal("Timeout waiting for message")
 	}
 }
 
-func TestTUIChannelSidebar(t *testing.T) {
-	agents := []orchestrator.AgentInfo{
-		{
-			ID:     "test-agent",
-			Def:    config.AgentDef{ID: "test-agent", Name: "Test Agent"},
-			Status: "running",
-			Metrics: orchestrator.AgentMetrics{
-				TotalActions:      10,
-				SuccessfulActions: 9,
-				TokensUsed:        5000,
-				CostUSD:           0.05,
-			},
-			StartedAt:    time.Now().Add(-2 * time.Hour),
-			MessageCount: 10,
-		},
+func TestNewTUIModel(t *testing.T) {
+	logger := slog.Default()
+	ch := NewTUI(logger, nil)
+	m := newTUIModel(ch)
+	if m.channel != ch {
+		t.Error("channel reference mismatch")
 	}
-
-	ch := NewTUI(testLogger(), func() []orchestrator.AgentInfo {
-		return agents
-	})
-
-	if ch.agentsFn == nil {
-		t.Fatal("agentsFn should not be nil")
+	if len(m.messages) != 0 {
+		t.Errorf("messages should be empty, got %d", len(m.messages))
 	}
+}
 
-	result := ch.agentsFn()
-	if len(result) != 1 {
-		t.Fatalf("expected 1 agent, got %d", len(result))
+func TestTUIModelInit(t *testing.T) {
+	logger := slog.Default()
+	ch := NewTUI(logger, nil)
+	m := newTUIModel(ch)
+	cmd := m.Init()
+	if cmd == nil {
+		t.Error("Init() should return a Cmd")
 	}
-	if result[0].ID != "test-agent" {
-		t.Errorf("expected agent ID 'test-agent', got %q", result[0].ID)
+}
+
+func TestTUIModelViewNotReady(t *testing.T) {
+	logger := slog.Default()
+	ch := NewTUI(logger, nil)
+	m := newTUIModel(ch)
+	view := m.View()
+	if view == "" {
+		t.Error("View() should return non-empty when not ready")
 	}
 }
 
 func TestFormatDuration(t *testing.T) {
 	tests := []struct {
-		dur    time.Duration
-		expect string
+		name     string
+		d        time.Duration
+		expected string
 	}{
-		{30 * time.Second, "30s"},
-		{5 * time.Minute, "5m"},
-		{2*time.Hour + 30*time.Minute, "2h 30m"},
-		{3*24*time.Hour + 4*time.Hour, "3d 4h"},
+		{"seconds", 30 * time.Second, "30s"},
+		{"minutes", 5 * time.Minute, "5m"},
+		{"hours", 3*time.Hour + 15*time.Minute, "3h 15m"},
+		{"days", 48*time.Hour + 6*time.Hour, "2d 6h"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatDuration(tt.d)
+			if result != tt.expected {
+				t.Errorf("formatDuration(%v) = %q, want %q", tt.d, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestTUIRenderSidebar(t *testing.T) {
+	logger := slog.Default()
+	agents := []orchestrator.AgentInfo{
+		{
+			ID:           "agent-1",
+			Status:       "running",
+			MessageCount: 42,
+			StartedAt:    time.Now().Add(-1 * time.Hour),
+			Metrics: orchestrator.AgentMetrics{
+				AvgResponseMs: 150.0,
+				TokensUsed:    5000,
+				CostUSD:       0.05,
+			},
+		},
+		{
+			ID:           "agent-2",
+			Status:       "evolving",
+			MessageCount: 0,
+			StartedAt:    time.Now().Add(-30 * time.Minute),
+		},
+		{
+			ID:           "agent-3",
+			Status:       "idle",
+			MessageCount: 0,
+			StartedAt:    time.Now(),
+		},
+	}
+	ch := NewTUI(logger, func() []orchestrator.AgentInfo { return agents })
+	m := newTUIModel(ch)
+	m.height = 40
+	m.width = 80
+	sidebar := m.renderSidebar()
+	if sidebar == "" {
+		t.Error("renderSidebar() returned empty string")
+	}
+}
+
+func TestTUIRenderSidebarNoAgents(t *testing.T) {
+	logger := slog.Default()
+	ch := NewTUI(logger, func() []orchestrator.AgentInfo { return nil })
+	m := newTUIModel(ch)
+	m.height = 40
+	sidebar := m.renderSidebar()
+	if sidebar == "" {
+		t.Error("renderSidebar() returned empty string")
+	}
+}
+
+func TestTUIRenderSidebarNilFn(t *testing.T) {
+	logger := slog.Default()
+	ch := NewTUI(logger, nil)
+	m := newTUIModel(ch)
+	m.height = 40
+	sidebar := m.renderSidebar()
+	if sidebar == "" {
+		t.Error("renderSidebar() returned empty string")
+	}
+}
+
+func TestTUIRenderChat(t *testing.T) {
+	logger := slog.Default()
+	ch := NewTUI(logger, nil)
+	m := newTUIModel(ch)
+
+	// Empty messages
+	chat := m.renderChat()
+	if chat == "" {
+		t.Error("renderChat() returned empty for no messages")
 	}
 
-	for _, tt := range tests {
-		got := formatDuration(tt.dur)
-		if got != tt.expect {
-			t.Errorf("formatDuration(%v) = %q, want %q", tt.dur, got, tt.expect)
-		}
+	// With messages
+	m.messages = []chatEntry{
+		{sender: "You", content: "Hello", time: time.Now(), isUser: true},
+		{sender: "agent-1", content: "Hi there!", time: time.Now(), isUser: false},
+	}
+	chat = m.renderChat()
+	if chat == "" {
+		t.Error("renderChat() returned empty with messages")
+	}
+}
+
+func TestTUIRenderSidebarLargeTokens(t *testing.T) {
+	logger := slog.Default()
+	agents := []orchestrator.AgentInfo{
+		{
+			ID:           "agent-1",
+			Status:       "running",
+			MessageCount: 1,
+			StartedAt:    time.Now(),
+			Metrics: orchestrator.AgentMetrics{
+				TokensUsed: 500, // < 1000, should show raw number
+			},
+		},
+	}
+	ch := NewTUI(logger, func() []orchestrator.AgentInfo { return agents })
+	m := newTUIModel(ch)
+	m.height = 40
+	sidebar := m.renderSidebar()
+	if sidebar == "" {
+		t.Error("renderSidebar() returned empty string")
+	}
+}
+
+func TestTickCmd(t *testing.T) {
+	cmd := tickCmd()
+	if cmd == nil {
+		t.Error("tickCmd() should return a non-nil Cmd")
 	}
 }
