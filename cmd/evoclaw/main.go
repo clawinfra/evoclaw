@@ -22,6 +22,7 @@ import (
 	"github.com/clawinfra/evoclaw/internal/models"
 	"github.com/clawinfra/evoclaw/internal/onchain"
 	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/skills"
 )
 
 //go:embed web
@@ -42,6 +43,7 @@ type App struct {
 	EvoEngine     *evolution.Engine
 	ChainRegistry *onchain.ChainRegistry
 	Orchestrator  *orchestrator.Orchestrator
+	SkillRegistry *skills.Registry
 	APIServer     *api.Server
 	apiContext    context.Context
 	apiCancel     context.CancelFunc
@@ -241,6 +243,24 @@ func setup(configPath string) (*App, error) {
 	// Wire evolution engine
 	if app.EvoEngine != nil {
 		app.Orchestrator.SetEvolutionEngine(app.EvoEngine)
+	}
+
+	// Load skills
+	skillsDir := skills.DefaultSkillsDir()
+	skillLoader := skills.NewLoader(skillsDir, app.Logger)
+	app.SkillRegistry = skills.NewRegistry(app.Logger)
+	loadedSkills, err := skillLoader.LoadAll()
+	if err != nil {
+		app.Logger.Warn("failed to load skills", "error", err)
+	} else {
+		for _, s := range loadedSkills {
+			if regErr := app.SkillRegistry.Register(s); regErr != nil {
+				app.Logger.Warn("failed to register skill", "name", s.Manifest.Name, "error", regErr)
+			}
+		}
+		if count := app.SkillRegistry.SkillCount(); count > 0 {
+			app.Logger.Info("skills loaded", "count", count)
+		}
 	}
 
 	// Register channels
