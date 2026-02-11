@@ -49,16 +49,16 @@ func (s *Server) handleGetGenome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get agent from registry
-	agent := s.registry.Get(agentID)
-	if agent == nil {
+	agent, err := s.registry.Get(agentID)
+	if err != nil || agent == nil {
 		http.Error(w, "agent not found", http.StatusNotFound)
 		return
 	}
 
 	// Get genome from agent definition
 	var genome *config.Genome
-	if agent.Config != nil && agent.Config.Genome != nil {
-		genome = agent.Config.Genome
+	if agent.Def.Genome != nil {
+		genome = agent.Def.Genome
 	} else {
 		// Return default genome if none exists
 		genome = &config.Genome{
@@ -101,8 +101,8 @@ func (s *Server) handleUpdateGenome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get agent from registry
-	agent := s.registry.Get(agentID)
-	if agent == nil {
+	agent, err := s.registry.Get(agentID)
+	if err != nil || agent == nil {
 		http.Error(w, "agent not found", http.StatusNotFound)
 		return
 	}
@@ -129,9 +129,7 @@ func (s *Server) handleUpdateGenome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update agent's genome in config
-	if agent.Config != nil {
-		agent.Config.Genome = &genome
-	}
+	agent.Def.Genome = &genome
 
 	s.logger.Info("genome updated via API",
 		"agent", agentID,
@@ -171,20 +169,20 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get agent from registry
-	agent := s.registry.Get(agentID)
-	if agent == nil {
+	agent, err := s.registry.Get(agentID)
+	if err != nil || agent == nil {
 		http.Error(w, "agent not found", http.StatusNotFound)
 		return
 	}
 
 	// Get genome
-	if agent.Config == nil || agent.Config.Genome == nil {
+	if agent.Def.Genome == nil {
 		http.Error(w, "genome not found", http.StatusNotFound)
 		return
 	}
 
 	// Get skill
-	skill, ok := agent.Config.Genome.Skills[skillName]
+	skill, ok := agent.Def.Genome.Skills[skillName]
 	if !ok {
 		http.Error(w, "skill not found", http.StatusNotFound)
 		return
@@ -219,20 +217,20 @@ func (s *Server) handleUpdateSkillParams(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Get agent from registry
-	agent := s.registry.Get(agentID)
-	if agent == nil {
+	agent, err := s.registry.Get(agentID)
+	if err != nil || agent == nil {
 		http.Error(w, "agent not found", http.StatusNotFound)
 		return
 	}
 
 	// Get genome
-	if agent.Config == nil || agent.Config.Genome == nil {
+	if agent.Def.Genome == nil {
 		http.Error(w, "genome not found", http.StatusNotFound)
 		return
 	}
 
 	// Get skill
-	skill, ok := agent.Config.Genome.Skills[skillPath]
+	skill, ok := agent.Def.Genome.Skills[skillPath]
 	if !ok {
 		http.Error(w, "skill not found", http.StatusNotFound)
 		return
@@ -248,7 +246,7 @@ func (s *Server) handleUpdateSkillParams(w http.ResponseWriter, r *http.Request)
 	// Update skill params
 	skill.Params = params
 	skill.Version++
-	agent.Config.Genome.Skills[skillPath] = skill
+	agent.Def.Genome.Skills[skillPath] = skill
 
 	s.logger.Info("skill params updated via API",
 		"agent", agentID,
@@ -378,19 +376,19 @@ func (s *Server) handleGetBehavior(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get agent from registry
-	agent := s.registry.Get(agentID)
-	if agent == nil {
+	agent, err := s.registry.Get(agentID)
+	if err != nil || agent == nil {
 		http.Error(w, "agent not found", http.StatusNotFound)
 		return
 	}
 
 	// Get behavior from genome
-	if agent.Config == nil || agent.Config.Genome == nil {
+	if agent.Def.Genome == nil {
 		http.Error(w, "genome not found", http.StatusNotFound)
 		return
 	}
 
-	behavior := agent.Config.Genome.Behavior
+	behavior := agent.Def.Genome.Behavior
 
 	// Get behavioral metrics if evolution engine is available
 	var metrics map[string]interface{}

@@ -654,9 +654,10 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 			copy(caps, agent.Def.Capabilities)
 			genome := make(map[string]interface{})
 			if agent.Def.Genome != nil {
-				for k, v := range agent.Def.Genome {
-					genome[k] = v
-				}
+				genome["identity"] = agent.Def.Genome.Identity
+				genome["skills"] = agent.Def.Genome.Skills
+				genome["behavior"] = agent.Def.Genome.Behavior
+				genome["constraints"] = agent.Def.Genome.Constraints
 			}
 			agentMetrics := agent.Metrics
 			agent.mu.RUnlock()

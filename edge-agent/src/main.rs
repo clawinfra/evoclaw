@@ -2,6 +2,7 @@ mod agent;
 mod commands;
 mod config;
 mod evolution;
+mod genome;
 mod metrics;
 mod monitor;
 mod mqtt;

@@ -482,6 +482,11 @@ func TestEvolutionLoop(t *testing.T) {
 	cfg.Evolution.EvalIntervalSec = 1
 	cfg.Evolution.MinSamplesForEval = 2
 	cfg.Evolution.MaxMutationRate = 0.9
+	cfg.Agents[0].Genome = &config.Genome{
+		Skills: map[string]config.SkillGenome{
+			"trading": {Enabled: true, Weight: 1.0, Params: map[string]interface{}{}},
+		},
+	}
 	
 	o := New(cfg, testLogger())
 	ch := newMockChannel("mock-channel")

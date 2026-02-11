@@ -70,9 +70,8 @@ pub struct GenomeConstraints {
     pub min_vfm_score: f64, // VFM: minimum value-for-money threshold
 }
 
-impl Genome {
-    /// Create a default genome
-    pub fn default() -> Self {
+impl Default for Genome {
+    fn default() -> Self {
         Self {
             identity: GenomeIdentity {
                 name: "unnamed-agent".to_string(),
@@ -92,10 +91,15 @@ impl Genome {
                 max_loss_usd: 1000.0,
                 allowed_assets: vec![],
                 blocked_actions: vec![],
+                max_divergence: 0.0,
+                min_vfm_score: 0.0,
             },
         }
     }
+}
 
+#[allow(dead_code)]
+impl Genome {
     /// Validate genome structure
     pub fn validate(&self) -> Result<(), String> {
         if self.behavior.risk_tolerance < 0.0 || self.behavior.risk_tolerance > 1.0 {
@@ -146,6 +150,7 @@ impl Genome {
     }
 }
 
+#[allow(dead_code)]
 impl SkillGenome {
     /// Get a parameter as a float64
     pub fn get_f64(&self, key: &str) -> Option<f64> {
@@ -226,6 +231,8 @@ mod tests {
             version: 1,
             dependencies: vec![],
             eval_count: 0,
+            verified: false,
+            vfm_score: 0.0,
         };
         
         genome.set_skill("trading".to_string(), skill);
@@ -262,6 +269,8 @@ mod tests {
             version: 1,
             dependencies: vec![],
             eval_count: 0,
+            verified: false,
+            vfm_score: 0.0,
         };
         
         assert_eq!(skill.get_f64("threshold"), Some(-0.1));
@@ -286,6 +295,8 @@ mod tests {
             version: 2,
             dependencies: vec![],
             eval_count: 0,
+            verified: false,
+            vfm_score: 0.0,
         };
         
         genome.set_skill("trading".to_string(), skill);

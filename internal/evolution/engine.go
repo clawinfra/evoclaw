@@ -82,6 +82,8 @@ type Engine struct {
 	dataDir    string
 	logger     *slog.Logger
 	mu         sync.RWMutex
+	feedbackMu sync.RWMutex
+	feedback   map[string][]genome.BehaviorFeedback // agentID -> feedback list
 }
 
 // NewEngine creates a new evolution engine
@@ -94,6 +96,7 @@ func NewEngine(dataDir string, logger *slog.Logger) *Engine {
 		history:    make(map[string][]*Strategy),
 		dataDir:    dir,
 		logger:     logger,
+		feedback:   make(map[string][]genome.BehaviorFeedback),
 	}
 
 	// Load existing strategies from disk
@@ -313,7 +316,12 @@ func (e *Engine) GetGenome(agentID string) (*config.Genome, error) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	// Load from disk
+	return e.getGenomeLocked(agentID)
+}
+
+// getGenomeLocked reads a genome from disk without acquiring locks.
+// Caller must hold e.mu (read or write).
+func (e *Engine) getGenomeLocked(agentID string) (*config.Genome, error) {
 	path := filepath.Join(e.dataDir, fmt.Sprintf("%s-genome.json", agentID))
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -333,6 +341,12 @@ func (e *Engine) UpdateGenome(agentID string, genome *config.Genome) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	return e.updateGenomeLocked(agentID, genome)
+}
+
+// updateGenomeLocked saves a genome to disk without acquiring locks.
+// Caller must hold e.mu for writing.
+func (e *Engine) updateGenomeLocked(agentID string, genome *config.Genome) error {
 	path := filepath.Join(e.dataDir, fmt.Sprintf("%s-genome.json", agentID))
 	data, err := json.MarshalIndent(genome, "", "  ")
 	if err != nil {
@@ -477,7 +491,7 @@ func (e *Engine) EvaluateSkillContribution(agentID string, skillName string) flo
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	genome, err := e.GetGenome(agentID)
+	genome, err := e.getGenomeLocked(agentID)
 	if err != nil {
 		e.logger.Error("failed to get genome for skill contribution", "error", err)
 		return 0.0
@@ -528,7 +542,7 @@ func (e *Engine) OptimizeSkillWeights(agentID string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	genome, err := e.GetGenome(agentID)
+	genome, err := e.getGenomeLocked(agentID)
 	if err != nil {
 		return fmt.Errorf("get genome: %w", err)
 	}
@@ -567,7 +581,7 @@ func (e *Engine) OptimizeSkillWeights(agentID string) error {
 		)
 	}
 
-	return e.UpdateGenome(agentID, genome)
+	return e.updateGenomeLocked(agentID, genome)
 }
 
 // ShouldDisableSkill determines if a skill is consistently underperforming
@@ -687,16 +701,6 @@ type BehaviorMetrics struct {
 	EngagementScore   float64 // 0.0-1.0
 }
 
-// feedbackHistory stores recent feedback for behavioral fitness calculation
-type feedbackHistory struct {
-	mu       sync.RWMutex
-	feedback map[string][]genome.BehaviorFeedback // agentID -> feedback list
-}
-
-var globalFeedbackHistory = &feedbackHistory{
-	feedback: make(map[string][]genome.BehaviorFeedback),
-}
-
 // SubmitFeedback records user feedback on agent behavior
 func (e *Engine) SubmitFeedback(agentID string, feedbackType string, score float64, context string) error {
 	feedback := genome.BehaviorFeedback{
@@ -707,18 +711,18 @@ func (e *Engine) SubmitFeedback(agentID string, feedbackType string, score float
 		Context:   context,
 	}
 
-	globalFeedbackHistory.mu.Lock()
-	defer globalFeedbackHistory.mu.Unlock()
+	e.feedbackMu.Lock()
+	defer e.feedbackMu.Unlock()
 
-	if globalFeedbackHistory.feedback[agentID] == nil {
-		globalFeedbackHistory.feedback[agentID] = []genome.BehaviorFeedback{}
+	if e.feedback[agentID] == nil {
+		e.feedback[agentID] = []genome.BehaviorFeedback{}
 	}
 
-	globalFeedbackHistory.feedback[agentID] = append(globalFeedbackHistory.feedback[agentID], feedback)
+	e.feedback[agentID] = append(e.feedback[agentID], feedback)
 
 	// Keep only last 100 feedback entries per agent
-	if len(globalFeedbackHistory.feedback[agentID]) > 100 {
-		globalFeedbackHistory.feedback[agentID] = globalFeedbackHistory.feedback[agentID][1:]
+	if len(e.feedback[agentID]) > 100 {
+		e.feedback[agentID] = e.feedback[agentID][1:]
 	}
 
 	e.logger.Info("feedback submitted",
@@ -732,10 +736,10 @@ func (e *Engine) SubmitFeedback(agentID string, feedbackType string, score float
 
 // GetBehaviorMetrics calculates behavioral fitness from feedback
 func (e *Engine) GetBehaviorMetrics(agentID string) BehaviorMetrics {
-	globalFeedbackHistory.mu.RLock()
-	defer globalFeedbackHistory.mu.RUnlock()
+	e.feedbackMu.RLock()
+	defer e.feedbackMu.RUnlock()
 
-	feedbackList := globalFeedbackHistory.feedback[agentID]
+	feedbackList := e.feedback[agentID]
 	if len(feedbackList) == 0 {
 		return BehaviorMetrics{
 			ApprovalRate:       0.5,
@@ -802,7 +806,7 @@ func (e *Engine) MutateBehavior(agentID string, feedbackScores map[string]float6
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	genome, err := e.GetGenome(agentID)
+	genome, err := e.getGenomeLocked(agentID)
 	if err != nil {
 		return fmt.Errorf("get genome: %w", err)
 	}
@@ -869,7 +873,7 @@ func (e *Engine) MutateBehavior(agentID string, feedbackScores map[string]float6
 		}
 	}
 
-	if err := e.UpdateGenome(agentID, genome); err != nil {
+	if err := e.updateGenomeLocked(agentID, genome); err != nil {
 		return fmt.Errorf("save genome: %w", err)
 	}
 
@@ -954,10 +958,10 @@ func (e *Engine) CheckADL(agentID string, maxDivergence float64) bool {
 
 // GetBehaviorHistory returns behavioral evolution history for an agent
 func (e *Engine) GetBehaviorHistory(agentID string) ([]genome.BehaviorFeedback, error) {
-	globalFeedbackHistory.mu.RLock()
-	defer globalFeedbackHistory.mu.RUnlock()
+	e.feedbackMu.RLock()
+	defer e.feedbackMu.RUnlock()
 
-	feedback := globalFeedbackHistory.feedback[agentID]
+	feedback := e.feedback[agentID]
 	if feedback == nil {
 		return []genome.BehaviorFeedback{}, nil
 	}
