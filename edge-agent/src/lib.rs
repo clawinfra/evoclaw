@@ -6,6 +6,7 @@ pub mod genome;
 pub mod metrics;
 pub mod monitor;
 pub mod mqtt;
+pub mod security;
 pub mod skills;
 pub mod strategy;
 pub mod trading;

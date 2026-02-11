@@ -8,6 +8,10 @@ pub struct Genome {
     pub skills: HashMap<String, SkillGenome>,
     pub behavior: GenomeBehavior,
     pub constraints: GenomeConstraints,
+    #[serde(default)]
+    pub constraint_signature: Vec<u8>,
+    #[serde(default)]
+    pub owner_public_key: Vec<u8>,
 }
 
 /// Agent identity layer
@@ -56,7 +60,7 @@ pub struct GenomeBehavior {
 }
 
 /// Hard constraints (non-evolvable)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GenomeConstraints {
     #[serde(default)]
     pub max_loss_usd: f64,
@@ -94,6 +98,8 @@ impl Default for Genome {
                 max_divergence: 0.0,
                 min_vfm_score: 0.0,
             },
+            constraint_signature: vec![],
+            owner_public_key: vec![],
         }
     }
 }

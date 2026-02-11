@@ -8,6 +8,7 @@ import (
 
 	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/evolution"
+	"github.com/clawinfra/evoclaw/internal/security"
 )
 
 // handleGenomeRoutes multiplexes genome-related routes
@@ -261,6 +262,73 @@ func (s *Server) handleUpdateSkillParams(w http.ResponseWriter, r *http.Request)
 		"skill":   skillPath,
 		"version": skill.Version,
 		"params":  params,
+	})
+}
+
+// ================================
+// Security Layer 1: Signed Constraints API
+// ================================
+
+// handleConstraintRoutes handles PUT /api/agents/{id}/genome/constraints
+func (s *Server) handleConstraintRoutes(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract agent ID from path: /api/agents/{id}/genome/constraints
+	path := strings.TrimPrefix(r.URL.Path, "/api/agents/")
+	agentID := strings.TrimSuffix(path, "/genome/constraints")
+	if agentID == "" {
+		http.Error(w, "agent ID required", http.StatusBadRequest)
+		return
+	}
+
+	agent, err := s.registry.Get(agentID)
+	if err != nil || agent == nil {
+		http.Error(w, "agent not found", http.StatusNotFound)
+		return
+	}
+
+	// Parse signed constraints update
+	var req struct {
+		Constraints config.GenomeConstraints `json:"constraints"`
+		Signature   []byte                  `json:"signature"`
+		PublicKey   []byte                  `json:"public_key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("invalid JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Verify signature
+	ok, err := security.VerifyConstraints(req.Constraints, req.Signature, req.PublicKey)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("signature verification error: %v", err), http.StatusForbidden)
+		return
+	}
+	if !ok {
+		http.Error(w, "invalid constraint signature", http.StatusForbidden)
+		return
+	}
+
+	// Apply signed constraints
+	if agent.Def.Genome == nil {
+		agent.Def.Genome = &config.Genome{
+			Skills: make(map[string]config.SkillGenome),
+		}
+	}
+	agent.Def.Genome.Constraints = req.Constraints
+	agent.Def.Genome.ConstraintSignature = req.Signature
+	agent.Def.Genome.OwnerPublicKey = req.PublicKey
+
+	s.logger.Info("signed constraints updated via API", "agent", agentID)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":      "success",
+		"agent_id":    agentID,
+		"constraints": req.Constraints,
 	})
 }
 

@@ -3,15 +3,21 @@ package genome
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
+
+	"github.com/clawinfra/evoclaw/internal/config"
+	"github.com/clawinfra/evoclaw/internal/security"
 )
 
 // Genome defines the complete genetic makeup of an agent
 type Genome struct {
-	Identity    GenomeIdentity              `json:"identity"`
-	Skills      map[string]SkillGenome      `json:"skills"`
-	Behavior    GenomeBehavior              `json:"behavior"`
-	Constraints GenomeConstraints           `json:"constraints"`
+	Identity            GenomeIdentity              `json:"identity"`
+	Skills              map[string]SkillGenome      `json:"skills"`
+	Behavior            GenomeBehavior              `json:"behavior"`
+	Constraints         GenomeConstraints           `json:"constraints"`
+	ConstraintSignature []byte                      `json:"constraint_signature,omitempty"`
+	OwnerPublicKey      []byte                      `json:"owner_public_key,omitempty"`
 }
 
 // GenomeIdentity defines the agent's identity layer
@@ -107,6 +113,37 @@ func (g *Genome) Validate() error {
 	}
 
 	return nil
+}
+
+// VerifyConstraints checks the cryptographic signature on the genome's constraints.
+// If both OwnerPublicKey and ConstraintSignature are empty the genome is considered
+// unsigned — this is allowed for backward compatibility but a warning is logged.
+func (g *Genome) VerifyConstraints() error {
+	if len(g.OwnerPublicKey) == 0 && len(g.ConstraintSignature) == 0 {
+		slog.Warn("genome has unsigned constraints — backward-compat mode")
+		return nil
+	}
+	// Convert local GenomeConstraints to config.GenomeConstraints for the security package.
+	cc := g.Constraints.toConfig()
+	ok, err := security.VerifyConstraints(cc, g.ConstraintSignature, g.OwnerPublicKey)
+	if err != nil {
+		return fmt.Errorf("constraint verification failed: %w", err)
+	}
+	if !ok {
+		return security.ErrInvalidSignature
+	}
+	return nil
+}
+
+// toConfig converts the genome-local GenomeConstraints to config.GenomeConstraints.
+func (c GenomeConstraints) toConfig() config.GenomeConstraints {
+	return config.GenomeConstraints{
+		MaxLossUSD:     c.MaxLossUSD,
+		AllowedAssets:  c.AllowedAssets,
+		BlockedActions: c.BlockedActions,
+		MaxDivergence:  c.MaxDivergence,
+		MinVFMScore:    c.MinVFMScore,
+	}
 }
 
 // Clone creates a deep copy of the genome

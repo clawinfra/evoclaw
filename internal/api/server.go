@@ -77,6 +77,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/agents/{id}/genome", s.handleGenomeRoutes)
 	mux.HandleFunc("/api/agents/{id}/genome/skills/{skill}", s.handleSkillRoutes)
 	mux.HandleFunc("/api/agents/{id}/genome/skills/{skill}/params", s.handleUpdateSkillParams)
+	mux.HandleFunc("/api/agents/{id}/genome/constraints", s.handleConstraintRoutes)
 	
 	// Layer 3: Behavioral Evolution API routes
 	mux.HandleFunc("/api/agents/{id}/feedback", s.handleFeedbackRoutes)

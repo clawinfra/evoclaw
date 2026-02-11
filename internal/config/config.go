@@ -208,10 +208,12 @@ type AgentDef struct {
 // Genome defines the complete genetic makeup of an agent
 // This is re-exported from internal/genome for convenience
 type Genome struct {
-	Identity    GenomeIdentity              `json:"identity"`
-	Skills      map[string]SkillGenome      `json:"skills"`
-	Behavior    GenomeBehavior              `json:"behavior"`
-	Constraints GenomeConstraints           `json:"constraints"`
+	Identity            GenomeIdentity              `json:"identity"`
+	Skills              map[string]SkillGenome      `json:"skills"`
+	Behavior            GenomeBehavior              `json:"behavior"`
+	Constraints         GenomeConstraints           `json:"constraints"`
+	ConstraintSignature []byte                      `json:"constraint_signature,omitempty"`
+	OwnerPublicKey      []byte                      `json:"owner_public_key,omitempty"`
 }
 
 // GenomeIdentity defines the agent's identity layer

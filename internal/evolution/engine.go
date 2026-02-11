@@ -12,6 +12,7 @@ import (
 
 	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/genome"
+	"github.com/clawinfra/evoclaw/internal/security"
 )
 
 // Strategy represents an agent's current strategy that can be mutated
@@ -311,6 +312,23 @@ func (e *Engine) loadStrategies() {
 	}
 }
 
+// verifyGenomeConstraints checks that the genome's constraints are validly signed.
+// Unsigned genomes (no key, no sig) are allowed with a warning for backward compat.
+func (e *Engine) verifyGenomeConstraints(g *config.Genome) error {
+	if len(g.OwnerPublicKey) == 0 && len(g.ConstraintSignature) == 0 {
+		e.logger.Warn("genome has unsigned constraints — backward-compat mode")
+		return nil
+	}
+	ok, err := security.VerifyConstraints(g.Constraints, g.ConstraintSignature, g.OwnerPublicKey)
+	if err != nil {
+		return fmt.Errorf("constraint verification failed: %w", err)
+	}
+	if !ok {
+		return security.ErrInvalidSignature
+	}
+	return nil
+}
+
 // GetGenome returns the current genome for an agent
 func (e *Engine) GetGenome(agentID string) (*config.Genome, error) {
 	e.mu.RLock()
@@ -404,6 +422,11 @@ func (e *Engine) MutateSkill(agentID, skillName string, mutationRate float64) er
 	genome, err := e.GetGenome(agentID)
 	if err != nil {
 		return fmt.Errorf("get genome: %w", err)
+	}
+
+	// Verify constraints are untampered before any mutation
+	if err := e.verifyGenomeConstraints(genome); err != nil {
+		return fmt.Errorf("constraint verification before skill mutation: %w", err)
 	}
 
 	skill, ok := genome.Skills[skillName]
@@ -545,6 +568,11 @@ func (e *Engine) OptimizeSkillWeights(agentID string) error {
 	genome, err := e.getGenomeLocked(agentID)
 	if err != nil {
 		return fmt.Errorf("get genome: %w", err)
+	}
+
+	// Verify constraints are untampered before any mutation
+	if err := e.verifyGenomeConstraints(genome); err != nil {
+		return fmt.Errorf("constraint verification before weight optimization: %w", err)
 	}
 
 	// Calculate total fitness across enabled skills
@@ -809,6 +837,11 @@ func (e *Engine) MutateBehavior(agentID string, feedbackScores map[string]float6
 	genome, err := e.getGenomeLocked(agentID)
 	if err != nil {
 		return fmt.Errorf("get genome: %w", err)
+	}
+
+	// Verify constraints are untampered before any mutation
+	if err := e.verifyGenomeConstraints(genome); err != nil {
+		return fmt.Errorf("constraint verification before behavior mutation: %w", err)
 	}
 
 	// Behavioral mutation rate is lower than skill mutation (0.1 vs 0.3)

@@ -27,6 +27,9 @@ k256 = { version = "0.13", features = ["ecdsa"] }
 tiny-keccak = { version = "2", features = ["keccak"] }
 rmp-serde = "1"
 hex = "0.4"
+ed25519-dalek = { version = "2", features = ["serde", "rand_core"] }
+rand = "0.8"
+thiserror = "1"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
 libc = "0.2"
