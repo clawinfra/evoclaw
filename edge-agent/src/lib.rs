@@ -9,3 +9,4 @@ pub mod mqtt;
 pub mod skills;
 pub mod strategy;
 pub mod trading;
+pub mod wal;

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/clawinfra/evoclaw/internal/config"
 )
 
 func newTestEngine(t *testing.T) *Engine {
@@ -850,6 +852,151 @@ func TestFeedbackHistoryLimit(t *testing.T) {
 	// Should keep only last 100
 	if len(history) != 100 {
 		t.Errorf("expected history capped at 100 entries, got %d", len(history))
+	}
+}
+
+// ================================
+// VBR Tests
+// ================================
+
+func TestVerifyMutationPass(t *testing.T) {
+	e := newTestEngine(t)
+
+	// Create a genome file for the agent
+	g := &config.Genome{
+		Skills: map[string]config.SkillGenome{
+			"trading": {
+				Enabled: true,
+				Fitness: 0.3,
+				Params:  map[string]interface{}{"threshold": -0.1},
+			},
+		},
+	}
+	if err := e.UpdateGenome("agent-1", g); err != nil {
+		t.Fatalf("setup genome: %v", err)
+	}
+
+	// Verify with better metrics (fitness > 0.3)
+	metrics := map[string]float64{
+		"successRate":   0.9,
+		"costUSD":       0.1,
+		"avgResponseMs": 200,
+		"profitLoss":    0.5,
+	}
+	verified, err := e.VerifyMutation("agent-1", "trading", metrics)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if !verified {
+		t.Error("expected mutation to be verified as improvement")
+	}
+}
+
+func TestVerifyMutationFail(t *testing.T) {
+	e := newTestEngine(t)
+
+	g := &config.Genome{
+		Skills: map[string]config.SkillGenome{
+			"trading": {
+				Enabled: true,
+				Fitness: 0.95, // very high existing fitness
+				Params:  map[string]interface{}{},
+			},
+		},
+	}
+	if err := e.UpdateGenome("agent-1", g); err != nil {
+		t.Fatalf("setup genome: %v", err)
+	}
+
+	// Verify with poor metrics
+	metrics := map[string]float64{
+		"successRate":   0.1,
+		"costUSD":       10.0,
+		"avgResponseMs": 5000,
+		"profitLoss":    -0.9,
+	}
+	verified, err := e.VerifyMutation("agent-1", "trading", metrics)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if verified {
+		t.Error("expected mutation to NOT be verified")
+	}
+}
+
+// ================================
+// ADL Tests
+// ================================
+
+func TestDivergenceScore(t *testing.T) {
+	e := newTestEngine(t)
+
+	// No strategy = 0
+	if s := e.DivergenceScore("agent-1"); s != 0 {
+		t.Errorf("expected 0, got %f", s)
+	}
+
+	e.SetStrategy("agent-1", &Strategy{ID: "s1", Version: 1})
+	if s := e.DivergenceScore("agent-1"); s != 1 {
+		t.Errorf("expected 1, got %f", s)
+	}
+
+	// Mutate a few times
+	e.Mutate("agent-1", 0.1)
+	e.Mutate("agent-1", 0.1)
+	if s := e.DivergenceScore("agent-1"); s != 3 {
+		t.Errorf("expected 3, got %f", s)
+	}
+}
+
+func TestCheckADL(t *testing.T) {
+	e := newTestEngine(t)
+
+	e.SetStrategy("agent-1", &Strategy{ID: "s1", Version: 5})
+
+	if e.CheckADL("agent-1", 10) {
+		t.Error("should not exceed limit of 10 at version 5")
+	}
+	if !e.CheckADL("agent-1", 4) {
+		t.Error("should exceed limit of 4 at version 5")
+	}
+	if e.CheckADL("agent-1", 0) {
+		t.Error("zero limit means disabled")
+	}
+}
+
+// ================================
+// VFM Tests
+// ================================
+
+func TestEvaluateVFM(t *testing.T) {
+	vfm := EvaluateVFM(0.5, 0.1, 0.1, 0.05)
+	if vfm.Score <= 0 {
+		t.Error("expected positive VFM score")
+	}
+	expected := 0.5 / 0.25 // 2.0
+	if vfm.Score != expected {
+		t.Errorf("expected %f, got %f", expected, vfm.Score)
+	}
+}
+
+func TestEvaluateVFMZeroCost(t *testing.T) {
+	// Free improvement should give very high score
+	vfm := EvaluateVFM(0.5, 0, 0, 0)
+	if vfm.Score <= 0 {
+		t.Error("expected positive VFM for free improvement")
+	}
+	if vfm.Score < 100 {
+		t.Logf("VFM score for free improvement: %f", vfm.Score)
+	}
+}
+
+func TestEvaluateVFMRejectLowValue(t *testing.T) {
+	// High cost, tiny improvement
+	vfm := EvaluateVFM(0.001, 5.0, 3.0, 2.0)
+	minThreshold := 0.1
+	if vfm.Score >= minThreshold {
+		t.Errorf("expected VFM %f < threshold %f", vfm.Score, minThreshold)
 	}
 }
 

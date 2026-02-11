@@ -31,6 +31,8 @@ type SkillGenome struct {
 	Version      int                    `json:"version"`
 	Dependencies []string               `json:"dependencies,omitempty"` // Layer 2: Skills this skill depends on
 	EvalCount    int                    `json:"eval_count"`             // Layer 2: Number of evaluations for this skill
+	Verified     bool                   `json:"verified,omitempty"`     // VBR: last mutation verified
+	VFMScore     float64                `json:"vfm_score,omitempty"`    // VFM: value-for-money of last mutation
 }
 
 // GenomeBehavior defines behavioral traits
@@ -48,6 +50,8 @@ type GenomeConstraints struct {
 	MaxLossUSD     float64  `json:"max_loss_usd,omitempty"`
 	AllowedAssets  []string `json:"allowed_assets,omitempty"`
 	BlockedActions []string `json:"blocked_actions,omitempty"`
+	MaxDivergence  float64  `json:"max_divergence,omitempty"`  // ADL: max mutation distance from original
+	MinVFMScore    float64  `json:"min_vfm_score,omitempty"`   // VFM: minimum value-for-money threshold
 }
 
 // BehaviorFeedback represents user feedback on agent behavior (Layer 3)

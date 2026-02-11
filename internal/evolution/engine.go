@@ -34,6 +34,35 @@ type Strategy struct {
 	Fitness float64 `json:"fitness"`
 	// Number of evaluations
 	EvalCount int `json:"evalCount"`
+	// VBR: whether the last mutation was verified
+	Verified bool `json:"verified"`
+	// VFM: value-for-money score of the last mutation
+	VFMScore float64 `json:"vfmScore"`
+}
+
+// VFMScore holds the value-for-money breakdown for a mutation
+type VFMScore struct {
+	FitnessImprovement float64 `json:"fitness_improvement"`
+	TokenCostIncrease  float64 `json:"token_cost_increase"`
+	LatencyIncrease    float64 `json:"latency_increase"`
+	ParamCountIncrease float64 `json:"param_count_increase"`
+	Score              float64 `json:"score"` // fitness_improvement / complexity_cost
+}
+
+// EvaluateVFM calculates value-for-money for a mutation
+func EvaluateVFM(fitnessImprovement, tokenCostIncrease, latencyIncrease, paramCountIncrease float64) VFMScore {
+	complexity := tokenCostIncrease + latencyIncrease + paramCountIncrease
+	if complexity <= 0 {
+		complexity = 0.001 // avoid division by zero; free improvement is great
+	}
+	score := fitnessImprovement / complexity
+	return VFMScore{
+		FitnessImprovement: fitnessImprovement,
+		TokenCostIncrease:  tokenCostIncrease,
+		LatencyIncrease:    latencyIncrease,
+		ParamCountIncrease: paramCountIncrease,
+		Score:              score,
+	}
 }
 
 // TradeMetrics for trading-specific evolution
@@ -853,6 +882,74 @@ func (e *Engine) MutateBehavior(agentID string, feedbackScores map[string]float6
 	)
 
 	return nil
+}
+
+// ================================
+// VBR (Verify Before Reporting)
+// ================================
+
+// VerifyMutation re-evaluates fitness after a mutation and confirms improvement.
+// Returns true if the mutation is verified as an improvement.
+func (e *Engine) VerifyMutation(agentID, skillName string, metrics map[string]float64) (bool, error) {
+	g, err := e.GetGenome(agentID)
+	if err != nil {
+		return false, fmt.Errorf("get genome: %w", err)
+	}
+
+	skill, ok := g.Skills[skillName]
+	if !ok {
+		return false, fmt.Errorf("skill not found: %s", skillName)
+	}
+
+	preFitness := skill.Fitness
+	postFitness := computeFitness(metrics)
+
+	verified := postFitness >= preFitness
+	skill.Verified = verified
+	g.Skills[skillName] = skill
+
+	// Only persist if verified
+	if verified {
+		if err := e.UpdateGenome(agentID, g); err != nil {
+			return false, err
+		}
+	}
+
+	e.logger.Info("mutation verification",
+		"agent", agentID,
+		"skill", skillName,
+		"preFitness", preFitness,
+		"postFitness", postFitness,
+		"verified", verified,
+	)
+
+	return verified, nil
+}
+
+// ================================
+// ADL (Anti-Divergence Limit)
+// ================================
+
+// DivergenceScore returns cumulative mutation distance for an agent.
+// Each mutation increments by 1; this is the version count from original.
+func (e *Engine) DivergenceScore(agentID string) float64 {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	s, ok := e.strategies[agentID]
+	if !ok {
+		return 0
+	}
+	return float64(s.Version)
+}
+
+// CheckADL returns true if the agent has exceeded its divergence limit
+// and needs a simplification pass.
+func (e *Engine) CheckADL(agentID string, maxDivergence float64) bool {
+	if maxDivergence <= 0 {
+		return false // no limit set
+	}
+	return e.DivergenceScore(agentID) > maxDivergence
 }
 
 // GetBehaviorHistory returns behavioral evolution history for an agent

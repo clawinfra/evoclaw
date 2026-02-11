@@ -525,3 +525,61 @@ A: The agent's status changes to "evolving" briefly while parameters are mutated
 ---
 
 *Last updated: 2026-02-11*
+
+---
+
+## Agent Reliability Patterns
+
+These patterns address the most common failure modes in long-running agent systems.
+
+### WAL Protocol (Write-Ahead Log)
+
+The #1 agent failure mode is **forgetting corrections mid-conversation**. The WAL protocol requires agents to write state changes to persistent storage *before* acting on them.
+
+**How it works:**
+- Before an agent responds or executes an action, it appends an entry to the WAL
+- Each entry has: `timestamp`, `agent_id`, `action_type` (correction/decision/state_change), `payload`, `applied` flag
+- On restart, unapplied WAL entries are replayed to restore state
+- Both Go orchestrator (`internal/wal/`) and Rust edge agent (`edge-agent/src/wal.rs`) implement this
+
+**Integration with evolution:** Mutations and fitness evaluations are WAL-logged so a crash mid-evolution doesn't leave the genome in an inconsistent state.
+
+### Working Buffer / Compaction Danger Zone
+
+When the memory system compacts older context, there's a danger zone where recent corrections can be lost. The Working Buffer prevents this.
+
+**How it works:**
+- Critical state (corrections, recent decisions) is held in a `WorkingBuffer`
+- Before any memory compaction, `FlushToWAL()` is called to persist the buffer
+- After compaction, the WAL entries ensure nothing critical was lost
+- The buffer is cleared after a successful flush
+
+### VBR (Verify Before Reporting)
+
+When a mutation claims improvement, **verify it actually works** before recording it as successful. This prevents false-positive evolution where noise is mistaken for signal.
+
+**How it works:**
+- After `MutateSkill()`, call `VerifyMutation(agentID, skillName, metrics)`
+- Re-evaluates fitness with fresh metrics and compares pre/post
+- Only commits the mutation to genome history if verified as an improvement
+- Unverified mutations can be reverted automatically
+- The `verified` field on Strategy and SkillGenome tracks verification status
+
+### ADL/VFM Guardrails
+
+**Anti-Divergence Limit (ADL):** Prevents agents from evolving into unrecognizable complexity monsters.
+- Tracks cumulative mutation distance via `DivergenceScore(agentID)`
+- If `DivergenceScore > GenomeConstraints.MaxDivergence`, forces a simplification pass
+- `CheckADL()` returns true when the limit is exceeded
+
+**Value-For-Money (VFM) Scoring:** Ensures mutations are worth their cost.
+- Score = `fitness_improvement / (token_cost_increase + latency_increase + param_count_increase)`
+- Mutations with `VFM < GenomeConstraints.MinVFMScore` are rejected
+- `EvaluateVFM()` returns a full breakdown
+
+**Integration with the 5-layer roadmap:**
+- **Layer 1 (Parameter Tuning):** WAL + VBR ensure parameter mutations are persisted and verified
+- **Layer 2 (Skill Selection):** ADL prevents skill composition from growing unbounded
+- **Layer 3 (Behavioral Evolution):** VFM ensures behavioral changes justify their cost
+- **Layer 4 (Cross-Agent):** WAL provides crash recovery for multi-agent coordination
+- **Layer 5 (Autonomous):** All guardrails combined prevent runaway self-modification

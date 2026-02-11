@@ -35,6 +35,10 @@ pub struct SkillGenome {
     pub dependencies: Vec<String>, // Layer 2: skills this skill depends on
     #[serde(default)]
     pub eval_count: u32, // Layer 2: number of evaluations
+    #[serde(default)]
+    pub verified: bool, // VBR: last mutation verified
+    #[serde(default)]
+    pub vfm_score: f64, // VFM: value-for-money of last mutation
 }
 
 /// Behavioral traits
@@ -60,6 +64,10 @@ pub struct GenomeConstraints {
     pub allowed_assets: Vec<String>,
     #[serde(default)]
     pub blocked_actions: Vec<String>,
+    #[serde(default)]
+    pub max_divergence: f64, // ADL: max mutation distance from original
+    #[serde(default)]
+    pub min_vfm_score: f64, // VFM: minimum value-for-money threshold
 }
 
 impl Genome {

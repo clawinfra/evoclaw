@@ -224,17 +224,25 @@ type GenomeIdentity struct {
 // SkillGenome defines evolvable parameters for a specific skill
 type SkillGenome struct {
 	Enabled    bool                   `json:"enabled"`
+	Weight     float64                `json:"weight,omitempty"`
 	Strategies []string               `json:"strategies,omitempty"`
 	Params     map[string]interface{} `json:"params"`
-	Fitness    float64                `json:"fitness"`
-	Version    int                    `json:"version"`
+	Fitness      float64                `json:"fitness"`
+	Version      int                    `json:"version"`
+	Dependencies []string               `json:"dependencies,omitempty"`
+	EvalCount    int                    `json:"eval_count,omitempty"`
+	Verified     bool                   `json:"verified,omitempty"`
+	VFMScore     float64                `json:"vfm_score,omitempty"`
 }
 
 // GenomeBehavior defines behavioral traits
 type GenomeBehavior struct {
-	RiskTolerance float64 `json:"risk_tolerance"` // 0.0-1.0
-	Verbosity     float64 `json:"verbosity"`      // 0.0-1.0
-	Autonomy      float64 `json:"autonomy"`       // 0.0-1.0
+	RiskTolerance    float64            `json:"risk_tolerance"`              // 0.0-1.0
+	Verbosity        float64            `json:"verbosity"`                   // 0.0-1.0
+	Autonomy         float64            `json:"autonomy"`                    // 0.0-1.0
+	PromptStyle      string             `json:"prompt_style,omitempty"`      // Layer 3
+	ToolPreferences  map[string]float64 `json:"tool_preferences,omitempty"`  // Layer 3
+	ResponsePatterns []string           `json:"response_patterns,omitempty"` // Layer 3
 }
 
 // GenomeConstraints defines hard boundaries (non-evolvable)
@@ -242,6 +250,8 @@ type GenomeConstraints struct {
 	MaxLossUSD     float64  `json:"max_loss_usd,omitempty"`
 	AllowedAssets  []string `json:"allowed_assets,omitempty"`
 	BlockedActions []string `json:"blocked_actions,omitempty"`
+	MaxDivergence  float64  `json:"max_divergence,omitempty"`
+	MinVFMScore    float64  `json:"min_vfm_score,omitempty"`
 }
 
 type ContainerConfig struct {
