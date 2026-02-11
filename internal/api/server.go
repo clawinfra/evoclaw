@@ -13,6 +13,7 @@ import (
 	"github.com/clawinfra/evoclaw/internal/agents"
 	"github.com/clawinfra/evoclaw/internal/models"
 	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/security"
 )
 
 // Server is the HTTP API server
@@ -26,6 +27,7 @@ type Server struct {
 	logger     *slog.Logger
 	httpServer *http.Server
 	webFS      fs.FS // embedded web dashboard assets (optional)
+	jwtSecret  []byte
 }
 
 // NewServer creates a new API server
@@ -37,13 +39,18 @@ func NewServer(
 	router *models.Router,
 	logger *slog.Logger,
 ) *Server {
+	jwtSecret := security.GetJWTSecret()
+	if jwtSecret == nil {
+		logger.Warn("EVOCLAW_JWT_SECRET not set — running in dev mode (unauthenticated API access)")
+	}
 	return &Server{
-		port:     port,
-		orch:     orch,
-		registry: registry,
-		memory:   memory,
-		router:   router,
-		logger:   logger.With("component", "api"),
+		port:      port,
+		orch:      orch,
+		registry:  registry,
+		memory:    memory,
+		router:    router,
+		logger:    logger.With("component", "api"),
+		jwtSecret: jwtSecret,
 	}
 }
 
@@ -61,7 +68,10 @@ func (s *Server) SetEvolution(evolution interface{}) {
 func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 
-	// Register API routes
+	// Auth endpoint (unauthenticated — before auth middleware)
+	mux.HandleFunc("/api/auth/token", s.handleAuthToken)
+
+	// Register API routes (protected by auth middleware applied at handler level)
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/agents", s.handleAgents)
 	mux.HandleFunc("/api/agents/", s.handleAgentDetail)
@@ -91,9 +101,12 @@ func (s *Server) Start(ctx context.Context) error {
 		s.logger.Info("web dashboard enabled at /")
 	}
 
+	// Apply JWT auth middleware to all routes (skips /api/auth/token via path check)
+	authedHandler := s.jwtAuthWrapper(mux)
+
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.port),
-		Handler:      s.corsMiddleware(s.loggingMiddleware(mux)),
+		Handler:      s.corsMiddleware(s.loggingMiddleware(authedHandler)),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -314,6 +327,76 @@ func (s *Server) handleCosts(w http.ResponseWriter, r *http.Request) {
 
 	costs := s.router.GetAllCosts()
 	s.respondJSON(w, costs)
+}
+
+// jwtAuthWrapper applies JWT authentication to all /api/ routes except /api/auth/token.
+func (s *Server) jwtAuthWrapper(next http.Handler) http.Handler {
+	authMW := security.AuthMiddleware(s.jwtSecret)
+	authed := authMW(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip auth for token endpoint and non-API routes
+		if r.URL.Path == "/api/auth/token" || !strings.HasPrefix(r.URL.Path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		authed.ServeHTTP(w, r)
+	})
+}
+
+// handleAuthToken generates a JWT token. In production, this should validate
+// API keys or owner credentials. For now it accepts a JSON body with agent_id and role.
+func (s *Server) handleAuthToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		AgentID string `json:"agent_id"`
+		Role    string `json:"role"`
+		APIKey  string `json:"api_key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.AgentID == "" || req.Role == "" {
+		http.Error(w, `{"error":"agent_id and role required"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Validate role
+	validRole := false
+	for _, r := range security.ValidRoles {
+		if r == req.Role {
+			validRole = true
+			break
+		}
+	}
+	if !validRole {
+		http.Error(w, `{"error":"invalid role"}`, http.StatusBadRequest)
+		return
+	}
+
+	secret := s.jwtSecret
+	if secret == nil {
+		// Dev mode: use a default secret for token generation
+		secret = []byte("evoclaw-dev-secret")
+	}
+
+	token, err := security.GenerateToken(req.AgentID, req.Role, secret, 24*time.Hour)
+	if err != nil {
+		s.logger.Error("failed to generate token", "error", err)
+		http.Error(w, `{"error":"token generation failed"}`, http.StatusInternalServerError)
+		return
+	}
+
+	s.respondJSON(w, map[string]interface{}{
+		"token":      token,
+		"expires_in": 86400,
+		"token_type": "Bearer",
+	})
 }
 
 // respondJSON writes a JSON response

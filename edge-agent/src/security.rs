@@ -1,9 +1,11 @@
-//! Cryptographic signing and verification for genome constraints (Security Layer 1).
+//! Security module: constraint signing (Layer 1) and JWT authentication (Layer 2).
 //!
-//! Mirrors the Go `internal/security` package: Ed25519 signatures over
-//! deterministic JSON of GenomeConstraints.
+//! Layer 1: Ed25519 signatures over deterministic JSON of GenomeConstraints.
+//! Layer 2: JWT validation for API tokens received from the hub.
 
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use jsonwebtoken::{decode, DecodingKey, TokenData, Validation};
+use serde::{Deserialize, Serialize};
 use serde_json;
 
 use crate::genome::GenomeConstraints;
@@ -21,6 +23,12 @@ pub enum SecurityError {
     Serialization(String),
     #[error("key error: {0}")]
     KeyError(String),
+    #[error("invalid JWT: {0}")]
+    InvalidJwt(String),
+    #[error("expired JWT")]
+    ExpiredJwt,
+    #[error("insufficient role")]
+    InsufficientRole,
 }
 
 /// Generate a new Ed25519 key pair. Returns (public_key_bytes, secret_key_bytes).
@@ -88,6 +96,46 @@ pub fn verify_constraints(
     Ok(verifying_key.verify(&msg, &sig).is_ok())
 }
 
+// ─── JWT Authentication (Security Layer 2) ───────────────────────────
+
+/// JWT claims for EvoClaw API tokens.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct JwtClaims {
+    pub agent_id: String,
+    pub role: String,
+    pub iat: i64,
+    pub exp: i64,
+}
+
+/// Validate a JWT token string using the given HMAC secret.
+/// Returns the decoded claims on success.
+pub fn validate_jwt(token: &str, secret: &[u8]) -> Result<JwtClaims, SecurityError> {
+    let key = DecodingKey::from_secret(secret);
+    let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
+
+    let token_data: TokenData<JwtClaims> =
+        decode(token, &key, &validation).map_err(|e| match e.kind() {
+            jsonwebtoken::errors::ErrorKind::ExpiredSignature => SecurityError::ExpiredJwt,
+            _ => SecurityError::InvalidJwt(e.to_string()),
+        })?;
+
+    Ok(token_data.claims)
+}
+
+/// Check if a role is allowed to access the given method + path.
+/// Owner has full access, agent has limited access, readonly is GET-only.
+pub fn check_permission(role: &str, method: &str, path: &str) -> bool {
+    match role {
+        "owner" => true,
+        "agent" => {
+            (method == "GET" && (path.contains("/genome") || path.contains("/genome/behavior")))
+                || (method == "POST" && path.contains("/feedback"))
+        }
+        "readonly" => method == "GET" && path.starts_with("/api/"),
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,5 +195,96 @@ mod tests {
         let b1 = serialize_constraints(&c).unwrap();
         let b2 = serialize_constraints(&c).unwrap();
         assert_eq!(b1, b2);
+    }
+
+    // ─── JWT Tests ───────────────────────────────────────────────
+
+    use jsonwebtoken::{encode, EncodingKey, Header};
+
+    fn make_token(agent_id: &str, role: &str, secret: &[u8], exp_offset: i64) -> String {
+        let now = chrono::Utc::now().timestamp();
+        let claims = JwtClaims {
+            agent_id: agent_id.to_string(),
+            role: role.to_string(),
+            iat: now,
+            exp: now + exp_offset,
+        };
+        encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret(secret),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn test_jwt_valid() {
+        let secret = b"test-secret-key";
+        let token = make_token("agent-1", "owner", secret, 3600);
+        let claims = validate_jwt(&token, secret).unwrap();
+        assert_eq!(claims.agent_id, "agent-1");
+        assert_eq!(claims.role, "owner");
+    }
+
+    #[test]
+    fn test_jwt_expired() {
+        let secret = b"test-secret-key";
+        let token = make_token("agent-1", "owner", secret, -3600);
+        match validate_jwt(&token, secret) {
+            Err(SecurityError::ExpiredJwt) => {}
+            other => panic!("expected ExpiredJwt, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_jwt_wrong_secret() {
+        let token = make_token("agent-1", "owner", b"secret-1", 3600);
+        match validate_jwt(&token, b"secret-2") {
+            Err(SecurityError::InvalidJwt(_)) => {}
+            other => panic!("expected InvalidJwt, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_jwt_invalid_token() {
+        match validate_jwt("not-a-jwt", b"secret") {
+            Err(SecurityError::InvalidJwt(_)) => {}
+            other => panic!("expected InvalidJwt, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_check_permission_owner() {
+        assert!(check_permission("owner", "GET", "/api/status"));
+        assert!(check_permission("owner", "POST", "/api/agents/a1/feedback"));
+        assert!(check_permission("owner", "DELETE", "/api/agents/a1"));
+    }
+
+    #[test]
+    fn test_check_permission_agent() {
+        assert!(check_permission("agent", "GET", "/api/agents/a1/genome"));
+        assert!(check_permission(
+            "agent",
+            "GET",
+            "/api/agents/a1/genome/behavior"
+        ));
+        assert!(check_permission("agent", "POST", "/api/agents/a1/feedback"));
+        assert!(!check_permission("agent", "PUT", "/api/agents/a1/genome"));
+        assert!(!check_permission("agent", "DELETE", "/api/agents/a1"));
+    }
+
+    #[test]
+    fn test_check_permission_readonly() {
+        assert!(check_permission("readonly", "GET", "/api/status"));
+        assert!(!check_permission(
+            "readonly",
+            "POST",
+            "/api/agents/a1/feedback"
+        ));
+        assert!(!check_permission(
+            "readonly",
+            "PUT",
+            "/api/agents/a1/genome"
+        ));
     }
 }

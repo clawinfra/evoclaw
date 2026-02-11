@@ -58,9 +58,84 @@ Content-Type: application/json
 
 Returns `403 Forbidden` if the signature is invalid.
 
+---
+
+# JWT API Authentication (Security Layer 2)
+
+## Overview
+
+All API endpoints are protected by JWT (JSON Web Token) authentication with role-based access control (RBAC). Tokens use HMAC-SHA256 signing.
+
+## Configuration
+
+Set the JWT secret via environment variable:
+
+```bash
+export EVOCLAW_JWT_SECRET="your-secret-key-at-least-32-bytes"
+```
+
+**Dev mode:** If `EVOCLAW_JWT_SECRET` is not set, authentication is disabled with a warning logged. This allows local development without tokens.
+
+## Roles
+
+| Role | Access |
+|------|--------|
+| **owner** | Full access — all endpoints, all methods |
+| **agent** | Limited — `GET /api/agents/{id}/genome`, `POST /api/agents/{id}/feedback`, `GET /api/agents/{id}/genome/behavior` |
+| **readonly** | Read-only — all `GET` endpoints |
+
+## Generating Tokens
+
+### Via API
+
+```bash
+curl -X POST http://localhost:8080/api/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "agent-1", "role": "owner"}'
+```
+
+Response:
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_in": 86400,
+  "token_type": "Bearer"
+}
+```
+
+### Using Tokens
+
+Include the token in the `Authorization` header:
+
+```bash
+curl http://localhost:8080/api/status \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+## Token Claims
+
+| Field | Description |
+|-------|-------------|
+| `agent_id` | The agent identifier |
+| `role` | One of: `owner`, `agent`, `readonly` |
+| `iat` | Issued-at timestamp (Unix) |
+| `exp` | Expiration timestamp (Unix) |
+
+## Edge Agent Validation
+
+Edge agents (Rust) validate JWT tokens received from the hub using the `validate_jwt()` function in `security.rs`. This ensures that commands from the hub are authenticated.
+
+## Error Responses
+
+| Status | Meaning |
+|--------|---------|
+| 401 | Missing, invalid, or expired token |
+| 403 | Valid token but insufficient role for the endpoint |
+
+---
+
 ## Future Work
 
-- **JWT Authentication** — API-level auth for all endpoints
 - **Evolution Firewall** — rate limiting and anomaly detection on mutations
 - **Key Pinning** — trust-on-first-use (TOFU) for owner public keys
 - **Constraint History** — signed audit log of all constraint changes
