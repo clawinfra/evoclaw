@@ -169,7 +169,7 @@ func TestSnapshotStore_RingBuffer(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		g := &config.Genome{Identity: config.GenomeIdentity{Name: "test"}}
-		ss.TakeSnapshot("agent-1", g, float64(i))
+		_ = ss.TakeSnapshot("agent-1", g, float64(i))
 	}
 
 	if ss.SnapshotCount("agent-1") != 3 {
@@ -289,11 +289,11 @@ func TestFirewallConcurrentAccess(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			agentID := "agent-concurrent"
-			fw.PreMutationCheck(agentID)
-			fw.PostMutationCheck(agentID, 1.0, 0.95)
+			_, _ = fw.PreMutationCheck(agentID)
+			_ = fw.PostMutationCheck(agentID, 1.0, 0.95)
 			fw.GetFirewallStatus(agentID)
 			g := &config.Genome{Identity: config.GenomeIdentity{Name: "test"}}
-			fw.Snapshots.TakeSnapshot(agentID, g, 0.9)
+			_ = fw.Snapshots.TakeSnapshot(agentID, g, 0.9)
 		}(i)
 	}
 	wg.Wait()
