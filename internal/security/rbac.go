@@ -30,6 +30,10 @@ var permissions = []routePermission{
 	{Method: "GET", Pattern: "/api/agents/{id}/genome", Roles: []string{RoleOwner, RoleAgent, RoleReadonly}},
 	{Method: "GET", Pattern: "/api/agents/{id}/genome/behavior", Roles: []string{RoleOwner, RoleAgent, RoleReadonly}},
 	{Method: "POST", Pattern: "/api/agents/{id}/feedback", Roles: []string{RoleOwner, RoleAgent}},
+	// Evolution Firewall
+	{Method: "GET", Pattern: "/api/agents/{id}/firewall", Roles: []string{RoleOwner, RoleAgent, RoleReadonly}},
+	{Method: "POST", Pattern: "/api/agents/{id}/firewall/rollback", Roles: []string{RoleOwner}},
+	{Method: "POST", Pattern: "/api/agents/{id}/firewall/reset", Roles: []string{RoleOwner}},
 	// All GET endpoints are available to readonly
 	{Method: "GET", Pattern: "/api/", Roles: []string{RoleOwner, RoleAgent, RoleReadonly}},
 	// All other methods on /api/ require owner

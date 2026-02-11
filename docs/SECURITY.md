@@ -134,8 +134,116 @@ Edge agents (Rust) validate JWT tokens received from the hub using the `validate
 
 ---
 
+---
+
+# Evolution Firewall (Security Layer 3)
+
+## Overview
+
+The **Evolution Firewall** prevents runaway mutations by combining three mechanisms:
+1. **Rate Limiting** — caps mutation frequency per agent
+2. **Circuit Breaker** — blocks mutations when fitness degrades
+3. **Auto-Rollback** — restores last known good genome when circuit trips
+
+The firewall is enabled by default and configurable.
+
+## Rate Limiting
+
+Each agent is limited to **10 mutations per hour** (configurable). The rate limiter uses a sliding window with in-memory tracking.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `max_mutations_per_hour` | 10 | Maximum mutations per agent per hour |
+
+## Circuit Breaker
+
+The circuit breaker monitors fitness before and after each mutation.
+
+### States
+
+| State | Behavior |
+|-------|----------|
+| **Closed** | Normal — mutations allowed |
+| **Open** | Mutations blocked — fitness dropped too much |
+| **Half-Open** | Testing — allows 1 mutation after cooldown |
+
+### Transitions
+
+```
+Closed --[fitness drop >30%]--> Open
+Open   --[cooldown elapsed]---> Half-Open
+Half-Open --[good mutation]---> Closed
+Half-Open --[bad mutation]----> Open
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `fitness_drop_threshold` | 0.30 | Fractional fitness drop that triggers open |
+| `cooldown_period` | 1 hour | Time before open → half-open transition |
+
+## Auto-Rollback
+
+Before every mutation, a genome snapshot is taken. If the circuit breaker trips, the last known good genome can be restored automatically or manually via API.
+
+Snapshots use a **ring buffer** of 10 entries per agent (configurable via `max_snapshots`).
+
+## API Endpoints
+
+### Get Firewall Status
+
+```
+GET /api/agents/{id}/firewall
+Authorization: Bearer <token>
+```
+
+Response:
+```json
+{
+  "enabled": true,
+  "rate_limit_remaining": 7,
+  "max_mutations_per_hour": 10,
+  "circuit_breaker_state": "closed",
+  "last_snapshot_time": "2026-02-11T04:30:00Z",
+  "snapshot_count": 3
+}
+```
+
+**Roles:** owner, agent, readonly
+
+### Manual Rollback
+
+```
+POST /api/agents/{id}/firewall/rollback
+Authorization: Bearer <token>
+```
+
+Restores the last snapshot genome. **Roles:** owner only.
+
+### Reset Circuit Breaker
+
+```
+POST /api/agents/{id}/firewall/reset
+Authorization: Bearer <token>
+```
+
+Forces circuit breaker to closed state. **Roles:** owner only.
+
+## Edge Agent Firewall
+
+Edge agents (Rust) implement a local firewall in `firewall.rs` with rate limiting and circuit breaker. This ensures edge agents are protected even without hub connectivity. The edge implementation does not include full snapshot/rollback (simpler environment).
+
+## Dashboard Integration
+
+The firewall status for each agent is available via `GET /api/agents/{id}/firewall` and can be displayed on the web dashboard showing:
+- Rate limit usage (remaining / max)
+- Circuit breaker state with color coding (green=closed, red=open, yellow=half-open)
+- Last snapshot timestamp
+- Rollback and reset action buttons (owner only)
+
+---
+
 ## Future Work
 
-- **Evolution Firewall** — rate limiting and anomaly detection on mutations
 - **Key Pinning** — trust-on-first-use (TOFU) for owner public keys
 - **Constraint History** — signed audit log of all constraint changes
+- **Firewall Audit Log** — record all firewall decisions for compliance

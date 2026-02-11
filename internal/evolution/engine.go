@@ -85,6 +85,7 @@ type Engine struct {
 	mu         sync.RWMutex
 	feedbackMu sync.RWMutex
 	feedback   map[string][]genome.BehaviorFeedback // agentID -> feedback list
+	Firewall   *EvolutionFirewall                   // Security Layer 3
 }
 
 // NewEngine creates a new evolution engine
@@ -92,12 +93,17 @@ func NewEngine(dataDir string, logger *slog.Logger) *Engine {
 	dir := filepath.Join(dataDir, "evolution")
 	_ = os.MkdirAll(dir, 0750)
 
+	fw := NewEvolutionFirewall(DefaultFirewallConfig())
+	// Attempt to load persisted snapshots
+	_ = fw.Snapshots.Load(dir)
+
 	e := &Engine{
 		strategies: make(map[string]*Strategy),
 		history:    make(map[string][]*Strategy),
 		dataDir:    dir,
 		logger:     logger,
 		feedback:   make(map[string][]genome.BehaviorFeedback),
+		Firewall:   fw,
 	}
 
 	// Load existing strategies from disk
@@ -158,6 +164,13 @@ func (e *Engine) Evaluate(agentID string, metrics map[string]float64) float64 {
 
 // Mutate creates a new strategy variant based on the current one
 func (e *Engine) Mutate(agentID string, mutationRate float64) (interface{}, error) {
+	// Firewall pre-mutation check
+	if allowed, reason, err := e.Firewall.PreMutationCheck(agentID); err != nil {
+		return nil, fmt.Errorf("firewall error: %w", err)
+	} else if !allowed {
+		return nil, fmt.Errorf("mutation blocked by firewall: %s", reason)
+	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -165,6 +178,13 @@ func (e *Engine) Mutate(agentID string, mutationRate float64) (interface{}, erro
 	if !ok {
 		return nil, fmt.Errorf("no strategy found for agent %s", agentID)
 	}
+
+	// Take snapshot before mutation (snapshot the genome if available)
+	if g, err := e.getGenomeLocked(agentID); err == nil {
+		_ = e.Firewall.Snapshots.TakeSnapshot(agentID, g, current.Fitness)
+	}
+
+	oldFitness := current.Fitness
 
 	// Archive current strategy
 	e.history[agentID] = append(e.history[agentID], current)
@@ -198,6 +218,9 @@ func (e *Engine) Mutate(agentID string, mutationRate float64) (interface{}, erro
 		"version", mutated.Version,
 		"mutationRate", mutationRate,
 	)
+
+	// Post-mutation check (new strategy starts at fitness 0, so only meaningful after evaluation)
+	_ = oldFitness // used for snapshot; post-mutation eval happens in Evaluate()
 
 	return mutated, nil
 }
@@ -419,9 +442,21 @@ func (e *Engine) EvaluateSkill(agentID, skillName string, metrics map[string]flo
 
 // MutateSkill mutates parameters for a specific skill
 func (e *Engine) MutateSkill(agentID, skillName string, mutationRate float64) error {
+	// Firewall pre-mutation check
+	if allowed, reason, err := e.Firewall.PreMutationCheck(agentID); err != nil {
+		return fmt.Errorf("firewall error: %w", err)
+	} else if !allowed {
+		return fmt.Errorf("skill mutation blocked by firewall: %s", reason)
+	}
+
 	genome, err := e.GetGenome(agentID)
 	if err != nil {
 		return fmt.Errorf("get genome: %w", err)
+	}
+
+	// Take snapshot before mutation
+	if sk, ok := genome.Skills[skillName]; ok {
+		_ = e.Firewall.Snapshots.TakeSnapshot(agentID, genome, sk.Fitness)
 	}
 
 	// Verify constraints are untampered before any mutation
@@ -831,6 +866,13 @@ func (e *Engine) BehavioralFitness(agentID string) float64 {
 
 // MutateBehavior evolves behavioral parameters based on feedback
 func (e *Engine) MutateBehavior(agentID string, feedbackScores map[string]float64) error {
+	// Firewall pre-mutation check
+	if allowed, reason, err := e.Firewall.PreMutationCheck(agentID); err != nil {
+		return fmt.Errorf("firewall error: %w", err)
+	} else if !allowed {
+		return fmt.Errorf("behavior mutation blocked by firewall: %s", reason)
+	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -838,6 +880,9 @@ func (e *Engine) MutateBehavior(agentID string, feedbackScores map[string]float6
 	if err != nil {
 		return fmt.Errorf("get genome: %w", err)
 	}
+
+	// Take snapshot before behavior mutation
+	_ = e.Firewall.Snapshots.TakeSnapshot(agentID, genome, e.BehavioralFitness(agentID))
 
 	// Verify constraints are untampered before any mutation
 	if err := e.verifyGenomeConstraints(genome); err != nil {

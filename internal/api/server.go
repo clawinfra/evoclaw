@@ -94,6 +94,11 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/agents/{id}/genome/behavior", s.handleBehaviorRoutes)
 	mux.HandleFunc("/api/agents/{id}/behavior/history", s.handleBehaviorHistoryRoutes)
 
+	// Security Layer 3: Evolution Firewall API routes
+	mux.HandleFunc("/api/agents/{id}/firewall", s.handleFirewallStatus)
+	mux.HandleFunc("/api/agents/{id}/firewall/rollback", s.handleFirewallRollback)
+	mux.HandleFunc("/api/agents/{id}/firewall/reset", s.handleFirewallReset)
+
 	// Serve embedded web dashboard
 	if s.webFS != nil {
 		fileServer := http.FileServer(http.FS(s.webFS))
