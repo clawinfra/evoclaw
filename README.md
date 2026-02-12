@@ -24,12 +24,24 @@ EvoClaw is a lightweight, evolution-powered agent orchestration framework design
 
 ## Quick Start
 
+### macOS (Homebrew)
+
+Easiest way to install on macOS:
+
+```bash
+brew tap clawinfra/evoclaw
+brew install evoclaw
+
+# Initialize and start
+evoclaw init
+```
+
 ### Native Binary (Default)
 
 Full OS access — bash, filesystem, network. Maximum power.
 
 ```bash
-# One-liner install
+# One-liner install (Linux/macOS)
 curl -fsSL https://evoclaw.win/install.sh | sh
 
 # Or build from source
