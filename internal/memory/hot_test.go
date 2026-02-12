@@ -88,7 +88,7 @@ func TestEventOperations(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 	for i := 0; i < 60; i++ {
-		h.AddEvent(Event{Date: time.Now(), Description: "event"})
+		_ = h.AddEvent(Event{Date: time.Now(), Description: "event"})
 	}
 }
 
@@ -113,13 +113,13 @@ func TestLessonOperations(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 	for i := 0; i < 110; i++ {
-		h.AddLesson(Lesson{Category: "testing", Text: "lesson", Importance: 0.5})
+		_ = h.AddLesson(Lesson{Category: "testing", Text: "lesson", Importance: 0.5})
 	}
 }
 
 func TestSerializeHotMemory(t *testing.T) {
 	h := NewHotMemory("agent1", "owner1")
-	h.AddPreference("color", "blue")
+	_ = h.AddPreference("color", "blue")
 	data, err := h.Serialize()
 	if err != nil {
 		t.Fatalf("error: %v", err)

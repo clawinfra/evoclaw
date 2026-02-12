@@ -159,7 +159,7 @@ func TestHotMemoryDeserialize(t *testing.T) {
 	// Use string pointer helper
 	s := "New Name"
 	f := 0.8
-	hot.UpdateIdentity(&s, &f)
+	_ = hot.UpdateIdentity(&s, &f)
 
 	data, err := hot.Serialize()
 	if err != nil {
@@ -182,7 +182,7 @@ func TestHotMemoryEnforceSize(t *testing.T) {
 	hot := NewHotMemory("agent-1", "owner")
 	// Add many lessons to trigger enforce
 	for i := 0; i < 100; i++ {
-		hot.AddLesson(Lesson{
+		_ = hot.AddLesson(Lesson{
 			Text:       fmt.Sprintf("Lesson content that takes up space %d", i),
 			Importance: 0.5,
 			LearnedAt:  time.Now(),

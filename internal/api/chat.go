@@ -95,7 +95,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // handleChatStream processes chat with SSE streaming response
@@ -130,7 +130,7 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 		"agent":   req.Agent,
 	})
 
-	w.Write([]byte("data: " + string(data) + "\n\n"))
+	_ = w.Write([]byte("data: " + string(data) + "\n\n"))
 }
 
 // generateMessageID creates a unique message ID

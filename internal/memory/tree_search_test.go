@@ -15,8 +15,8 @@ func TestNewTreeSearcher(t *testing.T) {
 
 func TestTreeSearcherSearch(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("tech/go", "Go programming")
-	tree.AddNode("tech/python", "Python programming")
+	_ = tree.AddNode("tech/go", "Go programming")
+	_ = tree.AddNode("tech/python", "Python programming")
 
 	s := NewTreeSearcher(tree, DefaultScoreConfig())
 	results := s.Search("go programming", 5)
@@ -34,8 +34,8 @@ func TestTreeSearcherSearchEmpty(t *testing.T) {
 
 func TestTreeSearcherSearchByCategory(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("tech/go", "Go programming")
-	tree.AddNode("tech/python", "Python programming")
+	_ = tree.AddNode("tech/go", "Go programming")
+	_ = tree.AddNode("tech/python", "Python programming")
 
 	s := NewTreeSearcher(tree, DefaultScoreConfig())
 	paths := s.SearchByCategory("tech")
@@ -56,7 +56,7 @@ func TestExtractKeywordsSearch(t *testing.T) {
 
 func TestFindRecentlyUpdated(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("tech/go", "Go")
+	_ = tree.AddNode("tech/go", "Go")
 
 	s := NewTreeSearcher(tree, DefaultScoreConfig())
 	paths := s.FindRecentlyUpdated(7)
@@ -65,7 +65,7 @@ func TestFindRecentlyUpdated(t *testing.T) {
 
 func TestFindActiveNodes(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("tech/go", "Go")
+	_ = tree.AddNode("tech/go", "Go")
 
 	s := NewTreeSearcher(tree, DefaultScoreConfig())
 	active := s.FindActiveNodes()
