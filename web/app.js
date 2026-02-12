@@ -746,7 +746,7 @@ function dashboard() {
                 alert(`✅ Agent updated successfully!\nModel: ${result.model}`);
                 
                 // Refresh agents list
-                await this.loadAgents();
+                await this.refreshAll();
                 
                 // Close modal
                 this.closeAgentEditor();

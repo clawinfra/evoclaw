@@ -771,15 +771,15 @@
                 <select x-model="agentEdits.model" 
                         class="w-full px-3 py-2 bg-gray-900 text-white rounded border border-gray-600">
                     <option value="">Select a model...</option>
-                    <template x-for="model in availableModels" :key="model.id">
-                        <option :value="model.id" x-text="model.name || model.id"></option>
+                    <template x-for="model in availableModels" :key="model.ID">
+                        <option :value="model.ID" x-text="model.Config.name || model.ID"></option>
                     </template>
                 </select>
                 <small class="block mt-1 text-xs text-gray-400" x-show="agentEdits.model">
-                    <template x-for="model in availableModels" :key="model.id">
-                        <span x-show="model.id === agentEdits.model">
-                            Context: <span x-text="formatNumber(model.context_window)"></span> tokens |
-                            Cost: $<span x-text="model.cost_input"></span>/$<span x-text="model.cost_output"></span> per M
+                    <template x-for="model in availableModels" :key="model.ID">
+                        <span x-show="model.ID === agentEdits.model">
+                            Context: <span x-text="formatNumber(model.Config.contextWindow)"></span> tokens |
+                            Cost: $<span x-text="model.Config.costInput"></span>/$<span x-text="model.Config.costOutput"></span> per M
                         </span>
                     </template>
                 </small>

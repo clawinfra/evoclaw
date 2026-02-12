@@ -195,6 +195,7 @@
                                 <td x-text="formatNumber(agent.metrics?.tokens_used || 0)"></td>
                                 <td>$<span x-text="(agent.metrics?.cost_usd || 0).toFixed(4)"></span></td>
                                 <td>
+                                    <button class="btn btn-xs btn-primary" @click="openAgentEditor(agent.id)">✏️ Edit</button>
                                     <button class="btn btn-xs" @click="viewAgent(agent.id)">Details</button>
                                     <button class="btn btn-xs btn-danger" @click="triggerEvolve(agent.id)">Evolve</button>
                                 </td>
@@ -301,30 +302,111 @@
                 </div>
             </div>
 
-            <div class="card" x-show="selectedAgent?.def?.type === 'trader'">
-                <h3>Strategy / Genome Config</h3>
-                <div class="config-grid" x-show="agentEvolution">
-                    <template x-for="[key, value] in Object.entries(agentEvolution?.params || {})" :key="key">
-                        <div class="config-row">
-                            <span class="config-label" x-text="key"></span>
-                            <span class="config-value mono" x-text="typeof value === 'number' ? value.toFixed(4) : value"></span>
+            <div class="card">
+                <h3>Genome</h3>
+                <div class="genome-display" x-show="agentGenome">
+                    <!-- Identity -->
+                    <div class="genome-section">
+                        <h4>🎭 Identity</h4>
+                        <div class="config-grid">
+                            <div class="config-row">
+                                <span class="config-label">Name</span>
+                                <span class="config-value" x-text="agentGenome?.identity?.name || '—'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Persona</span>
+                                <span class="config-value" x-text="agentGenome?.identity?.persona || '—'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Voice</span>
+                                <span class="config-value" x-text="agentGenome?.identity?.voice || '—'"></span>
+                            </div>
                         </div>
-                    </template>
-                    <div class="config-row">
-                        <span class="config-label">Temperature</span>
-                        <span class="config-value mono" x-text="agentEvolution?.temperature?.toFixed(4) || '—'"></span>
                     </div>
-                    <div class="config-row">
-                        <span class="config-label">Fitness</span>
-                        <span class="config-value mono" x-text="agentEvolution?.fitness?.toFixed(4) || '—'"></span>
+                    
+                    <!-- Behavior -->
+                    <div class="genome-section">
+                        <h4>🎨 Behavior</h4>
+                        <div class="config-grid">
+                            <div class="config-row">
+                                <span class="config-label">Risk Tolerance</span>
+                                <span class="config-value">
+                                    <span x-text="((agentGenome?.behavior?.risk_tolerance || 0) * 100).toFixed(0)"></span>%
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" :style="'width: ' + ((agentGenome?.behavior?.risk_tolerance || 0) * 100) + '%'"></div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Verbosity</span>
+                                <span class="config-value">
+                                    <span x-text="((agentGenome?.behavior?.verbosity || 0) * 100).toFixed(0)"></span>%
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" :style="'width: ' + ((agentGenome?.behavior?.verbosity || 0) * 100) + '%'"></div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Autonomy</span>
+                                <span class="config-value">
+                                    <span x-text="((agentGenome?.behavior?.autonomy || 0) * 100).toFixed(0)"></span>%
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" :style="'width: ' + ((agentGenome?.behavior?.autonomy || 0) * 100) + '%'"></div>
+                                    </div>
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="config-row">
-                        <span class="config-label">Version</span>
-                        <span class="config-value mono" x-text="agentEvolution?.version || '—'"></span>
+                    
+                    <!-- Skills -->
+                    <div class="genome-section">
+                        <h4>🧩 Skills</h4>
+                        <template x-for="[skillName, skill] in Object.entries(agentGenome?.skills || {})" :key="skillName">
+                            <div class="skill-card" :class="skill.enabled ? 'skill-enabled' : 'skill-disabled'">
+                                <div class="skill-header">
+                                    <span class="skill-name" x-text="skillName"></span>
+                                    <span class="skill-version">v<span x-text="skill.version"></span></span>
+                                    <span class="skill-status" x-text="skill.enabled ? '✓' : '✗'"></span>
+                                </div>
+                                <div class="skill-fitness" x-show="skill.fitness > 0">
+                                    <span class="fitness-label">Fitness:</span>
+                                    <span :class="getFitnessClass(skill.fitness)" x-text="skill.fitness.toFixed(3)"></span>
+                                </div>
+                                <div class="skill-params">
+                                    <template x-for="[key, value] in Object.entries(skill.params || {})" :key="key">
+                                        <div class="param-row">
+                                            <span class="param-key" x-text="key"></span>
+                                            <span class="param-value mono" x-text="typeof value === 'number' ? value.toFixed(4) : value"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- Constraints -->
+                    <div class="genome-section">
+                        <h4>🔒 Constraints</h4>
+                        <div class="config-grid">
+                            <div class="config-row">
+                                <span class="config-label">Max Loss (USD)</span>
+                                <span class="config-value" x-text="agentGenome?.constraints?.max_loss_usd || '—'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Allowed Assets</span>
+                                <span class="config-value" x-text="(agentGenome?.constraints?.allowed_assets || []).join(', ') || 'All'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Blocked Actions</span>
+                                <span class="config-value" x-text="(agentGenome?.constraints?.blocked_actions || []).join(', ') || 'None'"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                <div class="empty-state" x-show="!agentGenome">
+                    <p>No genome data available</p>
+                </div>
             </div>
-        </div>
 
         <!-- Trading View -->
         <div x-show="currentView === 'trading'" x-transition class="view">
@@ -629,6 +711,95 @@
             </div>
         </div>
     </main>
+
+    <!-- Agent Editor Modal Overlay -->
+    <div x-show="editingAgent" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50"
+         style="backdrop-filter: blur(4px);"
+         @click="closeAgentEditor()"
+         @keydown.escape.window="closeAgentEditor()">
+    </div>
+
+    <!-- Agent Editor Modal Dialog -->
+    <div x-show="editingAgent" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 transform scale-95"
+         x-transition:enter-end="opacity-100 transform scale-100"
+         class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 border border-gray-700 rounded-lg w-11/12 max-w-md max-h-screen overflow-auto z-50 shadow-2xl"
+         @click.stop
+         @keydown.escape.window="closeAgentEditor()"
+         style="z-index: 51;">
+        
+        <div class="flex justify-between items-center p-6 border-b border-gray-700">
+            <h3 class="text-xl font-semibold">Edit Agent Settings</h3>
+            <button @click="closeAgentEditor()" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+        </div>
+        
+        <div class="p-6 space-y-4">
+            <!-- Agent ID (read-only) -->
+            <div>
+                <label class="block text-sm font-medium mb-2">Agent ID</label>
+                <input type="text" :value="editingAgent?.id" readonly 
+                       class="w-full px-3 py-2 bg-gray-700 text-gray-400 rounded border border-gray-600 cursor-not-allowed">
+            </div>
+            
+            <!-- Agent Name -->
+            <div>
+                <label class="block text-sm font-medium mb-2">Display Name</label>
+                <input type="text" x-model="agentEdits.name"
+                       class="w-full px-3 py-2 bg-gray-900 text-white rounded border border-gray-600 focus:border-blue-500">
+            </div>
+            
+            <!-- Agent Type -->
+            <div>
+                <label class="block text-sm font-medium mb-2">Type</label>
+                <select x-model="agentEdits.type" 
+                        class="w-full px-3 py-2 bg-gray-900 text-white rounded border border-gray-600">
+                    <option value="monitor">Monitor</option>
+                    <option value="trader">Trader</option>
+                    <option value="orchestrator">Orchestrator</option>
+                    <option value="governance">Governance</option>
+                </select>
+            </div>
+            
+            <!-- Model Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-2">Model</label>
+                <select x-model="agentEdits.model" 
+                        class="w-full px-3 py-2 bg-gray-900 text-white rounded border border-gray-600">
+                    <option value="">Select a model...</option>
+                    <template x-for="model in availableModels" :key="model.ID">
+                        <option :value="model.ID" x-text="model.Config.name || model.ID"></option>
+                    </template>
+                </select>
+                <small class="block mt-1 text-xs text-gray-400" x-show="agentEdits.model">
+                    <template x-for="model in availableModels" :key="model.ID">
+                        <span x-show="model.ID === agentEdits.model">
+                            Context: <span x-text="formatNumber(model.Config.contextWindow)"></span> tokens |
+                            Cost: $<span x-text="model.Config.costInput"></span>/$<span x-text="model.Config.costOutput"></span> per M
+                        </span>
+                    </template>
+                </small>
+            </div>
+        </div>
+        
+        <div class="flex justify-end gap-3 p-6 border-t border-gray-700">
+            <button @click="closeAgentEditor()" 
+                    class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded">
+                Cancel
+            </button>
+            <button @click="saveAgentSettings()" 
+                    :disabled="!agentEdits.model || savingAgent"
+                    :class="{'opacity-50 cursor-not-allowed': !agentEdits.model || savingAgent}"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded disabled:bg-gray-600">
+                <span x-show="!savingAgent">Save Changes</span>
+                <span x-show="savingAgent">Saving...</span>
+            </button>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>
