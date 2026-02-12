@@ -52,6 +52,29 @@ One device. One agent. Full OS access. No orchestrator needed.
 
 ### Install
 
+#### macOS (Homebrew - Recommended)
+
+Easiest installation method for macOS users:
+
+```bash
+# Add the tap
+brew tap clawinfra/evoclaw
+
+# Install EvoClaw
+brew install evoclaw
+
+# Verify installation
+evoclaw --version
+```
+
+To upgrade:
+```bash
+brew update
+brew upgrade evoclaw
+```
+
+#### Linux / Other Platforms
+
 ```bash
 # One-liner (auto-detects platform)
 curl -fsSL https://evoclaw.win/install.sh | sh
