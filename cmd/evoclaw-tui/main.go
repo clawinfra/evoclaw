@@ -78,7 +78,7 @@ func main() {
 		}
 		fmt.Print("\nSelect agent (1-", len(agents), "): ")
 		var choice int
-		_ = fmt.Scanln(&choice)
+		_, _ = fmt.Scanln(&choice)
 		if choice < 1 || choice > len(agents) {
 			fmt.Println("Invalid choice")
 			os.Exit(1)

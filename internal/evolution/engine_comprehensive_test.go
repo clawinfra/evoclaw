@@ -135,7 +135,7 @@ func TestRevertComprehensiveV2(t *testing.T) {
 	})
 
 	// Mutate
-	_ = eng.Mutate("agent1", 0.3)
+	_, _ = eng.Mutate("agent1", 0.3)
 
 	// Revert
 	if err := eng.Revert("agent1"); err != nil {
