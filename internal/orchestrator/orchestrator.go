@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,12 +28,14 @@ type Message struct {
 
 // Response represents an agent's response
 type Response struct {
-	AgentID  string
-	Content  string
-	Channel  string
-	To       string
-	ReplyTo  string
-	Metadata map[string]string
+	AgentID   string
+	Content   string
+	Channel   string
+	To        string
+	ReplyTo   string
+	MessageID string            // ID of the message being responded to
+	Model     string            // Model used to generate response
+	Metadata  map[string]string
 }
 
 // AgentState tracks a running agent's state
@@ -569,6 +572,13 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 		return
 	}
 
+	// Strip provider prefix from model name (e.g., "nvidia/meta/llama-3.3-70b" → "meta/llama-3.3-70b")
+	modelName := model
+	if idx := strings.Index(model, "/"); idx > 0 {
+		modelName = model[idx+1:]
+	}
+	req.Model = modelName
+
 	// Call LLM
 	resp, err := provider.Chat(o.ctx, req)
 	if err != nil {
@@ -614,11 +624,13 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 
 	// Send response back
 	o.outbox <- Response{
-		AgentID: agent.ID,
-		Content: resp.Content,
-		Channel: msg.Channel,
-		To:      msg.From,
-		ReplyTo: msg.ID,
+		AgentID:   agent.ID,
+		Content:   resp.Content,
+		Channel:   msg.Channel,
+		To:        msg.From,
+		ReplyTo:   msg.ID,
+		MessageID: msg.ID,
+		Model:     model,
 	}
 
 	o.logger.Info("agent responded",
@@ -732,9 +744,22 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 
 // findProvider locates the right provider for a model string like "anthropic/claude-opus"
 func (o *Orchestrator) findProvider(model string) ModelProvider {
-	// Model format: "provider/model-name"
-	// For now, return first provider
-	// TODO: Parse provider from model string
+	// Model format: "provider/model-name" or "provider-alias/model-name"
+	// Extract provider name from model string
+	if idx := strings.Index(model, "/"); idx > 0 {
+		providerName := model[:idx]
+		
+		// Match against provider names (ollama, nvidia, zhipu-1, zhipu-2, etc.)
+		for _, p := range o.providers {
+			pName := p.Name()
+			// Exact match or starts with provider name (for aliases like zhipu-1, zhipu-2)
+			if pName == providerName || strings.HasPrefix(providerName, pName) {
+				return p
+			}
+		}
+	}
+	
+	// Fallback: return first provider
 	for _, p := range o.providers {
 		return p
 	}

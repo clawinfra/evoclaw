@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/clawinfra/evoclaw/internal/agents"
+	"github.com/clawinfra/evoclaw/internal/channels"
 	"github.com/clawinfra/evoclaw/internal/models"
 	"github.com/clawinfra/evoclaw/internal/orchestrator"
 	"github.com/clawinfra/evoclaw/internal/security"
@@ -18,16 +19,17 @@ import (
 
 // Server is the HTTP API server
 type Server struct {
-	port       int
-	orch       *orchestrator.Orchestrator
-	registry   *agents.Registry
-	memory     *agents.MemoryStore
-	router     *models.Router
-	evolution  interface{} // Evolution engine interface
-	logger     *slog.Logger
-	httpServer *http.Server
-	webFS      fs.FS // embedded web dashboard assets (optional)
-	jwtSecret  []byte
+	port        int
+	orch        *orchestrator.Orchestrator
+	registry    *agents.Registry
+	memory      *agents.MemoryStore
+	router      *models.Router
+	evolution   interface{} // Evolution engine interface
+	logger      *slog.Logger
+	httpServer  *http.Server
+	webFS       fs.FS // embedded web dashboard assets (optional)
+	jwtSecret   []byte
+	httpChannel *channels.HTTPChannel // HTTP channel for request-response pairs
 }
 
 // NewServer creates a new API server
@@ -43,14 +45,20 @@ func NewServer(
 	if jwtSecret == nil {
 		logger.Warn("EVOCLAW_JWT_SECRET not set — running in dev mode (unauthenticated API access)")
 	}
+	
+	// Create and register HTTP channel
+	httpChannel := channels.NewHTTPChannel()
+	orch.RegisterChannel(httpChannel)
+	
 	return &Server{
-		port:      port,
-		orch:      orch,
-		registry:  registry,
-		memory:    memory,
-		router:    router,
-		logger:    logger.With("component", "api"),
-		jwtSecret: jwtSecret,
+		port:        port,
+		orch:        orch,
+		registry:    registry,
+		memory:      memory,
+		router:      router,
+		logger:      logger.With("component", "api"),
+		jwtSecret:   jwtSecret,
+		httpChannel: httpChannel,
 	}
 }
 

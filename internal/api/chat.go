@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -85,12 +86,17 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For now, return immediate acknowledgment
-	// In a full implementation, we'd wait for the response via a response channel
+	// Wait for the agent's response
+	agentResp, err := s.httpChannel.WaitForResponse(ctx, msg.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get response: %v", err), http.StatusGatewayTimeout)
+		return
+	}
+
 	resp := ChatResponse{
-		Agent:     req.Agent,
-		Message:   "Message received and queued for processing",
-		Model:     "unknown",
+		Agent:     agentResp.AgentID,
+		Message:   agentResp.Content,
+		Model:     agentResp.Model,
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
@@ -130,7 +136,7 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 		"agent":   req.Agent,
 	})
 
-	_ = w.Write([]byte("data: " + string(data) + "\n\n"))
+	_, _ = w.Write([]byte("data: " + string(data) + "\n\n"))
 }
 
 // generateMessageID creates a unique message ID
