@@ -15,6 +15,7 @@ EvoClaw is a lightweight, evolution-powered agent orchestration framework design
 - **🦀 Rust Edge Agent** — 1.8MB binary, runs on Raspberry Pi, phones, IoT devices
 - **🐹 Go Orchestrator** — 6.9MB binary, coordinates agents and handles evolution
 - **🧬 Evolution Engine** — Agents improve themselves based on performance metrics
+- **⚙️ Gateway/Daemon Mode** — systemd/launchd integration, auto-restart, graceful shutdown
 - **📡 Multi-Channel** — Telegram, MQTT, WhatsApp (coming soon)
 - **🤖 Multi-Model** — Anthropic, OpenAI, Ollama, OpenRouter support
 - **💰 Cost Tracking** — Monitor API usage and optimize spending
@@ -79,6 +80,49 @@ evoclaw sandbox --provider e2b
 # Build from source with hot-reload
 podman compose -f podman-compose.dev.yml up
 ```
+
+## Gateway / Daemon Mode
+
+Run EvoClaw as a background service with automatic restart:
+
+### Linux (systemd)
+
+```bash
+# Install and enable service
+evoclaw gateway install
+sudo systemctl enable evoclaw
+sudo systemctl start evoclaw
+
+# Check status
+sudo systemctl status evoclaw
+
+# View logs
+sudo journalctl -u evoclaw -f
+```
+
+### macOS (launchd)
+
+```bash
+# Install service
+evoclaw gateway install
+
+# Start service
+launchctl start com.clawinfra.evoclaw
+
+# View logs
+tail -f ~/.evoclaw/logs/evoclaw.log
+```
+
+**Features:**
+- ✅ Systemd integration (Linux)
+- ✅ Launchd integration (macOS)
+- ✅ Graceful shutdown (SIGTERM)
+- ✅ Auto-restart on crash
+- ✅ Security hardening
+- 🔜 Config reload (SIGHUP)
+- 🔜 Self-update (SIGUSR1)
+
+**See [docs/GATEWAY.md](docs/GATEWAY.md) for full documentation.**
 
 ## Architecture
 

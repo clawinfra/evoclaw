@@ -266,9 +266,70 @@ func (s *Server) handleAgentDetail(w http.ResponseWriter, r *http.Request) {
 	case action == "" && r.Method == http.MethodGet:
 		// Get agent details
 		s.respondJSON(w, agent.GetSnapshot())
+	case action == "" && r.Method == http.MethodPatch:
+		// Update agent settings
+		s.handleAgentUpdate(w, r, agentID, agent)
 	default:
 		http.Error(w, "invalid action or method", http.StatusBadRequest)
 	}
+}
+
+// handleAgentUpdate updates agent settings (model, name, type)
+func (s *Server) handleAgentUpdate(w http.ResponseWriter, r *http.Request, agentID string, agent *agents.Agent) {
+	var update struct {
+		Name  string `json:"name"`
+		Type  string `json:"type"`
+		Model string `json:"model"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate model if specified
+	if update.Model != "" {
+		models := s.router.ListModels()
+		modelExists := false
+		for _, m := range models {
+			if m.ID == update.Model {
+				modelExists = true
+				break
+			}
+		}
+		if !modelExists {
+			http.Error(w, fmt.Sprintf("model not found: %s", update.Model), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Get current definition and update
+	def := agent.Def
+	if update.Name != "" {
+		def.Name = update.Name
+	}
+	if update.Type != "" {
+		def.Type = update.Type
+	}
+	if update.Model != "" {
+		def.Model = update.Model
+	}
+	
+	// Apply update via registry
+	if err := s.registry.Update(agentID, def); err != nil {
+		http.Error(w, fmt.Sprintf("failed to update agent: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	s.logger.Info("agent updated", "agent", agentID, "model", def.Model)
+
+	s.respondJSON(w, map[string]interface{}{
+		"status": "ok",
+		"agent":  agentID,
+		"name":   def.Name,
+		"type":   def.Type,
+		"model":  def.Model,
+	})
 }
 
 // handleAgentMetrics returns agent performance metrics

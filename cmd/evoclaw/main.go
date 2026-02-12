@@ -108,6 +108,13 @@ func run() int {
 			return cli.ChainCommand(os.Args[subCmdIdx+1:], configPath)
 		case "init":
 			return cli.InitCommand(os.Args[subCmdIdx+1:])
+		case "gateway":
+			// Gateway daemon management
+			if err := runGatewayCommand(os.Args[subCmdIdx+1:]); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				return 1
+			}
+			return 0
 		case "start":
 			// Explicit start subcommand — falls through to normal server start below
 		default:
@@ -525,10 +532,28 @@ func printBanner(app *App) {
 // waitForShutdown waits for termination signal and performs graceful shutdown
 func waitForShutdown(app *App) error {
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGUSR1)
 
-	sig := <-sigCh
-	app.Logger.Info("shutdown signal received", "signal", sig)
+	for {
+		sig := <-sigCh
+		
+		switch sig {
+		case syscall.SIGHUP:
+			app.Logger.Info("reload signal received - config reload not yet implemented")
+			// TODO: Reload config without restart
+			continue
+			
+		case syscall.SIGUSR1:
+			app.Logger.Info("update signal received - self-update not yet implemented")
+			// TODO: Trigger self-update and restart
+			continue
+			
+		case syscall.SIGINT, syscall.SIGTERM:
+			app.Logger.Info("shutdown signal received", "signal", sig)
+			// Break out of loop to perform shutdown
+		}
+		break
+	}
 
 	// Stop API server
 	if app.apiCancel != nil {
