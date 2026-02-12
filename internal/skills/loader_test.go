@@ -56,7 +56,7 @@ func TestLoadAll(t *testing.T) {
 
 	// Create a skill directory
 	skillDir := filepath.Join(dir, "my-skill")
-	os.MkdirAll(skillDir, 0755)
+	_ = os.MkdirAll(skillDir, 0755)
 
 	skillMD := `---
 name: my-skill
@@ -67,7 +67,7 @@ author: me
 
 # My Skill
 `
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillMD), 0644)
+	_ = os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillMD), 0644)
 
 	agentTOML := `[tools.greet]
 command = "echo"
@@ -75,7 +75,7 @@ description = "Say hello"
 args = ["$NAME"]
 timeout_secs = 10
 `
-	os.WriteFile(filepath.Join(skillDir, "agent.toml"), []byte(agentTOML), 0644)
+	_ = os.WriteFile(filepath.Join(skillDir, "agent.toml"), []byte(agentTOML), 0644)
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	loader := NewLoader(dir, logger)

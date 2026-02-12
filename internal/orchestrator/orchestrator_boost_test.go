@@ -697,7 +697,7 @@ func TestStartFullConfig(t *testing.T) {
 	err := orch.Start()
 	if err == nil {
 		// If it somehow succeeds (mocks?), stop it
-		orch.Stop()
+		_ = orch.Stop()
 	} else {
 		t.Logf("Start failed as expected: %v", err)
 	}

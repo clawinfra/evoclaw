@@ -135,7 +135,7 @@ func TestRevertComprehensiveV2(t *testing.T) {
 	})
 
 	// Mutate
-	eng.Mutate("agent1", 0.3)
+	_ = eng.Mutate("agent1", 0.3)
 
 	// Revert
 	if err := eng.Revert("agent1"); err != nil {
@@ -340,7 +340,7 @@ func TestSubmitFeedbackV2(t *testing.T) {
 
 	// Submit many to test trimming
 	for i := 0; i < 110; i++ {
-		eng.SubmitFeedback("agent1", "approval", 0.5, "test")
+		_ = eng.SubmitFeedback("agent1", "approval", 0.5, "test")
 	}
 }
 
@@ -444,7 +444,7 @@ func TestGetBehaviorHistoryV2(t *testing.T) {
 		t.Errorf("expected empty, got %d", len(history))
 	}
 
-	eng.SubmitFeedback("agent1", "approval", 0.8, "test")
+	_ = eng.SubmitFeedback("agent1", "approval", 0.8, "test")
 	history, err = eng.GetBehaviorHistory("agent1")
 	if err != nil {
 		t.Fatalf("error: %v", err)

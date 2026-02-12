@@ -81,7 +81,7 @@ func TestConsolidatorDoTreePrune(t *testing.T) {
 	c := NewConsolidator(warm, nil, tree, cfg, DefaultScoreConfig(), slog.Default())
 
 	// Add some nodes
-	tree.AddNode("root/test1", "summary1")
+	_ = tree.AddNode("root/test1", "summary1")
 	
 	c.doTreePrune() // No args
 	// Should not panic
@@ -142,8 +142,8 @@ func TestWarmMemoryClear(t *testing.T) {
 
 func TestTreeGetTreeSummary(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("root/a", "Summary A")
-	tree.AddNode("root/b", "Summary B")
+	_ = tree.AddNode("root/a", "Summary A")
+	_ = tree.AddNode("root/b", "Summary B")
 
 	summary := tree.GetTreeSummary()
 	if summary == "" {
@@ -244,8 +244,8 @@ func TestScorerReinforcementFactor(t *testing.T) {
 
 func TestTreeSearchByCategory(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("conversations/telegram", "Telegram chats")
-	tree.AddNode("conversations/whatsapp", "WhatsApp chats")
+	_ = tree.AddNode("conversations/telegram", "Telegram chats")
+	_ = tree.AddNode("conversations/whatsapp", "WhatsApp chats")
 
 	searcher := NewTreeSearcher(tree, DefaultScoreConfig())
 	paths := searcher.SearchByCategory("conversations")
@@ -281,7 +281,7 @@ func TestLLMTreeSearchSetTimeout(t *testing.T) {
 
 func TestLLMTreeSearchCategoryMethods(t *testing.T) {
 	tree := NewMemoryTree()
-	tree.AddNode("root/a", "Summary A")
+	_ = tree.AddNode("root/a", "Summary A")
 	fallback := NewTreeSearcher(tree, DefaultScoreConfig())
 
 	searcher := NewLLMTreeSearcher(tree, fallback, func(ctx context.Context, s, u string) (string, error) {

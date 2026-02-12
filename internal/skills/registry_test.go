@@ -79,7 +79,7 @@ func TestSetHealth(t *testing.T) {
 		Tools:    map[string]*ToolDef{},
 		Healthy:  true,
 	}
-	reg.Register(skill)
+	_ = reg.Register(skill)
 	reg.SetHealth("h", false)
 	if skill.Healthy {
 		t.Error("expected unhealthy")
