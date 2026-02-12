@@ -49,6 +49,12 @@ function dashboard() {
         mutationHistory: [],
         totalMutations: 0,
 
+        // Agent editor modal
+        editingAgent: null,
+        agentEdits: { name: '', type: 'monitor', model: '' },
+        savingAgent: false,
+        availableModels: [],
+
         // Timer
         refreshTimer: null,
 
@@ -679,6 +685,77 @@ function dashboard() {
                     }
                 }
             };
+        },
+
+        // Agent Editor Modal
+        openAgentEditor(agentID) {
+            const agent = this.agents.find(a => a.id === agentID);
+            if (!agent) return;
+            
+            this.editingAgent = agent;
+            this.agentEdits = {
+                name: agent.def?.name || agent.id,
+                type: agent.def?.type || 'monitor',
+                model: agent.def?.model || ''
+            };
+            
+            if (this.availableModels.length === 0) {
+                this.loadAvailableModels();
+            }
+        },
+
+        closeAgentEditor() {
+            this.editingAgent = null;
+            this.agentEdits = { name: '', type: 'monitor', model: '' };
+            this.savingAgent = false;
+        },
+
+        async loadAvailableModels() {
+            try {
+                const data = await this.fetchJSON('/api/models');
+                this.availableModels = data || [];
+            } catch (err) {
+                console.error('Failed to load models:', err);
+            }
+        },
+
+        async saveAgentSettings() {
+            if (!this.editingAgent || !this.agentEdits.model) return;
+            
+            this.savingAgent = true;
+            
+            try {
+                const resp = await fetch(`${API_BASE}/api/agents/${this.editingAgent.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: this.agentEdits.name,
+                        type: this.agentEdits.type,
+                        model: this.agentEdits.model
+                    })
+                });
+                
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    throw new Error(text || `HTTP ${resp.status}`);
+                }
+                
+                const result = await resp.json();
+                
+                // Show success (simple alert for now)
+                alert(`✅ Agent updated successfully!\nModel: ${result.model}`);
+                
+                // Refresh agents list
+                await this.loadAgents();
+                
+                // Close modal
+                this.closeAgentEditor();
+                
+            } catch (err) {
+                alert(`❌ Error: ${err.message}`);
+            } finally {
+                this.savingAgent = false;
+            }
         },
 
         // Cleanup
