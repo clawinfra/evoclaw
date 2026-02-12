@@ -46,9 +46,11 @@ func NewServer(
 		logger.Warn("EVOCLAW_JWT_SECRET not set — running in dev mode (unauthenticated API access)")
 	}
 	
-	// Create and register HTTP channel
+	// Create and register HTTP channel (only if orchestrator exists)
 	httpChannel := channels.NewHTTPChannel()
-	orch.RegisterChannel(httpChannel)
+	if orch != nil {
+		orch.RegisterChannel(httpChannel)
+	}
 	
 	return &Server{
 		port:        port,

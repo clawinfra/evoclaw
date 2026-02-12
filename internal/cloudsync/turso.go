@@ -92,6 +92,56 @@ func (e *PipelineError) Error() string {
 	return e.Message
 }
 
+// toTursoValue converts a Go value to Turso's internally tagged enum Value format
+// According to Hrana spec: https://github.com/tursodatabase/libsql/blob/main/docs/HRANA_1_SPEC.md
+func toTursoValue(v interface{}) interface{} {
+	if v == nil {
+		return map[string]interface{}{"type": "null"}
+	}
+
+	switch val := v.(type) {
+	case string:
+		return map[string]interface{}{
+			"type":  "text",
+			"value": val,
+		}
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return map[string]interface{}{
+			"type":  "integer",
+			"value": fmt.Sprintf("%d", val),
+		}
+	case float32, float64:
+		return map[string]interface{}{
+			"type":  "float",
+			"value": val,
+		}
+	case []byte:
+		// Base64 encode binary data
+		return map[string]interface{}{
+			"type":   "blob",
+			"base64": string(val), // Assuming already base64 encoded
+		}
+	default:
+		// Fallback: treat as text
+		return map[string]interface{}{
+			"type":  "text",
+			"value": fmt.Sprintf("%v", val),
+		}
+	}
+}
+
+// convertArgs converts a slice of Go values to Turso's Value format
+func convertArgs(args []interface{}) []interface{} {
+	if args == nil {
+		return nil
+	}
+	converted := make([]interface{}, len(args))
+	for i, arg := range args {
+		converted[i] = toTursoValue(arg)
+	}
+	return converted
+}
+
 // executePipeline executes a batch of operations with retry and exponential backoff
 func (c *Client) executePipeline(ctx context.Context, req PipelineRequest) (*PipelineResponse, error) {
 	var lastErr error
@@ -180,7 +230,7 @@ func (c *Client) Execute(ctx context.Context, sql string, args ...interface{}) e
 				Type: "execute",
 				Statement: Statement{
 					SQL:  sql,
-					Args: args,
+					Args: convertArgs(args),
 				},
 			},
 		},
@@ -206,7 +256,7 @@ func (c *Client) Query(ctx context.Context, sql string, args ...interface{}) (*Q
 				Type: "execute",
 				Statement: Statement{
 					SQL:  sql,
-					Args: args,
+					Args: convertArgs(args),
 				},
 			},
 		},
@@ -251,9 +301,14 @@ func (c *Client) QueryOne(ctx context.Context, sql string, args ...interface{}) 
 func (c *Client) BatchExecute(ctx context.Context, statements []Statement) error {
 	requests := make([]BatchRequest, len(statements))
 	for i, stmt := range statements {
+		// Convert args to Turso format
+		convertedStmt := Statement{
+			SQL:  stmt.SQL,
+			Args: convertArgs(stmt.Args),
+		}
 		requests[i] = BatchRequest{
 			Type:      "execute",
-			Statement: stmt,
+			Statement: convertedStmt,
 		}
 	}
 

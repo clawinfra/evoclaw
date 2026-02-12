@@ -61,7 +61,7 @@ jobs:
           path: coverage.out
 
   go-build:
-    name: Go Build
+    name: Go Build (${{ matrix.goos }}, ${{ matrix.goarch }}${{ matrix.goarm && format('-v{0}', matrix.goarm) || '' }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -198,7 +198,7 @@ jobs:
           fi
 
   rust-build:
-    name: Rust Build
+    name: Rust Build (${{ matrix.target }}, ${{ matrix.os-name }}, ${{ matrix.arch }}, ${{ matrix.runner }})
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:

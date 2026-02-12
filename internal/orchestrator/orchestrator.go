@@ -151,8 +151,13 @@ func New(cfg *config.Config, logger *slog.Logger) *Orchestrator {
 func (o *Orchestrator) RegisterChannel(ch Channel) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	if o.channels == nil {
+		o.channels = make(map[string]Channel)
+	}
 	o.channels[ch.Name()] = ch
-	o.logger.Info("channel registered", "name", ch.Name())
+	if o.logger != nil {
+		o.logger.Info("channel registered", "name", ch.Name())
+	}
 }
 
 // RegisterProvider adds an LLM provider
