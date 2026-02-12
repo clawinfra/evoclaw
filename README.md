@@ -19,6 +19,7 @@ EvoClaw is a lightweight, evolution-powered agent orchestration framework design
 - **🤖 Multi-Model** — Anthropic, OpenAI, Ollama, OpenRouter support
 - **💰 Cost Tracking** — Monitor API usage and optimize spending
 - **📊 HTTP API** — RESTful interface for monitoring and control
+- **💬 Chat Interfaces** — HTTP API, web terminal, TUI for agent messaging
 - **💾 Config Backup** — Automated cloud backup for hardware recovery
 
 ## Quick Start
@@ -255,7 +256,8 @@ evoclaw/
 - **Agent Patterns** — WAL (Write-Ahead Log), VBR (Version-Based Recovery), ADL (Adaptive Decision Logic), VFM (Volatile Fitness Memory)
 - **Security** — Signed constraints, JWT authentication, evolution firewall (see [docs/SECURITY.md](docs/SECURITY.md))
 - **Config Backup** — Automated cloud backup for hardware recovery (see [docs/CONFIG-BACKUP.md](docs/CONFIG-BACKUP.md))
-- **Docs** — [INSTALLATION.md](docs/INSTALLATION.md), [EVOLUTION.md](docs/EVOLUTION.md), [SECURITY.md](docs/SECURITY.md), [CONFIG-BACKUP.md](docs/CONFIG-BACKUP.md)
+- **Messaging** — HTTP Chat API, Web Terminal, TUI for agent communication (see [docs/MESSAGING.md](docs/MESSAGING.md))
+- **Docs** — [INSTALLATION.md](docs/INSTALLATION.md), [EVOLUTION.md](docs/EVOLUTION.md), [SECURITY.md](docs/SECURITY.md), [CONFIG-BACKUP.md](docs/CONFIG-BACKUP.md), [MESSAGING.md](docs/MESSAGING.md)
 
 ## Beta Known Limitations
 
