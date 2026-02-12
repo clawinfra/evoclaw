@@ -93,8 +93,8 @@ func TestLoadAllWithValidSkill(t *testing.T) {
 
 	// Create a skill directory with SKILL.md
 	skillDir := filepath.Join(tmpDir, "test-skill")
-	os.MkdirAll(skillDir, 0755)
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
+	_ = os.MkdirAll(skillDir, 0755)
+	_ = os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
 name: test-skill
 version: "1.0.0"
 description: A test skill
@@ -118,9 +118,9 @@ description: A test skill
 func TestLoadAllWithBadSkillMd(t *testing.T) {
 	tmpDir := t.TempDir()
 	skillDir := filepath.Join(tmpDir, "bad-skill")
-	os.MkdirAll(skillDir, 0755)
+	_ = os.MkdirAll(skillDir, 0755)
 	// No frontmatter
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`No frontmatter here`), 0644)
+	_ = os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`No frontmatter here`), 0644)
 
 	loader := NewLoader(tmpDir, slog.Default())
 	skills, _ := loader.LoadAll()
@@ -133,9 +133,9 @@ func TestLoadAllWithBadSkillMd(t *testing.T) {
 func TestLoadAllWithAgentToml(t *testing.T) {
 	tmpDir := t.TempDir()
 	skillDir := filepath.Join(tmpDir, "toml-skill")
-	os.MkdirAll(skillDir, 0755)
+	_ = os.MkdirAll(skillDir, 0755)
 
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
+	_ = os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
 name: toml-skill
 version: "2.0.0"
 description: Skill with tools
@@ -143,7 +143,7 @@ description: Skill with tools
 # Toml Skill
 `), 0644)
 
-	os.WriteFile(filepath.Join(skillDir, "agent.toml"), []byte(`[tools.my_tool]
+	_ = os.WriteFile(filepath.Join(skillDir, "agent.toml"), []byte(`[tools.my_tool]
 command = "echo hello"
 description = "Does stuff"
 timeout_secs = 10
@@ -165,7 +165,7 @@ timeout_secs = 10
 func TestLoadAllSkipsFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 	// Create a regular file (not a directory) — should be skipped
-	os.WriteFile(filepath.Join(tmpDir, "not-a-dir.txt"), []byte("test"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "not-a-dir.txt"), []byte("test"), 0644)
 
 	loader := NewLoader(tmpDir, slog.Default())
 	skills, err := loader.LoadAll()

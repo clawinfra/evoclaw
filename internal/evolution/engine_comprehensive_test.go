@@ -354,9 +354,9 @@ func TestGetBehaviorMetricsV2(t *testing.T) {
 	}
 
 	// With feedback
-	eng.SubmitFeedback("agent1", "approval", 1.0, "good")
-	eng.SubmitFeedback("agent1", "completion", 1.0, "done")
-	eng.SubmitFeedback("agent1", "engagement", 1.0, "active")
+	_ = eng.SubmitFeedback("agent1", "approval", 1.0, "good")
+	_ = eng.SubmitFeedback("agent1", "completion", 1.0, "done")
+	_ = eng.SubmitFeedback("agent1", "engagement", 1.0, "active")
 
 	metrics = eng.GetBehaviorMetrics("agent1")
 	if metrics.ApprovalRate <= 0 {
@@ -501,10 +501,10 @@ func TestEvaluateVFMV2(t *testing.T) {
 func TestLoadStrategiesInvalidJSONV2(t *testing.T) {
 	dir := t.TempDir()
 	evoDir := filepath.Join(dir, "evolution")
-	os.MkdirAll(evoDir, 0750)
+	_ = os.MkdirAll(evoDir, 0750)
 
 	// Write invalid JSON
-	os.WriteFile(filepath.Join(evoDir, "agent1-strategy.json"), []byte("invalid"), 0640)
+	_ = os.WriteFile(filepath.Join(evoDir, "agent1-strategy.json"), []byte("invalid"), 0640)
 
 	// Should not panic even with invalid JSON on disk
 	eng := NewEngine(dir, slog.Default())

@@ -197,7 +197,7 @@ func newMockRPCServer(t *testing.T, handler func(req rpcRequest) interface{}) *h
 			"result":  result,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 }
 
@@ -301,7 +301,7 @@ func TestEthCallRPCError(t *testing.T) {
 			"id":      1,
 			"error":   map[string]interface{}{"code": -32000, "message": "execution reverted"},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
