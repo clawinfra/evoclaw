@@ -199,27 +199,32 @@ jobs:
 
   rust-build:
     name: Rust Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
         include:
-          # Linux
+          # Linux (Ubuntu runner)
           - target: x86_64-unknown-linux-gnu
             os-name: linux
             arch: amd64
+            runner: ubuntu-latest
           - target: aarch64-unknown-linux-gnu
             os-name: linux
             arch: arm64
+            runner: ubuntu-latest
           - target: armv7-unknown-linux-gnueabihf
             os-name: linux
             arch: armv7
-          # macOS
+            runner: ubuntu-latest
+          # macOS (macOS runner required)
           - target: x86_64-apple-darwin
             os-name: darwin
             arch: amd64
+            runner: macos-13
           - target: aarch64-apple-darwin
             os-name: darwin
             arch: arm64
+            runner: macos-14
     defaults:
       run:
         working-directory: edge-agent
@@ -234,13 +239,17 @@ jobs:
         with:
           workspaces: edge-agent
 
-      - name: Install cross-compilation tools
-        if: contains(matrix.target, 'aarch64') || contains(matrix.target, 'armv7')
+      - name: Install cross-compilation tools (Linux only)
+        if: runner.os == 'Linux' && (contains(matrix.target, 'aarch64') || contains(matrix.target, 'armv7'))
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
 
       - name: Build release
+        env:
+          # Cross-compilation linkers for Linux targets
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
         run: |
           cargo build --release --target ${{ matrix.target }}
           
@@ -262,7 +271,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: evoclaw-agent-${{ matrix.os-name }}-${{ matrix.arch }}
-          path: edge-agent/evoclaw-agent-*
+          path: edge-agent/evoclaw-agent-${{ matrix.os-name }}-${{ matrix.arch }}
           retention-days: 30
 
       - name: Upload release archives

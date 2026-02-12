@@ -142,8 +142,8 @@ func TestGetSize(t *testing.T) {
 
 func TestClearActiveContext(t *testing.T) {
 	h := NewHotMemory("agent1", "owner1")
-	h.AddEvent(Event{Date: time.Now(), Description: "event"})
-	h.AddTask(Task{Description: "task"})
+	_ = h.AddEvent(Event{Date: time.Now(), Description: "event"})
+	_ = h.AddTask(Task{Description: "task"})
 
 	h.ClearActiveContext()
 	// ClearActiveContext keeps projects but clears events and tasks
