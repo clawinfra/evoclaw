@@ -71,8 +71,13 @@ func (s *Server) Start(ctx context.Context) error {
 	// Auth endpoint (unauthenticated — before auth middleware)
 	mux.HandleFunc("/api/auth/token", s.handleAuthToken)
 
+	// Terminal web UI
+	mux.HandleFunc("/terminal", s.handleTerminalPage)
+	
 	// Register API routes (protected by auth middleware applied at handler level)
 	mux.HandleFunc("/api/status", s.handleStatus)
+	mux.HandleFunc("/api/chat", s.handleChat)
+	mux.HandleFunc("/api/chat/stream", s.handleChatStream)
 	mux.HandleFunc("/api/agents", s.handleAgents)
 	mux.HandleFunc("/api/agents/", s.handleAgentDetail)
 	mux.HandleFunc("/api/models", s.handleModels)
