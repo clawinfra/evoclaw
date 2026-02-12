@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EvoClaw Terminal</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -82,6 +83,97 @@
         
         .message-content {
             color: #d4d4d4;
+        }
+        
+        /* Markdown styling */
+        .message-content h1, .message-content h2, .message-content h3 {
+            margin: 12px 0 8px 0;
+            color: #ffffff;
+        }
+        
+        .message-content h1 { font-size: 1.5em; border-bottom: 1px solid #3e3e42; padding-bottom: 4px; }
+        .message-content h2 { font-size: 1.3em; }
+        .message-content h3 { font-size: 1.1em; }
+        
+        .message-content p {
+            margin: 8px 0;
+        }
+        
+        .message-content code {
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 0.9em;
+            color: #ce9178;
+        }
+        
+        .message-content pre {
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            border-radius: 6px;
+            padding: 12px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        
+        .message-content pre code {
+            background: none;
+            border: none;
+            padding: 0;
+            color: #d4d4d4;
+        }
+        
+        .message-content ul, .message-content ol {
+            margin: 8px 0;
+            padding-left: 25px;
+        }
+        
+        .message-content li {
+            margin: 4px 0;
+        }
+        
+        .message-content a {
+            color: #4ec9b0;
+            text-decoration: none;
+        }
+        
+        .message-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .message-content blockquote {
+            border-left: 4px solid #007acc;
+            padding-left: 12px;
+            margin: 10px 0;
+            color: #808080;
+        }
+        
+        .message-content table {
+            border-collapse: collapse;
+            margin: 10px 0;
+            width: 100%;
+        }
+        
+        .message-content th, .message-content td {
+            border: 1px solid #3e3e42;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        
+        .message-content th {
+            background: #2d2d30;
+            font-weight: 600;
+        }
+        
+        .message-content strong {
+            color: #ffffff;
+            font-weight: 600;
+        }
+        
+        .message-content em {
+            color: #9cdcfe;
         }
         
         .input-area {
@@ -263,9 +355,15 @@
             const terminal = document.getElementById('terminal');
             const msg = document.createElement('div');
             msg.className = `message ${type}`;
+            
+            // Render markdown for agent messages, escape HTML for user messages
+            const renderedContent = (type === 'agent' || type === 'system') 
+                ? marked.parse(content)
+                : escapeHtml(content);
+            
             msg.innerHTML = `
-                <div class="message-header">${sender} · ${new Date().toLocaleTimeString()}</div>
-                <div class="message-content">${escapeHtml(content)}</div>
+                <div class="message-header">${escapeHtml(sender)} · ${new Date().toLocaleTimeString()}</div>
+                <div class="message-content">${renderedContent}</div>
             `;
             terminal.appendChild(msg);
             terminal.scrollTop = terminal.scrollHeight;
