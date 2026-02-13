@@ -57,7 +57,9 @@ func TestLoadConfigExisting(t *testing.T) {
 
 	// Create config first
 	cfg := config.DefaultConfig()
-	cfg.Save(path)
+	if err := cfg.Save(path); err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
 
 	// Load it
 	loaded, err := loadConfig(path, logger)
@@ -73,7 +75,9 @@ func TestLoadConfigInvalid(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "evoclaw.json")
 
-	os.WriteFile(path, []byte("invalid json"), 0644)
+	if err := os.WriteFile(path, []byte("invalid json"), 0644); err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
 	_, err := loadConfig(path, slog.Default())
 	if err == nil {
 		t.Error("expected error for invalid JSON")

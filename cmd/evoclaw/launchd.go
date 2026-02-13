@@ -98,7 +98,9 @@ func installLaunchd() error {
 	}
 
 	// Create log directory
-	os.MkdirAll(logDir, 0755)
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return fmt.Errorf("create log directory: %w", err)
+	}
 
 	cfg := launchdConfig{
 		Label:      "com.clawinfra.evoclaw",
@@ -124,7 +126,9 @@ func installLaunchd() error {
 	} else {
 		// User agent
 		plistPath = filepath.Join(home, "Library", "LaunchAgents", "com.clawinfra.evoclaw.plist")
-		os.MkdirAll(filepath.Dir(plistPath), 0755)
+		if err := os.MkdirAll(filepath.Dir(plistPath), 0755); err != nil {
+			return fmt.Errorf("create LaunchAgents directory: %w", err)
+		}
 	}
 
 	// Write plist
@@ -187,7 +191,7 @@ func uninstallLaunchd() error {
 
 	// Unload service
 	unloadCmd := exec.Command("launchctl", "unload", plistPath)
-	unloadCmd.Run() // Ignore errors
+	_ = unloadCmd.Run() // Ignore errors intentionally
 
 	// Remove plist
 	if err := os.Remove(plistPath); err != nil && !os.IsNotExist(err) {

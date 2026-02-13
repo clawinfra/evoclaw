@@ -17,14 +17,14 @@ func (s *Server) handleTerminalPage(w http.ResponseWriter, r *http.Request) {
 		data, err := fs.ReadFile(s.webFS, "terminal.html")
 		if err == nil {
 			w.Header().Set("Content-Type", "text/html")
-			w.Write(data)
+			_, _ = w.Write(data) // Ignore write errors (client disconnect)
 			return
 		}
 	}
 
 	// Fallback: serve basic HTML if terminal.html not embedded
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(`
+	_, _ = w.Write([]byte(`
 <!DOCTYPE html>
 <html>
 <head><title>EvoClaw Terminal</title></head>

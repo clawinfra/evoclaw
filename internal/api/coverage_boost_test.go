@@ -37,7 +37,9 @@ func TestHandleAuthToken(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.NewDecoder(w.Body).Decode(&resp)
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if resp["token"] == nil {
 		t.Error("expected token in response")
 	}
@@ -126,7 +128,9 @@ func TestHandleAgentMetricsV3(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.NewDecoder(w.Body).Decode(&resp)
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if resp["agent_id"] != "test-agent" {
 		t.Error("expected agent_id in response")
 	}
