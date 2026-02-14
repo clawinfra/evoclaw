@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/clawinfra/evoclaw/internal/agents"
 	"github.com/clawinfra/evoclaw/internal/api"
