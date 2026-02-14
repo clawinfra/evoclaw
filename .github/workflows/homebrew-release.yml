@@ -8,6 +8,8 @@ jobs:
   update-formula:
     name: Update Homebrew Formula
     runs-on: ubuntu-latest
+    # Only run on actual releases, not on push events
+    if: github.event_name == 'release'
     steps:
       - name: Checkout homebrew-evoclaw
         uses: actions/checkout@v4
