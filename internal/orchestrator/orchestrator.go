@@ -12,6 +12,7 @@ import (
 	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/memory"
 	"github.com/clawinfra/evoclaw/internal/onchain"
+	"github.com/clawinfra/evoclaw/internal/router"
 )
 
 // Message represents a message from any channel
@@ -129,6 +130,8 @@ type Orchestrator struct {
 	cloudSync *cloudsync.Manager
 	// Tiered memory system
 	memory *memory.Manager
+	// Health registry for model selection
+	healthRegistry *router.HealthRegistry
 }
 
 // New creates a new Orchestrator
@@ -241,6 +244,11 @@ func (o *Orchestrator) Start() error {
 		}
 	}
 
+	// Initialize health registry for model selection
+	if err := o.initHealthRegistry(); err != nil {
+		o.logger.Warn("health registry failed to initialize (non-fatal)", "error", err)
+	}
+
 	o.logger.Info("EvoClaw orchestrator running")
 	return nil
 }
@@ -279,6 +287,67 @@ func (o *Orchestrator) GetCloudSync() *cloudsync.Manager {
 // GetMemory returns the tiered memory manager for external access
 func (o *Orchestrator) GetMemory() *memory.Manager {
 	return o.memory
+}
+
+// GetHealthRegistry returns the health registry for external access
+func (o *Orchestrator) GetHealthRegistry() *router.HealthRegistry {
+	return o.healthRegistry
+}
+
+// initHealthRegistry sets up the health registry for model selection
+func (o *Orchestrator) initHealthRegistry() error {
+	// Build health config from orchestrator config
+	healthCfg := router.DefaultHealthConfig()
+
+	// Apply config overrides if specified
+	if o.cfg.Models.Health.PersistPath != "" {
+		healthCfg.PersistPath = o.cfg.Models.Health.PersistPath
+	}
+	if o.cfg.Models.Health.FailureThreshold > 0 {
+		healthCfg.FailureThreshold = o.cfg.Models.Health.FailureThreshold
+	}
+	if o.cfg.Models.Health.CooldownMinutes > 0 {
+		healthCfg.CooldownPeriod = time.Duration(o.cfg.Models.Health.CooldownMinutes) * time.Minute
+	}
+
+	hr, err := router.NewHealthRegistry(healthCfg, o.logger)
+	if err != nil {
+		return fmt.Errorf("create health registry: %w", err)
+	}
+
+	o.healthRegistry = hr
+
+	// Start periodic persistence (every 5 minutes)
+	go o.persistHealthLoop()
+
+	o.logger.Info("health registry initialized",
+		"persist_path", healthCfg.PersistPath,
+		"failure_threshold", healthCfg.FailureThreshold,
+		"cooldown", healthCfg.CooldownPeriod,
+	)
+
+	return nil
+}
+
+// persistHealthLoop periodically persists health state
+func (o *Orchestrator) persistHealthLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-o.ctx.Done():
+			// Final persist on shutdown
+			if err := o.healthRegistry.Persist(); err != nil {
+				o.logger.Error("failed to persist health state on shutdown", "error", err)
+			}
+			return
+		case <-ticker.C:
+			if err := o.healthRegistry.Persist(); err != nil {
+				o.logger.Error("failed to persist health state", "error", err)
+			}
+		}
+	}
 }
 
 // initMemory sets up the tiered memory system
@@ -417,6 +486,13 @@ func (o *Orchestrator) Stop() error {
 	o.logger.Info("stopping EvoClaw orchestrator")
 	o.cancel()
 
+	// Persist health state before shutdown
+	if o.healthRegistry != nil {
+		if err := o.healthRegistry.Persist(); err != nil {
+			o.logger.Error("error persisting health state", "error", err)
+		}
+	}
+
 	// Stop tiered memory (flushes consolidation)
 	if o.memory != nil {
 		o.memory.Stop()
@@ -513,7 +589,7 @@ func (o *Orchestrator) handleMessage(msg Message) {
 		return
 	}
 
-	// Select the right model based on task complexity
+	// Select the right model based on task complexity and health
 	model := o.selectModel(msg, agent)
 
 	// Process with LLM
@@ -531,16 +607,34 @@ func (o *Orchestrator) selectAgent(msg Message) string {
 	return ""
 }
 
-// selectModel picks the right model based on task complexity
+// selectModel picks the right model based on task complexity and health
 func (o *Orchestrator) selectModel(msg Message, agent *AgentState) string {
-	// TODO: Implement adaptive model selection
-	// - Simple queries → cheap local model
-	// - Complex reasoning → mid-tier model
-	// - Critical (trading, money) → best available
-	if agent.Def.Model != "" {
-		return agent.Def.Model
+	// Start with agent's preferred model
+	preferred := agent.Def.Model
+	if preferred == "" {
+		preferred = o.cfg.Models.Routing.Complex
 	}
-	return o.cfg.Models.Routing.Complex
+
+	// Build fallback list from config
+	fallbacks := []string{
+		o.cfg.Models.Routing.Simple,
+		o.cfg.Models.Routing.Complex,
+	}
+
+	// Use health registry to select best model if available
+	if o.healthRegistry != nil {
+		selected := o.healthRegistry.GetHealthyModel(preferred, fallbacks)
+		if selected != preferred {
+			o.logger.Debug("model selection adjusted by health registry",
+				"preferred", preferred,
+				"selected", selected,
+			)
+		}
+		return selected
+	}
+
+	// Fallback to preferred model
+	return preferred
 }
 
 // processWithAgent runs a message through an agent's LLM
@@ -592,7 +686,23 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 		agent.ErrorCount++
 		agent.Metrics.FailedActions++
 		agent.mu.Unlock()
+
+		// Record failure in health registry
+		if o.healthRegistry != nil {
+			errType := router.ClassifyError(err)
+			o.healthRegistry.RecordFailure(model, errType)
+			o.logger.Debug("model failure recorded",
+				"model", model,
+				"error_type", errType,
+			)
+		}
+
 		return
+	}
+
+	// Record success in health registry
+	if o.healthRegistry != nil {
+		o.healthRegistry.RecordSuccess(model)
 	}
 
 	elapsed := time.Since(start)

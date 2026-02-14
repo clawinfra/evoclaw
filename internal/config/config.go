@@ -155,6 +155,14 @@ type ModelsConfig struct {
 	Providers map[string]ProviderConfig `json:"providers"`
 	// Routing rules: task complexity → model selection
 	Routing ModelRouting `json:"routing"`
+	// Health registry configuration
+	Health ModelHealthConfig `json:"health"`
+}
+
+type ModelHealthConfig struct {
+	PersistPath      string `json:"persistPath"`
+	FailureThreshold int    `json:"failureThreshold"`
+	CooldownMinutes  int    `json:"cooldownMinutes"`
 }
 
 type ProviderConfig struct {
