@@ -69,12 +69,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           git add Formula/evoclaw.rb
-          git commit -m "chore: bump version to v${VERSION}
-
-Auto-updated by github-actions from evoclaw release ${GITHUB_REF#refs/tags/}
-
-- AMD64 SHA256: ${AMD64_SHA}
-- ARM64 SHA256: ${ARM64_SHA}"
+          git commit -m "chore: bump evoclaw to v${VERSION} (AMD64: ${AMD64_SHA:0:8}, ARM64: ${ARM64_SHA:0:8})"
           
           git push origin main
           
