@@ -297,7 +297,9 @@ func TestHandleDashboardV3(t *testing.T) {
 		t.Errorf("status = %d, want 200", w.Code)
 	}
 	var resp map[string]interface{}
-	json.NewDecoder(w.Body).Decode(&resp)
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if _, ok := resp["agents"]; !ok {
 		t.Error("expected 'agents' field in dashboard")
 	}

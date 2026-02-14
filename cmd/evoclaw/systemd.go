@@ -112,7 +112,7 @@ func installSystemd() error {
 	} else {
 		// User service
 		unitDir := filepath.Join(home, ".config", "systemd", "user")
-		os.MkdirAll(unitDir, 0755)
+		_ = os.MkdirAll(unitDir, 0755) // Ignore error - directory may already exist
 		unitPath = filepath.Join(unitDir, "evoclaw.service")
 	}
 
@@ -169,16 +169,16 @@ func uninstallSystemd() error {
 		unitPath = filepath.Join(home, ".config", "systemd", "user", "evoclaw.service")
 	}
 
-	// Stop service first
+	// Stop service first (ignore errors - service may not be running)
 	var stopCmd *exec.Cmd
 	if isRoot {
 		stopCmd = exec.Command("systemctl", "stop", "evoclaw")
-		exec.Command("systemctl", "disable", "evoclaw").Run()
+		_ = exec.Command("systemctl", "disable", "evoclaw").Run()
 	} else {
 		stopCmd = exec.Command("systemctl", "--user", "stop", "evoclaw")
-		exec.Command("systemctl", "--user", "disable", "evoclaw").Run()
+		_ = exec.Command("systemctl", "--user", "disable", "evoclaw").Run()
 	}
-	stopCmd.Run() // Ignore errors
+	_ = stopCmd.Run()
 
 	// Remove unit file
 	if err := os.Remove(unitPath); err != nil && !os.IsNotExist(err) {
@@ -192,7 +192,7 @@ func uninstallSystemd() error {
 	} else {
 		reloadCmd = exec.Command("systemctl", "--user", "daemon-reload")
 	}
-	reloadCmd.Run()
+	_ = reloadCmd.Run() // Ignore error - best effort
 
 	fmt.Println("✅ Systemd service uninstalled")
 	return nil
