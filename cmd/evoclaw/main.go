@@ -532,26 +532,18 @@ func printBanner(app *App) {
 // waitForShutdown waits for termination signal and performs graceful shutdown
 func waitForShutdown(app *App) error {
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGUSR1)
+	signal.Notify(sigCh, getShutdownSignals()...)
 
 	for {
 		sig := <-sigCh
 		
-		switch sig {
-		case syscall.SIGHUP:
-			app.Logger.Info("reload signal received - config reload not yet implemented")
-			// TODO: Reload config without restart
+		// Handle platform-specific signals (SIGHUP, SIGUSR1 on Unix)
+		if handlePlatformSignal(sig, app.Logger) {
 			continue
-			
-		case syscall.SIGUSR1:
-			app.Logger.Info("update signal received - self-update not yet implemented")
-			// TODO: Trigger self-update and restart
-			continue
-			
-		case syscall.SIGINT, syscall.SIGTERM:
-			app.Logger.Info("shutdown signal received", "signal", sig)
-			// Break out of loop to perform shutdown
 		}
+		
+		// SIGINT or SIGTERM - proceed to shutdown
+		app.Logger.Info("shutdown signal received", "signal", sig)
 		break
 	}
 

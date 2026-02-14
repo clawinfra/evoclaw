@@ -123,12 +123,12 @@ func (m *MQTTChannel) Start(ctx context.Context) error {
 func (m *MQTTChannel) Stop() error {
 	m.logger.Info("stopping mqtt channel")
 
-	if m.client != nil && m.client.IsConnected() {
-		m.client.Disconnect(250)
-	}
-
 	if m.cancel != nil {
 		m.cancel()
+	}
+
+	if m.client != nil && m.client.IsConnected() {
+		m.client.Disconnect(250)
 	}
 
 	m.wg.Wait()
@@ -202,6 +202,9 @@ func (m *MQTTChannel) subscribe() error {
 
 // handleMessage processes incoming messages from agents
 func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
+	m.wg.Add(1)
+	defer m.wg.Done()
+
 	m.logger.Debug("mqtt message received", "topic", mqttMsg.Topic())
 
 	var payload struct {
@@ -245,6 +248,9 @@ func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 
 // handleStatus processes agent heartbeat/status updates
 func (m *MQTTChannel) handleStatus(client mqtt.Client, mqttMsg mqtt.Message) {
+	m.wg.Add(1)
+	defer m.wg.Done()
+
 	m.logger.Debug("agent status update", "topic", mqttMsg.Topic())
 
 	var status struct {
