@@ -1,0 +1,254 @@
+{
+  "_comment": "Intelligent Router - Auto-discovered from OpenClaw gateway config. Updated 2026-02-14 with REASONING tier, fallback chains, and agentic detection.",
+  "models": [
+    {
+      "id": "nvidia-nim/deepseek-ai/deepseek-r1-distill-qwen-32b",
+      "alias": "DeepSeek-R1-32B",
+      "tier": "REASONING",
+      "provider": "nvidia-nim",
+      "input_cost_per_m": 0.20,
+      "output_cost_per_m": 0.20,
+      "context_window": 65536,
+      "capabilities": ["text", "reasoning", "chain-of-thought"],
+      "agentic": false,
+      "notes": "Primary reasoning model. Distilled from DeepSeek R1, optimized for formal proofs and step-by-step logic."
+    },
+    {
+      "id": "nvidia-nim/qwen/qwq-32b",
+      "alias": "QwQ-32B",
+      "tier": "REASONING",
+      "provider": "nvidia-nim",
+      "input_cost_per_m": 0.20,
+      "output_cost_per_m": 0.20,
+      "context_window": 32768,
+      "capabilities": ["text", "reasoning", "chain-of-thought"],
+      "agentic": false,
+      "notes": "Fallback reasoning model. Strong mathematical and logical reasoning capabilities."
+    },
+    {
+      "id": "anthropic-proxy-4/deepseek-reasoner",
+      "alias": "DeepSeek-Reasoner",
+      "tier": "REASONING",
+      "provider": "z.ai",
+      "input_cost_per_m": 0.55,
+      "output_cost_per_m": 2.19,
+      "context_window": 65536,
+      "capabilities": ["text", "reasoning", "chain-of-thought"],
+      "agentic": false,
+      "notes": "Secondary reasoning fallback. Full DeepSeek Reasoner model."
+    },
+    {
+      "id": "anthropic-proxy-4/glm-4.7",
+      "alias": "Proxy4-GLM47",
+      "tier": "SIMPLE",
+      "provider": "z.ai",
+      "input_cost_per_m": 0.50,
+      "output_cost_per_m": 1.50,
+      "context_window": 131072,
+      "capabilities": ["text", "reasoning"],
+      "agentic": false,
+      "notes": "Cheapest cloud model with reasoning. Great for monitoring, checks, summaries. Already proven on cron jobs."
+    },
+    {
+      "id": "anthropic-proxy-6/glm-4.7",
+      "alias": "Proxy6-GLM47",
+      "tier": "SIMPLE",
+      "provider": "z.ai",
+      "input_cost_per_m": 0.50,
+      "output_cost_per_m": 1.50,
+      "context_window": 131072,
+      "capabilities": ["text", "reasoning"],
+      "agentic": false,
+      "notes": "Same as Proxy4, different API key. Load-balance between the two."
+    },
+    {
+      "id": "anthropic-proxy-6/glm-4.5-air",
+      "alias": "Proxy6-GLM45Air",
+      "tier": "SIMPLE",
+      "provider": "z.ai",
+      "input_cost_per_m": 0.00,
+      "output_cost_per_m": 0.00,
+      "context_window": 131072,
+      "capabilities": ["text"],
+      "agentic": false,
+      "notes": "Effectively free. Good for very simple tasks, memory consolidation."
+    },
+    {
+      "id": "nvidia-nim/qwen/qwen2.5-7b-instruct",
+      "alias": "NIM-Model1",
+      "tier": "SIMPLE",
+      "provider": "nvidia-nim",
+      "input_cost_per_m": 0.15,
+      "output_cost_per_m": 0.60,
+      "context_window": 32768,
+      "capabilities": ["text"],
+      "agentic": false,
+      "notes": "Cheapest NIM model. Good for simple text tasks."
+    },
+    {
+      "id": "nvidia-nim/meta/llama-3.3-70b-instruct",
+      "alias": "NIM-Llama33-70B",
+      "tier": "MEDIUM",
+      "provider": "nvidia-nim",
+      "input_cost_per_m": 0.40,
+      "output_cost_per_m": 0.40,
+      "context_window": 131072,
+      "capabilities": ["text", "code"],
+      "agentic": true,
+      "notes": "Best value MEDIUM tier. Good for code fixes, research, patches."
+    },
+    {
+      "id": "nvidia-nim/deepseek-ai/deepseek-v3.2",
+      "alias": "NIM-DeepSeekV3",
+      "tier": "MEDIUM",
+      "provider": "nvidia-nim",
+      "input_cost_per_m": 0.40,
+      "output_cost_per_m": 1.30,
+      "context_window": 131072,
+      "capabilities": ["text", "code", "reasoning"],
+      "agentic": true,
+      "notes": "DeepSeek V3 via NIM. Strong reasoning + coding at low cost."
+    },
+    {
+      "id": "nvidia-nim/nvidia/llama-3.1-nemotron-ultra-253b-v1",
+      "alias": "NIM-Nemotron253B",
+      "tier": "MEDIUM",
+      "provider": "nvidia-nim",
+      "input_cost_per_m": 2.50,
+      "output_cost_per_m": 5.00,
+      "context_window": 131072,
+      "capabilities": ["text", "code", "reasoning"],
+      "agentic": true,
+      "notes": "253B parameter model. Upper MEDIUM tier, good for complex coding that doesn't need Sonnet/Opus."
+    },
+    {
+      "id": "anthropic-proxy-2/claude-sonnet-4-5",
+      "alias": "Sonnet-Proxy2",
+      "tier": "COMPLEX",
+      "provider": "anthropic",
+      "input_cost_per_m": 3.00,
+      "output_cost_per_m": 15.00,
+      "context_window": 200000,
+      "capabilities": ["text", "code", "reasoning"],
+      "agentic": true,
+      "notes": "Claude Sonnet via proxy. Excellent for multi-file development, architecture, debugging."
+    },
+    {
+      "id": "anthropic/claude-sonnet-4-5",
+      "alias": "Sonnet-OAuth",
+      "tier": "COMPLEX",
+      "provider": "anthropic",
+      "input_cost_per_m": 3.00,
+      "output_cost_per_m": 15.00,
+      "context_window": 200000,
+      "capabilities": ["text", "code", "reasoning", "vision"],
+      "agentic": true,
+      "notes": "Claude Sonnet via OAuth. Same capability, different auth path."
+    },
+    {
+      "id": "anthropic-proxy-1/claude-opus-4-6",
+      "alias": "Opus46-Proxy1",
+      "tier": "CRITICAL",
+      "provider": "anthropic",
+      "input_cost_per_m": 5.00,
+      "output_cost_per_m": 25.00,
+      "context_window": 1000000,
+      "capabilities": ["text", "code", "reasoning", "vision", "function-calling"],
+      "agentic": true,
+      "notes": "Claude Opus 4.6. Best available. Use for security audits, critical architecture, production decisions."
+    },
+    {
+      "id": "anthropic/claude-opus-4-6",
+      "alias": "Opus-OAuth",
+      "tier": "CRITICAL",
+      "provider": "anthropic",
+      "input_cost_per_m": 5.00,
+      "output_cost_per_m": 25.00,
+      "context_window": 1000000,
+      "capabilities": ["text", "code", "reasoning", "vision"],
+      "agentic": true,
+      "notes": "Claude Opus via OAuth. Same model, different auth."
+    },
+    {
+      "id": "ollama/qwen2.5:32b",
+      "alias": "Primary",
+      "tier": "MEDIUM",
+      "provider": "ollama",
+      "input_cost_per_m": 0.00,
+      "output_cost_per_m": 0.00,
+      "context_window": 32768,
+      "capabilities": ["text", "code"],
+      "agentic": true,
+      "notes": "Free local model. Good for coding tasks when available. Limited context window."
+    },
+    {
+      "id": "ollama/llama3.3",
+      "alias": "Fallback1",
+      "tier": "MEDIUM",
+      "provider": "ollama",
+      "input_cost_per_m": 0.00,
+      "output_cost_per_m": 0.00,
+      "context_window": 128000,
+      "capabilities": ["text", "code"],
+      "agentic": true,
+      "notes": "Free local fallback. Large context window."
+    },
+    {
+      "id": "google-gemini-cli/gemini-3-pro-preview",
+      "alias": "Gemini3-Pro",
+      "tier": "COMPLEX",
+      "provider": "google",
+      "input_cost_per_m": 2.00,
+      "output_cost_per_m": 12.00,
+      "context_window": 1000000,
+      "capabilities": ["text", "code", "reasoning", "vision"],
+      "agentic": true,
+      "notes": "Gemini 3 Pro. Massive context window. Good alternative to Sonnet for complex tasks."
+    }
+  ],
+  "routing_rules": {
+    "SIMPLE": {
+      "primary": "anthropic-proxy-4/glm-4.7",
+      "fallback_chain": [
+        "anthropic-proxy-6/glm-4.7",
+        "anthropic-proxy-6/glm-4.5-air",
+        "ollama/qwen2.5:32b"
+      ],
+      "use_for": ["monitoring", "status checks", "summarization", "simple API calls", "memory consolidation", "tweet monitoring", "price alerts"]
+    },
+    "MEDIUM": {
+      "primary": "nvidia-nim/deepseek-ai/deepseek-v3.2",
+      "fallback_chain": [
+        "nvidia-nim/meta/llama-3.3-70b-instruct",
+        "ollama/llama3.3"
+      ],
+      "use_for": ["code fixes", "lint patches", "research", "documentation", "single-file changes", "test writing"]
+    },
+    "COMPLEX": {
+      "primary": "anthropic-proxy-2/claude-sonnet-4-5",
+      "fallback_chain": [
+        "google-gemini-cli/gemini-3-pro-preview",
+        "nvidia-nim/nvidia/llama-3.1-nemotron-ultra-253b-v1"
+      ],
+      "use_for": ["multi-file features", "architecture design", "complex debugging", "coverage boost", "CI fixes"]
+    },
+    "REASONING": {
+      "primary": "nvidia-nim/deepseek-ai/deepseek-r1-distill-qwen-32b",
+      "fallback_chain": [
+        "nvidia-nim/qwen/qwq-32b",
+        "anthropic-proxy-4/deepseek-reasoner"
+      ],
+      "confidence_threshold": 0.97,
+      "use_for": ["formal proofs", "mathematical derivations", "theorem proving", "step-by-step logic", "verification tasks"]
+    },
+    "CRITICAL": {
+      "primary": "anthropic-proxy-1/claude-opus-4-6",
+      "fallback_chain": [
+        "anthropic/claude-opus-4-6",
+        "anthropic-proxy-2/claude-sonnet-4-5"
+      ],
+      "use_for": ["security audits", "production releases", "financial operations", "system architecture decisions"]
+    }
+  },
+  "max_fallback_attempts": 3
+}

@@ -83,6 +83,23 @@ Examples:
 
 	fmt.Println()
 	fmt.Printf("✅ Config written to %s\n", *outputPath)
+
+	// Install core skills
+	agentRole := "autonomous agent"
+	if len(cfg.Agents) > 0 && cfg.Agents[0].Description != "" {
+		agentRole = cfg.Agents[0].Description
+	}
+
+	if err := SetupCoreSkills(*agentName, agentRole); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  Warning: Core skills installation failed: %v\n", err)
+		fmt.Fprintln(os.Stderr, "   Agent will work but skills must be installed manually")
+	}
+
+	if err := GenerateAgentFiles(*agentName, agentRole); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠️  Warning: Agent file generation failed: %v\n", err)
+		fmt.Fprintln(os.Stderr, "   SOUL.md and AGENTS.md must be created manually")
+	}
+
 	fmt.Println()
 	fmt.Println("Next steps:")
 	fmt.Println("  evoclaw start          # Start the agent")
