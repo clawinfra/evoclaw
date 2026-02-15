@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Agent Self-Governance CLI Wrapper
+# Detects EvoClaw vs OpenClaw environment and routes appropriately
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Detect environment
+if command -v evoclaw &> /dev/null; then
+    # Running in EvoClaw environment - use built-in governance CLI
+    exec evoclaw governance "$@"
+else
+    # Running in OpenClaw environment - use Python scripts directly
+    # Route to specific protocol script based on first arg
+    if [[ $# -eq 0 ]]; then
+        echo "Usage: governance <protocol> <action> [options]" >&2
+        echo "Protocols: wal, vbr, adl, vfm, status" >&2
+        exit 1
+    fi
+    
+    PROTOCOL="$1"
+    shift
+    
+    case "$PROTOCOL" in
+        wal|vbr|adl|vfm)
+            SCRIPT="$SCRIPT_DIR/${PROTOCOL}.py"
+            if [[ ! -f "$SCRIPT" ]]; then
+                echo "Error: ${PROTOCOL}.py not found at $SCRIPT" >&2
+                exit 1
+            fi
+            exec python3 "$SCRIPT" "$@"
+            ;;
+        status)
+            # Aggregate status from all protocols
+            echo "OpenClaw environment - use individual protocol scripts:"
+            echo "  python3 $SCRIPT_DIR/wal.py status"
+            echo "  python3 $SCRIPT_DIR/vbr.py status"
+            echo "  python3 $SCRIPT_DIR/adl.py status"
+            echo "  python3 $SCRIPT_DIR/vfm.py status"
+            exit 0
+            ;;
+        *)
+            echo "Unknown protocol: $PROTOCOL" >&2
+            echo "Use: wal, vbr, adl, vfm, or status" >&2
+            exit 1
+            ;;
+    esac
+fi

@@ -109,6 +109,12 @@ func run() int {
 		case "schedule":
 			// Scheduler operations
 			return cli.ScheduleCommand(os.Args[subCmdIdx+1:], configPath)
+		case "router":
+			// Intelligent router operations
+			return cli.RouterCommand(os.Args[subCmdIdx+1:], configPath)
+		case "governance":
+			// Self-governance protocol operations
+			return cli.GovernanceCommand(os.Args[subCmdIdx+1:], configPath)
 		case "chain":
 			// Chain operations
 			return cli.ChainCommand(os.Args[subCmdIdx+1:], configPath)
