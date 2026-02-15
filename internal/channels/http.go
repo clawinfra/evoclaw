@@ -6,20 +6,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/types"
 )
 
 // HTTPChannel handles HTTP API request-response pairs
 type HTTPChannel struct {
 	mu             sync.RWMutex
-	pending        map[string]chan orchestrator.Response // messageID -> response channel
+	pending        map[string]chan types.Response // messageID -> response channel
 	responseTimeout time.Duration
 }
 
 // NewHTTPChannel creates a new HTTP channel handler
 func NewHTTPChannel() *HTTPChannel {
 	return &HTTPChannel{
-		pending:        make(map[string]chan orchestrator.Response),
+		pending:        make(map[string]chan types.Response),
 		responseTimeout: 30 * time.Second,
 	}
 }
@@ -30,7 +30,7 @@ func (h *HTTPChannel) Name() string {
 }
 
 // Send delivers a response back to a waiting HTTP request
-func (h *HTTPChannel) Send(ctx context.Context, resp orchestrator.Response) error {
+func (h *HTTPChannel) Send(ctx context.Context, resp types.Response) error {
 	h.mu.Lock()
 	ch, ok := h.pending[resp.MessageID]
 	if ok {
@@ -53,9 +53,9 @@ func (h *HTTPChannel) Send(ctx context.Context, resp orchestrator.Response) erro
 }
 
 // WaitForResponse waits for a response to the given message ID
-func (h *HTTPChannel) WaitForResponse(ctx context.Context, messageID string) (orchestrator.Response, error) {
+func (h *HTTPChannel) WaitForResponse(ctx context.Context, messageID string) (types.Response, error) {
 	// Create response channel
-	respCh := make(chan orchestrator.Response, 1)
+	respCh := make(chan types.Response, 1)
 	
 	h.mu.Lock()
 	h.pending[messageID] = respCh
@@ -70,12 +70,12 @@ func (h *HTTPChannel) WaitForResponse(ctx context.Context, messageID string) (or
 		h.mu.Lock()
 		delete(h.pending, messageID)
 		h.mu.Unlock()
-		return orchestrator.Response{}, fmt.Errorf("response timeout after %v", h.responseTimeout)
+		return types.Response{}, fmt.Errorf("response timeout after %v", h.responseTimeout)
 	case <-ctx.Done():
 		h.mu.Lock()
 		delete(h.pending, messageID)
 		h.mu.Unlock()
-		return orchestrator.Response{}, ctx.Err()
+		return types.Response{}, ctx.Err()
 	}
 }
 
@@ -93,13 +93,13 @@ func (h *HTTPChannel) Stop() error {
 	for _, ch := range h.pending {
 		close(ch)
 	}
-	h.pending = make(map[string]chan orchestrator.Response)
+	h.pending = make(map[string]chan types.Response)
 	
 	return nil
 }
 
 // Receive returns a channel for incoming messages (HTTP doesn't receive via channel)
-func (h *HTTPChannel) Receive() <-chan orchestrator.Message {
+func (h *HTTPChannel) Receive() <-chan types.Message {
 	// HTTP requests come in via API handlers, not through a receive channel
 	return nil
 }

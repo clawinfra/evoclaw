@@ -12,7 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/types"
 )
 
 // ─────────────────────────────────────────────────────
@@ -24,20 +24,20 @@ import (
 // like any other messaging channel (Telegram, MQTT, etc).
 type TUIChannel struct {
 	logger   *slog.Logger
-	inbox    chan orchestrator.Message
+	inbox    chan types.Message
 	outbox   chan string // responses rendered into chat
 	ctx      context.Context
 	cancel   context.CancelFunc
 	program  *tea.Program
-	agentsFn func() []orchestrator.AgentInfo // callback to get live agent state
+	agentsFn func() []types.AgentInfo // callback to get live agent state
 }
 
 // NewTUI creates a new terminal UI channel.
 // agentsFn is called periodically to refresh the agent sidebar.
-func NewTUI(logger *slog.Logger, agentsFn func() []orchestrator.AgentInfo) *TUIChannel {
+func NewTUI(logger *slog.Logger, agentsFn func() []types.AgentInfo) *TUIChannel {
 	return &TUIChannel{
 		logger:   logger.With("channel", "tui"),
-		inbox:    make(chan orchestrator.Message, 100),
+		inbox:    make(chan types.Message, 100),
 		outbox:   make(chan string, 100),
 		agentsFn: agentsFn,
 	}
@@ -74,7 +74,7 @@ func (t *TUIChannel) Stop() error {
 	return nil
 }
 
-func (t *TUIChannel) Send(_ context.Context, msg orchestrator.Response) error {
+func (t *TUIChannel) Send(_ context.Context, msg types.Response) error {
 	// Push response text into the TUI's chat viewport
 	t.outbox <- msg.Content
 	if t.program != nil {
@@ -83,11 +83,11 @@ func (t *TUIChannel) Send(_ context.Context, msg orchestrator.Response) error {
 	return nil
 }
 
-func (t *TUIChannel) Receive() <-chan orchestrator.Message { return t.inbox }
+func (t *TUIChannel) Receive() <-chan types.Message { return t.inbox }
 
 // sendUserMessage is called from the TUI model when the user presses Enter
 func (t *TUIChannel) sendUserMessage(text string) {
-	t.inbox <- orchestrator.Message{
+	t.inbox <- types.Message{
 		ID:        fmt.Sprintf("tui-%d", time.Now().UnixNano()),
 		Channel:   "tui",
 		From:      "user",
@@ -350,7 +350,7 @@ func (m tuiModel) renderSidebar() string {
 	sb.WriteString("\n")
 
 	// Get live agent data
-	var agents []orchestrator.AgentInfo
+	var agents []types.AgentInfo
 	if m.channel.agentsFn != nil {
 		agents = m.channel.agentsFn()
 	}

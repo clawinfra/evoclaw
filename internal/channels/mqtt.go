@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/types"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -35,7 +35,7 @@ type MQTTChannel struct {
 	username string
 	password string
 	logger   *slog.Logger
-	inbox    chan orchestrator.Message
+	inbox    chan types.Message
 	client   MQTTClient
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -56,7 +56,7 @@ func NewMQTT(broker string, port int, username, password string, logger *slog.Lo
 		username: username,
 		password: password,
 		logger:   logger.With("channel", "mqtt"),
-		inbox:    make(chan orchestrator.Message, 100),
+		inbox:    make(chan types.Message, 100),
 		clientFactory: func(opts *mqtt.ClientOptions) MQTTClient {
 			return &DefaultMQTTClient{client: mqtt.NewClient(opts)}
 		},
@@ -73,7 +73,7 @@ func NewMQTTWithClient(broker string, port int, username, password string, logge
 		username:        username,
 		password:        password,
 		logger:          logger.With("channel", "mqtt"),
-		inbox:           make(chan orchestrator.Message, 100),
+		inbox:           make(chan types.Message, 100),
 		clientFactory:   clientFactory,
 		resultCallback: nil, // Will be set by orchestrator
 	}
@@ -148,7 +148,7 @@ func (m *MQTTChannel) Stop() error {
 	return nil
 }
 
-func (m *MQTTChannel) Send(ctx context.Context, msg orchestrator.Response) error {
+func (m *MQTTChannel) Send(ctx context.Context, msg types.Response) error {
 	if !m.client.IsConnected() {
 		return fmt.Errorf("mqtt not connected")
 	}
@@ -202,7 +202,7 @@ func (m *MQTTChannel) Send(ctx context.Context, msg orchestrator.Response) error
 	return nil
 }
 
-func (m *MQTTChannel) Receive() <-chan orchestrator.Message {
+func (m *MQTTChannel) Receive() <-chan types.Message {
 	return m.inbox
 }
 
@@ -272,7 +272,7 @@ func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 		return
 	}
 
-	msg := orchestrator.Message{
+	msg := types.Message{
 		ID:        fmt.Sprintf("mqtt-%d", time.Now().UnixNano()),
 		Channel:   "mqtt",
 		From:      payload.AgentID,

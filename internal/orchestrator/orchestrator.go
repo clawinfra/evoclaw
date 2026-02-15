@@ -16,31 +16,14 @@ import (
 	"github.com/clawinfra/evoclaw/internal/memory"
 	"github.com/clawinfra/evoclaw/internal/onchain"
 	"github.com/clawinfra/evoclaw/internal/router"
+	"github.com/clawinfra/evoclaw/internal/types"
 )
 
-// Message represents a message from any channel
-type Message struct {
-	ID        string
-	Channel   string // "whatsapp", "telegram", "mqtt"
-	From      string
-	To        string
-	Content   string
-	Timestamp time.Time
-	ReplyTo   string
-	Metadata  map[string]string
-}
+// Message is an alias to types.Message for backward compatibility
+type Message = types.Message
 
-// Response represents an agent's response
-type Response struct {
-	AgentID   string
-	Content   string
-	Channel   string
-	To        string
-	ReplyTo   string
-	MessageID string            // ID of the message being responded to
-	Model     string            // Model used to generate response
-	Metadata  map[string]string
-}
+// Response is an alias to types.Response for backward compatibility
+type Response = types.Response
 
 // AgentState tracks a running agent's state
 type AgentState struct {
@@ -230,7 +213,7 @@ func (o *Orchestrator) Start() error {
 
 		// Initialize tool manager with first agent's capabilities
 		if o.toolManager == nil && len(def.Capabilities) > 0 {
-			o.toolManager = NewToolManager("", def.Capabilities, logger)
+			o.toolManager = NewToolManager("", def.Capabilities, o.logger)
 			o.toolLoop = NewToolLoop(o, o.toolManager)
 			o.logger.Info("tool manager initialized", "capabilities", def.Capabilities)
 		}
