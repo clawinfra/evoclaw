@@ -51,25 +51,51 @@ echo "⏰ Creating cron jobs..."
 # For now, we'll document that cron jobs should be created manually or via OpenClaw
 
 cat > /tmp/cron-jobs.txt <<'EOF'
-Cron jobs should be created via OpenClaw:
+Cron jobs should be created via OpenClaw cron tool:
 
 1. Quick consolidation (every 4 hours):
-   cron add --name "Memory Consolidation (Quick)" \
-     --schedule '{"kind": "every", "everyMs": 14400000}' \
-     --payload '{"kind": "systemEvent", "text": "Run quick memory consolidation: skills/tiered-memory/scripts/memory consolidate --mode quick"}' \
-     --session-target main
+   Use isolated session + agentTurn to avoid interrupting main conversations
+   
+   cron(action="add", job={
+     "name": "Memory Consolidation (Quick)",
+     "schedule": {"kind": "every", "everyMs": 14400000},
+     "sessionTarget": "isolated",
+     "payload": {
+       "kind": "agentTurn",
+       "message": "Run quick memory consolidation: cd /home/bowen/clawd && skills/tiered-memory/scripts/memory consolidate --mode quick\n\nReport results briefly.",
+       "model": "anthropic-proxy-4/glm-4.7",
+       "timeoutSeconds": 180
+     },
+     "delivery": {"mode": "none"}
+   })
 
 2. Daily consolidation (midnight):
-   cron add --name "Memory Consolidation (Daily)" \
-     --schedule '{"kind": "cron", "expr": "0 0 * * *", "tz": "Australia/Sydney"}' \
-     --payload '{"kind": "systemEvent", "text": "Run daily memory consolidation: skills/tiered-memory/scripts/memory consolidate --mode daily"}' \
-     --session-target main
+   cron(action="add", job={
+     "name": "Memory Consolidation (Daily)",
+     "schedule": {"kind": "cron", "expr": "0 0 * * *", "tz": "Australia/Sydney"},
+     "sessionTarget": "isolated",
+     "payload": {
+       "kind": "agentTurn",
+       "message": "Run daily memory consolidation: cd /home/bowen/clawd && skills/tiered-memory/scripts/memory consolidate --mode daily\n\nReport results briefly.",
+       "model": "anthropic-proxy-4/glm-4.7",
+       "timeoutSeconds": 300
+     },
+     "delivery": {"mode": "none"}
+   })
 
 3. Monthly consolidation (1st of month):
-   cron add --name "Memory Consolidation (Monthly)" \
-     --schedule '{"kind": "cron", "expr": "0 0 1 * *", "tz": "Australia/Sydney"}' \
-     --payload '{"kind": "systemEvent", "text": "Run monthly memory consolidation: skills/tiered-memory/scripts/memory consolidate --mode monthly"}' \
-     --session-target main
+   cron(action="add", job={
+     "name": "Memory Consolidation (Monthly)",
+     "schedule": {"kind": "cron", "expr": "0 0 1 * *", "tz": "Australia/Sydney"},
+     "sessionTarget": "isolated",
+     "payload": {
+       "kind": "agentTurn",
+       "message": "Run monthly memory consolidation: cd /home/bowen/clawd && skills/tiered-memory/scripts/memory consolidate --mode monthly\n\nReport results briefly.",
+       "model": "anthropic-proxy-4/glm-4.7",
+       "timeoutSeconds": 600
+     },
+     "delivery": {"mode": "none"}
+   })
 EOF
 
 echo "   📋 Cron job commands saved to /tmp/cron-jobs.txt"
