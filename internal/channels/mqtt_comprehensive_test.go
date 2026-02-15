@@ -76,9 +76,10 @@ func (m *MockMQTTClient) Subscribe(topic string, qos byte, callback mqtt.Message
 	}
 	
 	// Store the callback for later use
-	if topic == "evoclaw/agents/+/reports" {
+	switch topic {
+	case "evoclaw/agents/+/reports":
 		m.messageHandler = callback
-	} else if topic == "evoclaw/agents/+/status" {
+	case "evoclaw/agents/+/status":
 		m.statusHandler = callback
 	}
 	

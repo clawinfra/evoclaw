@@ -310,8 +310,8 @@ func TestCleanup(t *testing.T) {
 	mem2.Add("user", "Message 2")
 
 	// Save memories
-	m.Save("agent-1")
-	m.Save("agent-2")
+	_ = m.Save("agent-1")
+	_ = m.Save("agent-2")
 
 	// Run cleanup (with very short threshold to test the function)
 	err := m.Cleanup(0)

@@ -24,6 +24,18 @@ type Config struct {
 	// Evolution engine settings
 	Evolution EvolutionConfig `json:"evolution"`
 
+	// On-chain integration (BSC/opBNB) - DEPRECATED: Use Chains instead
+	OnChain OnChainConfig `json:"onchain"`
+
+	// Multi-chain configuration (execution chains)
+	Chains map[string]ChainConfig `json:"chains,omitempty"`
+
+	// Cloud sync configuration
+	CloudSync CloudSyncConfig `json:"cloudSync,omitempty"`
+
+	// Memory system configuration
+	Memory MemoryConfigSettings `json:"memory,omitempty"`
+
 	// Agent definitions
 	Agents []AgentDef `json:"agents"`
 }
@@ -42,13 +54,96 @@ type MQTTConfig struct {
 }
 
 type ChannelConfig struct {
-	WhatsApp *WhatsAppConfig `json:"whatsapp,omitempty"`
 	Telegram *TelegramConfig `json:"telegram,omitempty"`
+	TUI      *TUIConfig      `json:"tui,omitempty"`
 }
 
-type WhatsAppConfig struct {
-	Enabled   bool     `json:"enabled"`
-	AllowFrom []string `json:"allowFrom"`
+// OnChainConfig holds BSC/opBNB blockchain settings
+// DEPRECATED: Use Chains map instead for multi-chain support
+type OnChainConfig struct {
+	Enabled         bool   `json:"enabled"`
+	RPCURL          string `json:"rpcUrl"`
+	ContractAddress string `json:"contractAddress"`
+	PrivateKey      string `json:"privateKey,omitempty"` // signing key (hex, 0x-prefixed)
+	ChainID         int64  `json:"chainId"`              // 56=BSC, 97=BSCTestnet, 204=opBNB
+}
+
+// ChainConfig holds configuration for a blockchain (execution chain)
+type ChainConfig struct {
+	Enabled  bool   `json:"enabled"`
+	Type     string `json:"type"`              // "evm", "solana", "substrate", "hyperliquid"
+	Name     string `json:"name"`              // Human-readable: "BNB Smart Chain Testnet"
+	RPCURL   string `json:"rpcUrl"`
+	ChainID  int64  `json:"chainId,omitempty"` // EVM chains only
+	Wallet   string `json:"wallet,omitempty"`  // Wallet address
+	Explorer string `json:"explorer,omitempty"` // Block explorer URL
+}
+
+type CloudSyncConfig struct {
+	Enabled                  bool   `json:"enabled"`
+	DatabaseURL              string `json:"databaseUrl"`
+	AuthToken                string `json:"authToken"`
+	DeviceID                 string `json:"deviceId,omitempty"`
+	DeviceKey                string `json:"deviceKey,omitempty"`
+	HeartbeatIntervalSeconds int    `json:"heartbeatIntervalSeconds"`
+	CriticalSyncEnabled      bool   `json:"criticalSyncEnabled"`
+	WarmSyncIntervalMinutes  int    `json:"warmSyncIntervalMinutes"`
+	FullSyncIntervalHours    int    `json:"fullSyncIntervalHours"`
+	FullSyncRequireWiFi      bool   `json:"fullSyncRequireWifi"`
+	MaxOfflineQueueSize      int    `json:"maxOfflineQueueSize"`
+}
+
+// MemoryConfigSettings holds tiered memory system configuration
+type MemoryConfigSettings struct {
+	Enabled    bool               `json:"enabled"`
+	Tree       TreeConfig         `json:"tree"`
+	Hot        HotConfig          `json:"hot"`
+	Warm       WarmConfig         `json:"warm"`
+	Cold       ColdConfig         `json:"cold"`
+	Distillation DistillationConfig `json:"distillation"`
+	Scoring    ScoringConfig      `json:"scoring"`
+}
+
+type TreeConfig struct {
+	MaxNodes           int `json:"maxNodes"`
+	MaxDepth           int `json:"maxDepth"`
+	MaxSizeBytes       int `json:"maxSizeBytes"`
+	RebuildIntervalDays int `json:"rebuildIntervalDays"`
+}
+
+type HotConfig struct {
+	MaxSizeBytes       int `json:"maxSizeBytes"`
+	MaxLessons         int `json:"maxLessons"`
+	MaxActiveProjects  int `json:"maxActiveProjects"`
+}
+
+type WarmConfig struct {
+	MaxSizeKb          int     `json:"maxSizeKb"`
+	RetentionDays      int     `json:"retentionDays"`
+	EvictionThreshold  float64 `json:"evictionThreshold"`
+	Backend            string  `json:"backend"` // "memory" or "sqlite"
+}
+
+type ColdConfig struct {
+	Backend         string `json:"backend"` // "turso"
+	DatabaseUrl     string `json:"databaseUrl"`
+	AuthToken       string `json:"authToken"`
+	RetentionYears  int    `json:"retentionYears"`
+}
+
+type DistillationConfig struct {
+	Aggression        float64 `json:"aggression"` // 0-1
+	Model             string  `json:"model"` // "local" or model name
+	MaxDistilledBytes int     `json:"maxDistilledBytes"`
+}
+
+type ScoringConfig struct {
+	HalfLifeDays        float64 `json:"halfLifeDays"`
+	ReinforcementBoost  float64 `json:"reinforcementBoost"`
+}
+
+type TUIConfig struct {
+	Enabled bool `json:"enabled"`
 }
 
 type TelegramConfig struct {
@@ -60,6 +155,14 @@ type ModelsConfig struct {
 	Providers map[string]ProviderConfig `json:"providers"`
 	// Routing rules: task complexity → model selection
 	Routing ModelRouting `json:"routing"`
+	// Health registry configuration
+	Health ModelHealthConfig `json:"health"`
+}
+
+type ModelHealthConfig struct {
+	PersistPath      string `json:"persistPath"`
+	FailureThreshold int    `json:"failureThreshold"`
+	CooldownMinutes  int    `json:"cooldownMinutes"`
 }
 
 type ProviderConfig struct {
@@ -97,15 +200,68 @@ type EvolutionConfig struct {
 }
 
 type AgentDef struct {
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	Type         string            `json:"type"` // "orchestrator", "trader", "monitor", "governance"
-	Model        string            `json:"model"`
-	SystemPrompt string            `json:"systemPrompt,omitempty"`
-	Skills       []string          `json:"skills"`
+	ID           string          `json:"id"`
+	Name         string          `json:"name"`
+	Type         string          `json:"type"` // "orchestrator", "trader", "monitor", "governance"
+	Model        string          `json:"model"`
+	SystemPrompt string          `json:"systemPrompt,omitempty"`
+	Skills       []string        `json:"skills"`
+	Capabilities []string        `json:"capabilities,omitempty"`
+	Genome       *Genome         `json:"genome,omitempty"`
 	Config       map[string]string `json:"config,omitempty"`
 	// Container isolation settings
 	Container ContainerConfig `json:"container"`
+}
+
+// Genome defines the complete genetic makeup of an agent
+// This is re-exported from internal/genome for convenience
+type Genome struct {
+	Identity            GenomeIdentity              `json:"identity"`
+	Skills              map[string]SkillGenome      `json:"skills"`
+	Behavior            GenomeBehavior              `json:"behavior"`
+	Constraints         GenomeConstraints           `json:"constraints"`
+	ConstraintSignature []byte                      `json:"constraint_signature,omitempty"`
+	OwnerPublicKey      []byte                      `json:"owner_public_key,omitempty"`
+}
+
+// GenomeIdentity defines the agent's identity layer
+type GenomeIdentity struct {
+	Name    string `json:"name"`
+	Persona string `json:"persona"`
+	Voice   string `json:"voice"` // concise, verbose, balanced, etc.
+}
+
+// SkillGenome defines evolvable parameters for a specific skill
+type SkillGenome struct {
+	Enabled    bool                   `json:"enabled"`
+	Weight     float64                `json:"weight,omitempty"`
+	Strategies []string               `json:"strategies,omitempty"`
+	Params     map[string]interface{} `json:"params"`
+	Fitness      float64                `json:"fitness"`
+	Version      int                    `json:"version"`
+	Dependencies []string               `json:"dependencies,omitempty"`
+	EvalCount    int                    `json:"eval_count,omitempty"`
+	Verified     bool                   `json:"verified,omitempty"`
+	VFMScore     float64                `json:"vfm_score,omitempty"`
+}
+
+// GenomeBehavior defines behavioral traits
+type GenomeBehavior struct {
+	RiskTolerance    float64            `json:"risk_tolerance"`              // 0.0-1.0
+	Verbosity        float64            `json:"verbosity"`                   // 0.0-1.0
+	Autonomy         float64            `json:"autonomy"`                    // 0.0-1.0
+	PromptStyle      string             `json:"prompt_style,omitempty"`      // Layer 3
+	ToolPreferences  map[string]float64 `json:"tool_preferences,omitempty"`  // Layer 3
+	ResponsePatterns []string           `json:"response_patterns,omitempty"` // Layer 3
+}
+
+// GenomeConstraints defines hard boundaries (non-evolvable)
+type GenomeConstraints struct {
+	MaxLossUSD     float64  `json:"max_loss_usd,omitempty"`
+	AllowedAssets  []string `json:"allowed_assets,omitempty"`
+	BlockedActions []string `json:"blocked_actions,omitempty"`
+	MaxDivergence  float64  `json:"max_divergence,omitempty"`
+	MinVFMScore    float64  `json:"min_vfm_score,omitempty"`
 }
 
 type ContainerConfig struct {

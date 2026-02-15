@@ -1,0 +1,16 @@
+[Unit]
+Description=EvoClaw Edge Agent (Rust)
+After=evoclaw-mosquitto.service evoclaw-orchestrator.service
+
+[Container]
+Image=ghcr.io/clawinfra/evoclaw-edge:latest
+ContainerName=evoclaw-edge-agent
+Volume=evoclaw-agent-config:/app/agent.toml:ro
+Volume=evoclaw-agent-keys:/app/keys
+Environment=RUST_LOG=info
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

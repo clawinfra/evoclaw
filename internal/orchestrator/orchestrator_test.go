@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"sync"
@@ -118,12 +119,6 @@ func (m *mockProvider) setResponse(model, response string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.responses[model] = response
-}
-
-func (m *mockProvider) getCalls() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.calls
 }
 
 // Mock EvolutionEngine
@@ -334,7 +329,7 @@ func TestMessageRouting(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	// Wait for agent to be created
 	time.Sleep(50 * time.Millisecond)
@@ -383,7 +378,7 @@ func TestListAgents(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -409,7 +404,7 @@ func TestGetAgentMetrics(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -452,7 +447,7 @@ func TestSelectAgent(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	time.Sleep(50 * time.Millisecond)
 	
@@ -487,6 +482,11 @@ func TestEvolutionLoop(t *testing.T) {
 	cfg.Evolution.EvalIntervalSec = 1
 	cfg.Evolution.MinSamplesForEval = 2
 	cfg.Evolution.MaxMutationRate = 0.9
+	cfg.Agents[0].Genome = &config.Genome{
+		Skills: map[string]config.SkillGenome{
+			"trading": {Enabled: true, Weight: 1.0, Params: map[string]interface{}{}},
+		},
+	}
 	
 	o := New(cfg, testLogger())
 	ch := newMockChannel("mock-channel")
@@ -500,7 +500,7 @@ func TestEvolutionLoop(t *testing.T) {
 	if err := o.Start(); err != nil {
 		t.Fatalf("failed to start: %v", err)
 	}
-	defer o.Stop()
+	defer func() { _ = o.Stop() }()
 	
 	// Wait for agent creation
 	time.Sleep(50 * time.Millisecond)
@@ -524,7 +524,447 @@ func TestEvolutionLoop(t *testing.T) {
 	time.Sleep(1500 * time.Millisecond)
 	
 	// Check that evolution ran
-	if e.mutations == 0 {
+	e.mu.Lock()
+	mutations := e.mutations
+	e.mu.Unlock()
+	if mutations == 0 {
 		t.Error("evolution should have triggered mutations")
 	}
+}
+
+func TestRouteOutgoing_UnknownChannel(t *testing.T) {
+	o := New(testConfig(), testLogger())
+	ch := newMockChannel("mock-channel")
+	
+	o.RegisterChannel(ch)
+	
+	if err := o.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	defer func() { _ = o.Stop() }()
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	// Send response to unknown channel
+	o.outbox <- Response{
+		Channel: "unknown-channel",
+		Content: "test",
+		To:      "user-123",
+	}
+	
+	// Wait for processing
+	time.Sleep(100 * time.Millisecond)
+	
+	// Should not crash, just log error
+	sent := ch.getSent()
+	if len(sent) != 0 {
+		t.Error("expected no messages sent to wrong channel")
+	}
+}
+
+func TestSelectModel_UseAgentModel(t *testing.T) {
+	cfg := testConfig()
+	cfg.Agents[0].Model = "custom/special-model"
+	
+	o := New(cfg, testLogger())
+	ch := newMockChannel("mock-channel")
+	p := newMockProvider("mock")
+	
+	o.RegisterChannel(ch)
+	o.RegisterProvider(p)
+	
+	if err := o.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	defer func() { _ = o.Stop() }()
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	o.mu.RLock()
+	agent := o.agents["test-agent"]
+	o.mu.RUnlock()
+	
+	msg := Message{Content: "test"}
+	model := o.selectModel(msg, agent)
+	
+	if model != "custom/special-model" {
+		t.Errorf("expected custom/special-model, got %s", model)
+	}
+}
+
+func TestSelectModel_UseDefaultComplex(t *testing.T) {
+	cfg := testConfig()
+	cfg.Agents[0].Model = "" // No model specified
+	
+	o := New(cfg, testLogger())
+	ch := newMockChannel("mock-channel")
+	p := newMockProvider("mock")
+	
+	o.RegisterChannel(ch)
+	o.RegisterProvider(p)
+	
+	if err := o.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	defer func() { _ = o.Stop() }()
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	o.mu.RLock()
+	agent := o.agents["test-agent"]
+	o.mu.RUnlock()
+	
+	msg := Message{Content: "test"}
+	model := o.selectModel(msg, agent)
+	
+	if model != cfg.Models.Routing.Complex {
+		t.Errorf("expected %s, got %s", cfg.Models.Routing.Complex, model)
+	}
+}
+
+func TestProcessWithAgent_NoProvider(t *testing.T) {
+	o := New(testConfig(), testLogger())
+	ch := newMockChannel("mock-channel")
+	
+	o.RegisterChannel(ch)
+	// Don't register any provider
+	
+	if err := o.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	defer func() { _ = o.Stop() }()
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	o.mu.RLock()
+	agent := o.agents["test-agent"]
+	o.mu.RUnlock()
+	
+	msg := Message{
+		ID:      "msg-1",
+		Channel: "mock-channel",
+		From:    "user-123",
+		Content: "test",
+	}
+	
+	o.processWithAgent(agent, msg, "nonexistent/model")
+	
+	time.Sleep(100 * time.Millisecond)
+	
+	// Should increment error count
+	agent.mu.RLock()
+	status := agent.Status
+	agent.mu.RUnlock()
+	
+	if status != "idle" {
+		t.Errorf("expected idle after error, got %s", status)
+	}
+}
+
+func TestProcessWithAgent_LLMError(t *testing.T) {
+	o := New(testConfig(), testLogger())
+	ch := newMockChannel("mock-channel")
+	p := &mockProviderWithError{
+		mockProvider: newMockProvider("mock"),
+		shouldError:  true,
+	}
+	
+	o.RegisterChannel(ch)
+	o.RegisterProvider(p)
+	
+	if err := o.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	defer func() { _ = o.Stop() }()
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	// Send message
+	msg := Message{
+		ID:      "msg-1",
+		Channel: "mock-channel",
+		From:    "user-123",
+		Content: "test",
+	}
+	
+	ch.sendMessage(msg)
+	
+	time.Sleep(200 * time.Millisecond)
+	
+	// Check error was recorded
+	o.mu.RLock()
+	agent := o.agents["test-agent"]
+	o.mu.RUnlock()
+	
+	agent.mu.RLock()
+	errorCount := agent.ErrorCount
+	failedActions := agent.Metrics.FailedActions
+	agent.mu.RUnlock()
+	
+	if errorCount == 0 {
+		t.Error("expected error count > 0")
+	}
+	if failedActions == 0 {
+		t.Error("expected failed actions > 0")
+	}
+}
+
+func TestProcessWithAgent_WithEvolution(t *testing.T) {
+	o := New(testConfig(), testLogger())
+	ch := newMockChannel("mock-channel")
+	p := newMockProvider("mock")
+	e := newMockEvolution()
+	
+	o.RegisterChannel(ch)
+	o.RegisterProvider(p)
+	o.SetEvolutionEngine(e)
+	
+	if err := o.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	defer func() { _ = o.Stop() }()
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	// Send message
+	msg := Message{
+		ID:      "msg-1",
+		Channel: "mock-channel",
+		From:    "user-123",
+		Content: "test",
+	}
+	
+	ch.sendMessage(msg)
+	
+	time.Sleep(200 * time.Millisecond)
+	
+	// Verify evolution.Evaluate was called
+	e.mu.Lock()
+	fitnessLen := len(e.fitness)
+	e.mu.Unlock()
+	if fitnessLen == 0 {
+		t.Error("expected evolution.Evaluate to be called")
+	}
+}
+
+func TestFindProvider_NoProviders(t *testing.T) {
+	o := New(testConfig(), testLogger())
+	
+	provider := o.findProvider("any/model")
+	if provider != nil {
+		t.Error("expected nil provider when none registered")
+	}
+}
+
+func TestFindProvider_ReturnsFirst(t *testing.T) {
+	o := New(testConfig(), testLogger())
+	p := newMockProvider("mock")
+	
+	o.RegisterProvider(p)
+	
+	provider := o.findProvider("any/model")
+	if provider != p {
+		t.Error("expected to return registered provider")
+	}
+}
+
+func TestHandleMessage_NoAgents(t *testing.T) {
+	cfg := testConfig()
+	cfg.Agents = []config.AgentDef{} // No agents
+	
+	o := New(cfg, testLogger())
+	ch := newMockChannel("mock-channel")
+	
+	o.RegisterChannel(ch)
+	
+	if err := o.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	defer func() { _ = o.Stop() }()
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	msg := Message{
+		ID:      "msg-1",
+		Channel: "mock-channel",
+		From:    "user-123",
+		Content: "test",
+	}
+	
+	ch.sendMessage(msg)
+	
+	time.Sleep(100 * time.Millisecond)
+	
+	// Should not crash
+	sent := ch.getSent()
+	if len(sent) != 0 {
+		t.Error("expected no responses when no agents")
+	}
+}
+
+func TestHandleMessage_AgentNotFound(t *testing.T) {
+	o := New(testConfig(), testLogger())
+	ch := newMockChannel("mock-channel")
+	
+	o.RegisterChannel(ch)
+	
+	if err := o.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	defer func() { _ = o.Stop() }()
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	// Manually delete the agent
+	o.mu.Lock()
+	delete(o.agents, "test-agent")
+	o.mu.Unlock()
+	
+	msg := Message{
+		ID:      "msg-1",
+		Channel: "mock-channel",
+		From:    "user-123",
+		Content: "test",
+	}
+	
+	// This will fail because selectAgent returns first agent (now none)
+	o.handleMessage(msg)
+	
+	time.Sleep(100 * time.Millisecond)
+	
+	// Should not crash
+}
+
+func TestEvaluateAgents_NoEvolution(t *testing.T) {
+	o := New(testConfig(), testLogger())
+	
+	// evolution is nil
+	o.evaluateAgents()
+	
+	// Should not crash
+}
+
+func TestEvaluateAgents_InsufficientSamples(t *testing.T) {
+	cfg := testConfig()
+	cfg.Evolution.MinSamplesForEval = 100
+	
+	o := New(cfg, testLogger())
+	ch := newMockChannel("mock-channel")
+	p := newMockProvider("mock")
+	e := newMockEvolution()
+	
+	o.RegisterChannel(ch)
+	o.RegisterProvider(p)
+	o.SetEvolutionEngine(e)
+	
+	if err := o.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	defer func() { _ = o.Stop() }()
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	// Agent has only a few actions
+	o.mu.RLock()
+	agent := o.agents["test-agent"]
+	o.mu.RUnlock()
+	
+	agent.mu.Lock()
+	agent.Metrics.TotalActions = 5 // Less than MinSamplesForEval
+	agent.Metrics.SuccessfulActions = 5
+	agent.mu.Unlock()
+	
+	// Run evaluation
+	o.evaluateAgents()
+	
+	// Should not trigger evolution
+	if e.mutations > 0 {
+		t.Error("expected no mutations with insufficient samples")
+	}
+}
+
+func TestEvaluateAgents_HighFitness(t *testing.T) {
+	cfg := testConfig()
+	cfg.Evolution.MinSamplesForEval = 5
+	
+	o := New(cfg, testLogger())
+	ch := newMockChannel("mock-channel")
+	p := newMockProvider("mock")
+	e := newMockEvolution()
+	
+	o.RegisterChannel(ch)
+	o.RegisterProvider(p)
+	o.SetEvolutionEngine(e)
+	
+	if err := o.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	defer func() { _ = o.Stop() }()
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	// Agent has good performance
+	o.mu.RLock()
+	agent := o.agents["test-agent"]
+	o.mu.RUnlock()
+	
+	agent.mu.Lock()
+	agent.Metrics.TotalActions = 10
+	agent.Metrics.SuccessfulActions = 10 // 100% success rate
+	agent.mu.Unlock()
+	
+	// Run evaluation
+	o.evaluateAgents()
+	
+	// Should not trigger evolution (fitness > 0.6)
+	if e.mutations > 0 {
+		t.Error("expected no mutations with high fitness")
+	}
+}
+
+func TestStop_ChannelError(t *testing.T) {
+	o := New(testConfig(), testLogger())
+	ch := &mockChannelWithError{
+		mockChannel: newMockChannel("error-channel"),
+		stopError:   true,
+	}
+	
+	o.RegisterChannel(ch)
+	
+	if err := o.Start(); err != nil {
+		t.Fatalf("failed to start: %v", err)
+	}
+	
+	time.Sleep(50 * time.Millisecond)
+	
+	// Stop should handle error gracefully
+	if err := o.Stop(); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+}
+
+// Mock provider with error capability
+type mockProviderWithError struct {
+	*mockProvider
+	shouldError bool
+}
+
+func (m *mockProviderWithError) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
+	if m.shouldError {
+		return nil, fmt.Errorf("simulated LLM error")
+	}
+	return m.mockProvider.Chat(ctx, req)
+}
+
+// Mock channel with error capability
+type mockChannelWithError struct {
+	*mockChannel
+	stopError bool
+}
+
+func (m *mockChannelWithError) Stop() error {
+	if m.stopError {
+		return fmt.Errorf("simulated stop error")
+	}
+	return m.mockChannel.Stop()
 }

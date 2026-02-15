@@ -3,10 +3,12 @@ use tracing::{error, info, warn};
 
 use crate::config::Config;
 use crate::evolution::EvolutionTracker;
+use crate::llm::LLMClient;
 use crate::metrics::Metrics;
 use crate::monitor::Monitor;
 use crate::mqtt::{parse_command, MqttClient};
 use crate::strategy::StrategyEngine;
+use crate::tools::EdgeTools;
 use crate::trading::{HyperliquidClient, PnLTracker};
 
 pub struct EdgeAgent {
@@ -18,6 +20,8 @@ pub struct EdgeAgent {
     pub monitor: Option<Monitor>,
     pub strategy_engine: StrategyEngine,
     pub evolution_tracker: EvolutionTracker,
+    pub llm_client: Option<LLMClient>,
+    pub tools: EdgeTools,
 }
 
 impl EdgeAgent {
@@ -45,6 +49,16 @@ impl EdgeAgent {
         // Initialize evolution tracker
         let evolution_tracker = EvolutionTracker::default();
 
+        // Initialize LLM client from environment variables
+        let llm_client = LLMClient::from_env();
+        if llm_client.is_some() {
+            info!("LLM client initialized from environment");
+        }
+
+        // Initialize edge device tools
+        let tools = EdgeTools::new();
+        info!(tool_count = tools.get_tool_definitions().len(), "edge tools initialized");
+
         let agent = Self {
             config,
             mqtt,
@@ -54,6 +68,8 @@ impl EdgeAgent {
             monitor,
             strategy_engine,
             evolution_tracker,
+            llm_client,
+            tools,
         };
 
         Ok((agent, eventloop))
@@ -128,7 +144,7 @@ mod tests {
         let config = Config::default_for_type("test_agent".to_string(), "trader".to_string());
         let result = EdgeAgent::new(config).await;
         assert!(result.is_ok());
-        
+
         let (agent, _eventloop) = result.unwrap();
         assert_eq!(agent.config.agent_id, "test_agent");
         assert_eq!(agent.config.agent_type, "trader");
@@ -140,7 +156,7 @@ mod tests {
         let config = Config::default_for_type("monitor1".to_string(), "monitor".to_string());
         let result = EdgeAgent::new(config).await;
         assert!(result.is_ok());
-        
+
         let (agent, _) = result.unwrap();
         assert!(agent.monitor.is_some());
         assert!(agent.trading_client.is_none());
@@ -150,13 +166,13 @@ mod tests {
     async fn test_heartbeat() {
         let config = Config::default_for_type("test_agent".to_string(), "trader".to_string());
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let initial_uptime = agent.metrics.uptime_sec;
-        
+
         // Heartbeat should increment uptime
-        let result = agent.heartbeat().await;
+        let _result = agent.heartbeat().await;
         // May fail if MQTT not running, but shouldn't panic
-        
+
         // Uptime should be incremented regardless
         assert!(agent.metrics.uptime_sec > initial_uptime);
     }
@@ -172,10 +188,10 @@ mod tests {
             max_position_size_usd: 5000.0,
             max_leverage: 5.0,
         });
-        
+
         let result = EdgeAgent::new(config).await;
         assert!(result.is_ok());
-        
+
         let (agent, _) = result.unwrap();
         assert!(agent.trading_client.is_some());
         assert!(agent.monitor.is_none());
@@ -190,10 +206,10 @@ mod tests {
             funding_rate_threshold_pct: 0.1,
             check_interval_secs: 60,
         });
-        
+
         let result = EdgeAgent::new(config).await;
         assert!(result.is_ok());
-        
+
         let (agent, _) = result.unwrap();
         assert!(agent.monitor.is_some());
         assert!(agent.trading_client.is_none());
@@ -203,14 +219,14 @@ mod tests {
     async fn test_heartbeat_multiple_calls() {
         let config = Config::default_for_type("test_agent".to_string(), "trader".to_string());
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let initial_uptime = agent.metrics.uptime_sec;
-        
+
         // Call heartbeat multiple times
         let _ = agent.heartbeat().await;
         let _ = agent.heartbeat().await;
         let _ = agent.heartbeat().await;
-        
+
         // Uptime should have increased by 90 seconds (3 calls * 30s each)
         assert_eq!(agent.metrics.uptime_sec, initial_uptime + 90);
     }
@@ -220,9 +236,9 @@ mod tests {
         let config = Config::default_for_type("full_agent".to_string(), "trader".to_string());
         let result = EdgeAgent::new(config).await;
         assert!(result.is_ok());
-        
+
         let (agent, _) = result.unwrap();
-        
+
         // Verify all components initialized
         assert_eq!(agent.metrics.actions_total, 0);
         assert_eq!(agent.pnl_tracker.total_trades, 0);

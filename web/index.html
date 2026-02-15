@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EvoClaw Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+</head>
+<body x-data="dashboard()" x-init="init()">
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar" :class="{ 'collapsed': sidebarCollapsed }">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon">🧬</span>
+                <span class="logo-text" x-show="!sidebarCollapsed">EvoClaw</span>
+            </div>
+            <button class="sidebar-toggle" @click="sidebarCollapsed = !sidebarCollapsed">
+                <span x-text="sidebarCollapsed ? '→' : '←'"></span>
+            </button>
+        </div>
+        <ul class="nav-links">
+            <li :class="{ active: currentView === 'overview' }" @click="navigate('overview')">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label" x-show="!sidebarCollapsed">Overview</span>
+            </li>
+            <li :class="{ active: currentView === 'agents' || currentView === 'agent-detail' }" @click="navigate('agents')">
+                <span class="nav-icon">🤖</span>
+                <span class="nav-label" x-show="!sidebarCollapsed">Agents</span>
+            </li>
+            <li :class="{ active: currentView === 'trading' }" @click="navigate('trading')">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label" x-show="!sidebarCollapsed">Trading</span>
+            </li>
+            <li :class="{ active: currentView === 'models' }" @click="navigate('models')">
+                <span class="nav-icon">🧠</span>
+                <span class="nav-label" x-show="!sidebarCollapsed">Models</span>
+            </li>
+            <li :class="{ active: currentView === 'evolution' }" @click="navigate('evolution')">
+                <span class="nav-icon">🧬</span>
+                <span class="nav-label" x-show="!sidebarCollapsed">Evolution</span>
+            </li>
+            <li :class="{ active: currentView === 'logs' }" @click="navigate('logs')">
+                <span class="nav-icon">📋</span>
+                <span class="nav-label" x-show="!sidebarCollapsed">Logs</span>
+            </li>
+        </ul>
+        <div class="sidebar-footer" x-show="!sidebarCollapsed">
+            <div class="version">v<span x-text="status.version || '0.1.0'"></span></div>
+            <div class="connection-status">
+                <span class="status-dot" :class="connected ? 'green' : 'red'"></span>
+                <span x-text="connected ? 'Connected' : 'Disconnected'"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="content" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <h1 x-text="viewTitle"></h1>
+            <div class="topbar-actions">
+                <span class="last-updated" x-show="lastUpdated">
+                    Updated <span x-text="lastUpdated"></span>
+                </span>
+                <button class="btn btn-sm" @click="refreshAll()">⟳ Refresh</button>
+            </div>
+        </header>
+
+        <!-- Overview View -->
+        <div x-show="currentView === 'overview'" x-transition class="view">
+            <div class="stat-cards">
+                <div class="stat-card">
+                    <div class="stat-label">System Status</div>
+                    <div class="stat-value">
+                        <span class="status-dot" :class="connected ? 'green' : 'red'"></span>
+                        <span x-text="connected ? 'Online' : 'Offline'"></span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Uptime</div>
+                    <div class="stat-value" x-text="formatUptime(status.uptime)"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Connected Agents</div>
+                    <div class="stat-value" x-text="status.agents || 0"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total API Cost</div>
+                    <div class="stat-value">$<span x-text="(status.total_cost || 0).toFixed(4)"></span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Available Models</div>
+                    <div class="stat-value" x-text="status.models || 0"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Memory Entries</div>
+                    <div class="stat-value" x-text="status.memory?.total_entries || 0"></div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Agent Activity</h3>
+                    <canvas id="agentActivityChart" height="200"></canvas>
+                </div>
+                <div class="card">
+                    <h3>Cost Over Time</h3>
+                    <canvas id="costChart" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Recent Agents</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Model</th>
+                            <th>Messages</th>
+                            <th>Success Rate</th>
+                            <th>Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="agent in agents" :key="agent.id">
+                            <tr class="clickable" @click="viewAgent(agent.id)">
+                                <td x-text="agent.id"></td>
+                                <td><span class="badge" x-text="agent.def?.type || 'unknown'"></span></td>
+                                <td>
+                                    <span class="status-dot" :class="agentStatusColor(agent.status)"></span>
+                                    <span x-text="agent.status"></span>
+                                </td>
+                                <td class="mono" x-text="agent.def?.model || '—'"></td>
+                                <td x-text="agent.message_count || 0"></td>
+                                <td x-text="formatSuccessRate(agent.metrics)"></td>
+                                <td>$<span x-text="(agent.metrics?.cost_usd || 0).toFixed(4)"></span></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Agents View -->
+        <div x-show="currentView === 'agents'" x-transition class="view">
+            <div class="card">
+                <div class="card-header">
+                    <h3>All Agents</h3>
+                    <div class="filters">
+                        <select x-model="agentFilter" class="input-sm">
+                            <option value="all">All Types</option>
+                            <option value="orchestrator">Orchestrator</option>
+                            <option value="trader">Trader</option>
+                            <option value="monitor">Monitor</option>
+                            <option value="governance">Governance</option>
+                        </select>
+                    </div>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Agent</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Model</th>
+                            <th>Last Heartbeat</th>
+                            <th>Messages</th>
+                            <th>Errors</th>
+                            <th>Tokens Used</th>
+                            <th>Cost (USD)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="agent in filteredAgents" :key="agent.id">
+                            <tr>
+                                <td>
+                                    <a href="#" @click.prevent="viewAgent(agent.id)" class="link">
+                                        <span x-text="agent.def?.name || agent.id"></span>
+                                    </a>
+                                </td>
+                                <td><span class="badge" :class="'badge-' + (agent.def?.type || 'unknown')" x-text="agent.def?.type || 'unknown'"></span></td>
+                                <td>
+                                    <span class="status-dot" :class="agentStatusColor(agent.status)"></span>
+                                    <span x-text="agent.status || 'unknown'"></span>
+                                </td>
+                                <td class="mono" x-text="agent.def?.model || '—'"></td>
+                                <td x-text="formatTime(agent.last_heartbeat)"></td>
+                                <td x-text="agent.message_count || 0"></td>
+                                <td x-text="agent.error_count || 0"></td>
+                                <td x-text="formatNumber(agent.metrics?.tokens_used || 0)"></td>
+                                <td>$<span x-text="(agent.metrics?.cost_usd || 0).toFixed(4)"></span></td>
+                                <td>
+                                    <button class="btn btn-xs btn-primary" @click="openAgentEditor(agent.id)">✏️ Edit</button>
+                                    <button class="btn btn-xs" @click="viewAgent(agent.id)">Details</button>
+                                    <button class="btn btn-xs btn-danger" @click="triggerEvolve(agent.id)">Evolve</button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+                <div class="empty-state" x-show="filteredAgents.length === 0">
+                    <p>No agents found</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agent Detail View -->
+        <div x-show="currentView === 'agent-detail'" x-transition class="view">
+            <div class="breadcrumb">
+                <a href="#" @click.prevent="navigate('agents')">Agents</a> / <span x-text="selectedAgent?.id"></span>
+            </div>
+
+            <div class="stat-cards">
+                <div class="stat-card">
+                    <div class="stat-label">Status</div>
+                    <div class="stat-value">
+                        <span class="status-dot" :class="agentStatusColor(selectedAgent?.status)"></span>
+                        <span x-text="selectedAgent?.status || 'unknown'"></span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Success Rate</div>
+                    <div class="stat-value" x-text="formatSuccessRate(selectedAgent?.metrics)"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg Response</div>
+                    <div class="stat-value"><span x-text="(selectedAgent?.metrics?.avg_response_ms || 0).toFixed(0)"></span>ms</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Tokens Used</div>
+                    <div class="stat-value" x-text="formatNumber(selectedAgent?.metrics?.tokens_used || 0)"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Cost</div>
+                    <div class="stat-value">$<span x-text="(selectedAgent?.metrics?.cost_usd || 0).toFixed(4)"></span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Messages</div>
+                    <div class="stat-value" x-text="selectedAgent?.message_count || 0"></div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Performance Metrics</h3>
+                    <canvas id="agentMetricsChart" height="250"></canvas>
+                </div>
+                <div class="card">
+                    <h3>Evolution History</h3>
+                    <canvas id="evolutionChart" height="250"></canvas>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Agent Configuration</h3>
+                    <div class="config-grid">
+                        <div class="config-row">
+                            <span class="config-label">ID</span>
+                            <span class="config-value mono" x-text="selectedAgent?.id"></span>
+                        </div>
+                        <div class="config-row">
+                            <span class="config-label">Name</span>
+                            <span class="config-value" x-text="selectedAgent?.def?.name || '—'"></span>
+                        </div>
+                        <div class="config-row">
+                            <span class="config-label">Type</span>
+                            <span class="config-value" x-text="selectedAgent?.def?.type || '—'"></span>
+                        </div>
+                        <div class="config-row">
+                            <span class="config-label">Model</span>
+                            <span class="config-value mono" x-text="selectedAgent?.def?.model || '—'"></span>
+                        </div>
+                        <div class="config-row">
+                            <span class="config-label">Skills</span>
+                            <span class="config-value" x-text="(selectedAgent?.def?.skills || []).join(', ') || '—'"></span>
+                        </div>
+                        <div class="config-row">
+                            <span class="config-label">Started</span>
+                            <span class="config-value" x-text="formatTime(selectedAgent?.started_at)"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Recent Conversations</h3>
+                    <div class="conversation-list" x-show="agentMemory.length > 0">
+                        <template x-for="msg in agentMemory.slice(-10)" :key="msg.role + msg.content?.substring(0,20)">
+                            <div class="conversation-msg" :class="'msg-' + msg.role">
+                                <span class="msg-role" x-text="msg.role"></span>
+                                <span class="msg-content" x-text="(msg.content || '').substring(0, 200)"></span>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="empty-state" x-show="agentMemory.length === 0">
+                        <p>No conversation history</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Genome</h3>
+                <div class="genome-display" x-show="agentGenome">
+                    <!-- Identity -->
+                    <div class="genome-section">
+                        <h4>🎭 Identity</h4>
+                        <div class="config-grid">
+                            <div class="config-row">
+                                <span class="config-label">Name</span>
+                                <span class="config-value" x-text="agentGenome?.identity?.name || '—'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Persona</span>
+                                <span class="config-value" x-text="agentGenome?.identity?.persona || '—'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Voice</span>
+                                <span class="config-value" x-text="agentGenome?.identity?.voice || '—'"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Behavior -->
+                    <div class="genome-section">
+                        <h4>🎨 Behavior</h4>
+                        <div class="config-grid">
+                            <div class="config-row">
+                                <span class="config-label">Risk Tolerance</span>
+                                <span class="config-value">
+                                    <span x-text="((agentGenome?.behavior?.risk_tolerance || 0) * 100).toFixed(0)"></span>%
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" :style="'width: ' + ((agentGenome?.behavior?.risk_tolerance || 0) * 100) + '%'"></div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Verbosity</span>
+                                <span class="config-value">
+                                    <span x-text="((agentGenome?.behavior?.verbosity || 0) * 100).toFixed(0)"></span>%
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" :style="'width: ' + ((agentGenome?.behavior?.verbosity || 0) * 100) + '%'"></div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Autonomy</span>
+                                <span class="config-value">
+                                    <span x-text="((agentGenome?.behavior?.autonomy || 0) * 100).toFixed(0)"></span>%
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" :style="'width: ' + ((agentGenome?.behavior?.autonomy || 0) * 100) + '%'"></div>
+                                    </div>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Skills -->
+                    <div class="genome-section">
+                        <h4>🧩 Skills</h4>
+                        <template x-for="[skillName, skill] in Object.entries(agentGenome?.skills || {})" :key="skillName">
+                            <div class="skill-card" :class="skill.enabled ? 'skill-enabled' : 'skill-disabled'">
+                                <div class="skill-header">
+                                    <span class="skill-name" x-text="skillName"></span>
+                                    <span class="skill-version">v<span x-text="skill.version"></span></span>
+                                    <span class="skill-status" x-text="skill.enabled ? '✓' : '✗'"></span>
+                                </div>
+                                <div class="skill-fitness" x-show="skill.fitness > 0">
+                                    <span class="fitness-label">Fitness:</span>
+                                    <span :class="getFitnessClass(skill.fitness)" x-text="skill.fitness.toFixed(3)"></span>
+                                </div>
+                                <div class="skill-params">
+                                    <template x-for="[key, value] in Object.entries(skill.params || {})" :key="key">
+                                        <div class="param-row">
+                                            <span class="param-key" x-text="key"></span>
+                                            <span class="param-value mono" x-text="typeof value === 'number' ? value.toFixed(4) : value"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- Constraints -->
+                    <div class="genome-section">
+                        <h4>🔒 Constraints</h4>
+                        <div class="config-grid">
+                            <div class="config-row">
+                                <span class="config-label">Max Loss (USD)</span>
+                                <span class="config-value" x-text="agentGenome?.constraints?.max_loss_usd || '—'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Allowed Assets</span>
+                                <span class="config-value" x-text="(agentGenome?.constraints?.allowed_assets || []).join(', ') || 'All'"></span>
+                            </div>
+                            <div class="config-row">
+                                <span class="config-label">Blocked Actions</span>
+                                <span class="config-value" x-text="(agentGenome?.constraints?.blocked_actions || []).join(', ') || 'None'"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="empty-state" x-show="!agentGenome">
+                    <p>No genome data available</p>
+                </div>
+            </div>
+
+        <!-- Trading View -->
+        <div x-show="currentView === 'trading'" x-transition class="view">
+            <div class="stat-cards">
+                <div class="stat-card">
+                    <div class="stat-label">Total P&L</div>
+                    <div class="stat-value" :class="tradingData.totalPnl >= 0 ? 'text-green' : 'text-red'">
+                        $<span x-text="tradingData.totalPnl.toFixed(2)"></span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Open Positions</div>
+                    <div class="stat-value" x-text="tradingData.positions.length"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Win Rate</div>
+                    <div class="stat-value" x-text="tradingData.winRate.toFixed(1) + '%'"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Trades</div>
+                    <div class="stat-value" x-text="tradingData.totalTrades"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>P&L Chart</h3>
+                <canvas id="pnlChart" height="300"></canvas>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Current Positions</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Asset</th><th>Side</th><th>Size</th><th>Entry</th><th>PnL</th></tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="pos in tradingData.positions" :key="pos.asset">
+                                <tr>
+                                    <td class="mono" x-text="pos.asset"></td>
+                                    <td><span class="badge" :class="pos.side === 'LONG' ? 'badge-green' : 'badge-red'" x-text="pos.side"></span></td>
+                                    <td x-text="pos.size"></td>
+                                    <td>$<span x-text="pos.entry.toFixed(2)"></span></td>
+                                    <td :class="pos.pnl >= 0 ? 'text-green' : 'text-red'">$<span x-text="pos.pnl.toFixed(2)"></span></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                    <div class="empty-state" x-show="tradingData.positions.length === 0">
+                        <p>No open positions</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Active Strategies</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Strategy</th><th>Status</th><th>Win Rate</th><th>PnL</th></tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="strat in tradingData.strategies" :key="strat.name">
+                                <tr>
+                                    <td x-text="strat.name"></td>
+                                    <td><span class="status-dot" :class="strat.active ? 'green' : 'yellow'"></span> <span x-text="strat.active ? 'Active' : 'Paused'"></span></td>
+                                    <td x-text="strat.winRate.toFixed(1) + '%'"></td>
+                                    <td :class="strat.pnl >= 0 ? 'text-green' : 'text-red'">$<span x-text="strat.pnl.toFixed(2)"></span></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Recent Signals / Trades</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Time</th><th>Asset</th><th>Signal</th><th>Action</th><th>Price</th><th>Size</th><th>PnL</th></tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="trade in tradingData.recentTrades" :key="trade.time">
+                            <tr>
+                                <td x-text="formatTime(trade.time)"></td>
+                                <td class="mono" x-text="trade.asset"></td>
+                                <td x-text="trade.signal"></td>
+                                <td><span class="badge" :class="trade.action === 'BUY' ? 'badge-green' : 'badge-red'" x-text="trade.action"></span></td>
+                                <td>$<span x-text="trade.price.toFixed(2)"></span></td>
+                                <td x-text="trade.size"></td>
+                                <td :class="trade.pnl >= 0 ? 'text-green' : 'text-red'">$<span x-text="trade.pnl.toFixed(2)"></span></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Models View -->
+        <div x-show="currentView === 'models'" x-transition class="view">
+            <div class="stat-cards">
+                <div class="stat-card">
+                    <div class="stat-label">Total Models</div>
+                    <div class="stat-value" x-text="models.length"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Providers</div>
+                    <div class="stat-value" x-text="uniqueProviders.length"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Requests</div>
+                    <div class="stat-value" x-text="formatNumber(totalRequests)"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Cost</div>
+                    <div class="stat-value">$<span x-text="totalModelCost.toFixed(4)"></span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Cost Breakdown</h3>
+                <canvas id="modelCostChart" height="250"></canvas>
+            </div>
+
+            <div class="card">
+                <h3>Model Registry</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Model</th>
+                            <th>Provider</th>
+                            <th>Context</th>
+                            <th>Cost In ($/M)</th>
+                            <th>Cost Out ($/M)</th>
+                            <th>Requests</th>
+                            <th>Tokens In</th>
+                            <th>Tokens Out</th>
+                            <th>Total Cost</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="model in models" :key="model.ID">
+                            <tr>
+                                <td class="mono" x-text="model.Config?.name || model.ID"></td>
+                                <td><span class="badge" x-text="model.Provider"></span></td>
+                                <td x-text="formatNumber(model.Config?.contextWindow || 0)"></td>
+                                <td>$<span x-text="(model.Config?.costInput || 0).toFixed(2)"></span></td>
+                                <td>$<span x-text="(model.Config?.costOutput || 0).toFixed(2)"></span></td>
+                                <td x-text="getCostForModel(model.ID)?.TotalRequests || 0"></td>
+                                <td x-text="formatNumber(getCostForModel(model.ID)?.TotalTokensIn || 0)"></td>
+                                <td x-text="formatNumber(getCostForModel(model.ID)?.TotalTokensOut || 0)"></td>
+                                <td>$<span x-text="(getCostForModel(model.ID)?.TotalCostUSD || 0).toFixed(4)"></span></td>
+                                <td><span class="status-dot green"></span> Online</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+                <div class="empty-state" x-show="models.length === 0">
+                    <p>No models registered</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Routing Configuration</h3>
+                <div class="config-grid">
+                    <div class="config-row">
+                        <span class="config-label">Simple Tasks →</span>
+                        <span class="config-value mono" x-text="status.routing?.simple || '—'"></span>
+                    </div>
+                    <div class="config-row">
+                        <span class="config-label">Complex Tasks →</span>
+                        <span class="config-value mono" x-text="status.routing?.complex || '—'"></span>
+                    </div>
+                    <div class="config-row">
+                        <span class="config-label">Critical Tasks →</span>
+                        <span class="config-value mono" x-text="status.routing?.critical || '—'"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Evolution View -->
+        <div x-show="currentView === 'evolution'" x-transition class="view">
+            <div class="stat-cards">
+                <div class="stat-card">
+                    <div class="stat-label">Evolving Agents</div>
+                    <div class="stat-value" x-text="evolvingAgents.length"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Mutations</div>
+                    <div class="stat-value" x-text="totalMutations"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg Fitness</div>
+                    <div class="stat-value" x-text="avgFitness.toFixed(3)"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Evolution Status</div>
+                    <div class="stat-value">
+                        <span class="status-dot green"></span> Active
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Fitness Trends</h3>
+                <canvas id="fitnessTrendChart" height="300"></canvas>
+            </div>
+
+            <div class="card">
+                <h3>Agent Evolution Status</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Agent</th>
+                            <th>Status</th>
+                            <th>Strategy Version</th>
+                            <th>Fitness</th>
+                            <th>Eval Count</th>
+                            <th>Temperature</th>
+                            <th>Last Mutation</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="agent in agents" :key="agent.id">
+                            <tr>
+                                <td x-text="agent.def?.name || agent.id"></td>
+                                <td>
+                                    <span class="status-dot" :class="agent.status === 'evolving' ? 'yellow' : 'green'"></span>
+                                    <span x-text="agent.status"></span>
+                                </td>
+                                <td x-text="getEvolutionData(agent.id)?.version || '—'"></td>
+                                <td>
+                                    <span :class="getFitnessClass(getEvolutionData(agent.id)?.fitness)" x-text="(getEvolutionData(agent.id)?.fitness || 0).toFixed(3)"></span>
+                                </td>
+                                <td x-text="getEvolutionData(agent.id)?.evalCount || 0"></td>
+                                <td x-text="(getEvolutionData(agent.id)?.temperature || 0).toFixed(3)"></td>
+                                <td x-text="formatTime(getEvolutionData(agent.id)?.createdAt)"></td>
+                                <td>
+                                    <button class="btn btn-xs" @click="triggerEvolve(agent.id)">Mutate</button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Mutation History</h3>
+                <div class="mutation-timeline">
+                    <template x-for="mutation in mutationHistory" :key="mutation.id">
+                        <div class="mutation-entry">
+                            <div class="mutation-time" x-text="formatTime(mutation.time)"></div>
+                            <div class="mutation-details">
+                                <span class="badge" x-text="mutation.agentId"></span>
+                                <span>v<span x-text="mutation.fromVersion"></span> → v<span x-text="mutation.toVersion"></span></span>
+                                <span class="mutation-fitness">
+                                    Fitness: <span x-text="mutation.fitness.toFixed(3)"></span>
+                                </span>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="empty-state" x-show="mutationHistory.length === 0">
+                        <p>No mutations recorded yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs View -->
+        <div x-show="currentView === 'logs'" x-transition class="view">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Real-Time Logs</h3>
+                    <div class="log-controls">
+                        <select x-model="logLevel" class="input-sm">
+                            <option value="all">All Levels</option>
+                            <option value="debug">Debug</option>
+                            <option value="info">Info</option>
+                            <option value="warn">Warning</option>
+                            <option value="error">Error</option>
+                        </select>
+                        <button class="btn btn-xs" :class="logStreaming ? 'btn-danger' : 'btn-primary'" @click="toggleLogStream()">
+                            <span x-text="logStreaming ? '⏸ Pause' : '▶ Stream'"></span>
+                        </button>
+                        <button class="btn btn-xs" @click="clearLogs()">Clear</button>
+                    </div>
+                </div>
+                <div class="log-container" id="logContainer">
+                    <template x-for="(log, i) in filteredLogs" :key="i">
+                        <div class="log-entry" :class="'log-' + log.level">
+                            <span class="log-time" x-text="log.time"></span>
+                            <span class="log-level" :class="'level-' + log.level" x-text="log.level.toUpperCase()"></span>
+                            <span class="log-component" x-text="log.component || '—'"></span>
+                            <span class="log-message" x-text="log.message"></span>
+                        </div>
+                    </template>
+                    <div class="empty-state" x-show="filteredLogs.length === 0">
+                        <p>No logs to display. Click "Stream" to start.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Agent Editor Modal Overlay -->
+    <div x-show="editingAgent" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50"
+         style="backdrop-filter: blur(4px);"
+         @click="closeAgentEditor()"
+         @keydown.escape.window="closeAgentEditor()">
+    </div>
+
+    <!-- Agent Editor Modal Dialog -->
+    <div x-show="editingAgent" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 transform scale-95"
+         x-transition:enter-end="opacity-100 transform scale-100"
+         class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 border border-gray-700 rounded-lg w-11/12 max-w-md max-h-screen overflow-auto z-50 shadow-2xl"
+         @click.stop
+         @keydown.escape.window="closeAgentEditor()"
+         style="z-index: 51;">
+        
+        <div class="flex justify-between items-center p-6 border-b border-gray-700">
+            <h3 class="text-xl font-semibold">Edit Agent Settings</h3>
+            <button @click="closeAgentEditor()" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+        </div>
+        
+        <div class="p-6 space-y-4">
+            <!-- Agent ID (read-only) -->
+            <div>
+                <label class="block text-sm font-medium mb-2">Agent ID</label>
+                <input type="text" :value="editingAgent?.id" readonly 
+                       class="w-full px-3 py-2 bg-gray-700 text-gray-400 rounded border border-gray-600 cursor-not-allowed">
+            </div>
+            
+            <!-- Agent Name -->
+            <div>
+                <label class="block text-sm font-medium mb-2">Display Name</label>
+                <input type="text" x-model="agentEdits.name"
+                       class="w-full px-3 py-2 bg-gray-900 text-white rounded border border-gray-600 focus:border-blue-500">
+            </div>
+            
+            <!-- Agent Type -->
+            <div>
+                <label class="block text-sm font-medium mb-2">Type</label>
+                <select x-model="agentEdits.type" 
+                        class="w-full px-3 py-2 bg-gray-900 text-white rounded border border-gray-600">
+                    <option value="monitor">Monitor</option>
+                    <option value="trader">Trader</option>
+                    <option value="orchestrator">Orchestrator</option>
+                    <option value="governance">Governance</option>
+                </select>
+            </div>
+            
+            <!-- Model Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-2">Model</label>
+                <select x-model="agentEdits.model" 
+                        class="w-full px-3 py-2 bg-gray-900 text-white rounded border border-gray-600">
+                    <option value="">Select a model...</option>
+                    <template x-for="model in availableModels" :key="model.ID">
+                        <option :value="model.ID" x-text="model.Config.name || model.ID"></option>
+                    </template>
+                </select>
+                <small class="block mt-1 text-xs text-gray-400" x-show="agentEdits.model">
+                    <template x-for="model in availableModels" :key="model.ID">
+                        <span x-show="model.ID === agentEdits.model">
+                            Context: <span x-text="formatNumber(model.Config.contextWindow)"></span> tokens |
+                            Cost: $<span x-text="model.Config.costInput"></span>/$<span x-text="model.Config.costOutput"></span> per M
+                        </span>
+                    </template>
+                </small>
+            </div>
+        </div>
+        
+        <div class="flex justify-end gap-3 p-6 border-t border-gray-700">
+            <button @click="closeAgentEditor()" 
+                    class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded">
+                Cancel
+            </button>
+            <button @click="saveAgentSettings()" 
+                    :disabled="!agentEdits.model || savingAgent"
+                    :class="{'opacity-50 cursor-not-allowed': !agentEdits.model || savingAgent}"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded disabled:bg-gray-600">
+                <span x-show="!savingAgent">Save Changes</span>
+                <span x-show="savingAgent">Saving...</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

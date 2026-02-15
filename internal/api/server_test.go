@@ -47,7 +47,7 @@ func TestHandleStatus(t *testing.T) {
 		ID:   "test-agent-1",
 		Name: "Test Agent",
 	}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
 	w := httptest.NewRecorder()
@@ -89,8 +89,8 @@ func TestHandleAgentsGet(t *testing.T) {
 	s := newTestServer(t)
 
 	// Create test agents
-	s.registry.Create(config.AgentDef{ID: "agent-1", Name: "Agent 1"})
-	s.registry.Create(config.AgentDef{ID: "agent-2", Name: "Agent 2"})
+	_, _ = s.registry.Create(config.AgentDef{ID: "agent-1", Name: "Agent 1"})
+	_, _ = s.registry.Create(config.AgentDef{ID: "agent-2", Name: "Agent 2"})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/agents", nil)
 	w := httptest.NewRecorder()
@@ -174,7 +174,7 @@ func TestHandleCostsGet(t *testing.T) {
 		Model:   "model-1",
 		Messages: []orchestrator.ChatMessage{{Role: "user", Content: "Hi"}},
 	}
-	s.router.Chat(context.Background(), "test-provider/model-1", req, nil)
+	_, _ = s.router.Chat(context.Background(), "test-provider/model-1", req, nil)
 
 	// Test GET /api/costs
 	httpReq := httptest.NewRequest(http.MethodGet, "/api/costs", nil)
@@ -287,7 +287,7 @@ func TestHandleAgentDetail(t *testing.T) {
 	
 	// Create test agent
 	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 	
 	// Test GET /api/agents/{id}
 	req := httptest.NewRequest(http.MethodGet, "/api/agents/test-agent", nil)
@@ -342,7 +342,7 @@ func TestHandleAgentMetrics(t *testing.T) {
 	
 	// Create test agent
 	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 	
 	// Test GET /api/agents/{id}/metrics
 	req := httptest.NewRequest(http.MethodGet, "/api/agents/test-agent/metrics", nil)
@@ -373,7 +373,7 @@ func TestHandleAgentEvolve(t *testing.T) {
 	
 	// Create test agent
 	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 	
 	// Test POST /api/agents/{id}/evolve
 	req := httptest.NewRequest(http.MethodPost, "/api/agents/test-agent/evolve", nil)
@@ -400,7 +400,7 @@ func TestHandleAgentMemory(t *testing.T) {
 	
 	// Create test agent
 	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 	
 	// Add some memory
 	mem := s.memory.Get("test-agent")
@@ -437,7 +437,7 @@ func TestHandleClearMemory(t *testing.T) {
 	
 	// Create test agent
 	def := config.AgentDef{ID: "test-agent", Name: "Test Agent"}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 	
 	// Add some memory
 	mem := s.memory.Get("test-agent")
@@ -510,7 +510,7 @@ func TestLoggingMiddleware(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, _ = w.Write([]byte("test response"))
 	})
 	
 	wrapped := s.loggingMiddleware(handler)
@@ -566,7 +566,7 @@ func TestHandleAgentDetail_WrongMethodForMemory(t *testing.T) {
 		Type: "monitor",
 		Model: "test",
 	}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 
 	// POST to memory (only GET and DELETE allowed)
 	req := httptest.NewRequest(http.MethodPost, "/api/agents/test-agent/memory", nil)
@@ -588,7 +588,7 @@ func TestHandleAgentDetail_WrongMethodForMetrics(t *testing.T) {
 		Type: "monitor",
 		Model: "test",
 	}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 
 	// POST to metrics (only GET allowed)
 	req := httptest.NewRequest(http.MethodPost, "/api/agents/test-agent/metrics", nil)
@@ -610,7 +610,7 @@ func TestHandleAgentDetail_WrongMethodForEvolve(t *testing.T) {
 		Type: "monitor",
 		Model: "test",
 	}
-	s.registry.Create(def)
+	_, _ = s.registry.Create(def)
 
 	// GET to evolve (only POST allowed)
 	req := httptest.NewRequest(http.MethodGet, "/api/agents/test-agent/evolve", nil)
@@ -643,6 +643,19 @@ func TestHandleCosts_MethodNotAllowed(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	s.handleCosts(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected status 405, got %d", w.Code)
+	}
+}
+
+func TestHandleAgents_MethodNotAllowed(t *testing.T) {
+	s := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/agents", nil)
+	w := httptest.NewRecorder()
+
+	s.handleAgents(w, req)
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("expected status 405, got %d", w.Code)

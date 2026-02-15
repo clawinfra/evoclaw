@@ -445,7 +445,7 @@ func TestGetCost(t *testing.T) {
 		Messages: []orchestrator.ChatMessage{{Role: "user", Content: "Hi"}},
 	}
 
-	r.Chat(context.Background(), "test-provider/model-1", req, nil)
+	_, _ = r.Chat(context.Background(), "test-provider/model-1", req, nil)
 
 	cost = r.GetCost("test-provider/model-1")
 	if cost.TotalRequests != 1 {
@@ -472,8 +472,8 @@ func TestGetAllCosts(t *testing.T) {
 		Messages: []orchestrator.ChatMessage{{Role: "user", Content: "Hi"}},
 	}
 
-	r.Chat(context.Background(), "test-provider/model-1", req, nil)
-	r.Chat(context.Background(), "test-provider/model-2", req, nil)
+	_, _ = r.Chat(context.Background(), "test-provider/model-1", req, nil)
+	_, _ = r.Chat(context.Background(), "test-provider/model-2", req, nil)
 
 	costs := r.GetAllCosts()
 

@@ -1,0 +1,30 @@
+version: "3"
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Containerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - evoclaw-data:/data
+      - ./evoclaw.json:/evoclaw.json:ro
+    environment:
+      - EVOCLAW_MQTT_HOST=mosquitto
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+
+  mosquitto:
+    image: docker.io/library/eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    restart: unless-stopped
+
+volumes:
+  evoclaw-data:
+  mosquitto-data:
+  mosquitto-log:

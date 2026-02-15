@@ -255,9 +255,9 @@ mod tests {
     fn test_record_trade_single() {
         let mut tracker = EvolutionTracker::new(100);
         let trade = create_test_trade(100.0);
-        
+
         tracker.record_trade(trade.clone());
-        
+
         assert_eq!(tracker.trade_history.len(), 1);
         assert_eq!(tracker.trade_history[0].pnl, 100.0);
         assert_eq!(tracker.peak_equity, 100.0);
@@ -267,11 +267,11 @@ mod tests {
     #[test]
     fn test_record_trade_multiple() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         tracker.record_trade(create_test_trade(50.0));
         tracker.record_trade(create_test_trade(-30.0));
-        
+
         assert_eq!(tracker.trade_history.len(), 3);
         let total_pnl: f64 = tracker.trade_history.iter().map(|t| t.pnl).sum();
         assert_eq!(total_pnl, 120.0);
@@ -280,11 +280,11 @@ mod tests {
     #[test]
     fn test_record_trade_max_history() {
         let mut tracker = EvolutionTracker::new(5);
-        
+
         for i in 0..10 {
             tracker.record_trade(create_test_trade(i as f64));
         }
-        
+
         assert_eq!(tracker.trade_history.len(), 5);
         // Should keep most recent trades
         assert_eq!(tracker.trade_history[0].pnl, 5.0);
@@ -294,11 +294,11 @@ mod tests {
     #[test]
     fn test_drawdown_tracking_winning_streak() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         tracker.record_trade(create_test_trade(50.0));
         tracker.record_trade(create_test_trade(75.0));
-        
+
         assert_eq!(tracker.peak_equity, 225.0);
         assert_eq!(tracker.current_drawdown, 0.0);
         assert_eq!(tracker.max_drawdown, 0.0);
@@ -307,13 +307,13 @@ mod tests {
     #[test]
     fn test_drawdown_tracking_losing_after_wins() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         tracker.record_trade(create_test_trade(50.0));
         // Peak at 150
         tracker.record_trade(create_test_trade(-30.0));
         // Now at 120
-        
+
         assert_eq!(tracker.peak_equity, 150.0);
         assert_eq!(tracker.current_drawdown, 30.0);
         assert_eq!(tracker.max_drawdown, 30.0);
@@ -322,11 +322,11 @@ mod tests {
     #[test]
     fn test_drawdown_tracking_recovery() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         tracker.record_trade(create_test_trade(-50.0));
         tracker.record_trade(create_test_trade(100.0)); // Recovers above old peak
-        
+
         assert_eq!(tracker.peak_equity, 150.0);
         assert_eq!(tracker.current_drawdown, 0.0);
     }
@@ -334,12 +334,12 @@ mod tests {
     #[test]
     fn test_calculate_total_pnl() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         tracker.record_trade(create_test_trade(-30.0));
         tracker.record_trade(create_test_trade(50.0));
         tracker.record_trade(create_test_trade(-20.0));
-        
+
         let total = tracker.calculate_total_pnl();
         assert_eq!(total, 100.0);
     }
@@ -353,33 +353,33 @@ mod tests {
     #[test]
     fn test_calculate_win_rate_all_wins() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         tracker.record_trade(create_test_trade(50.0));
         tracker.record_trade(create_test_trade(75.0));
-        
+
         assert_eq!(tracker.calculate_win_rate(), 100.0);
     }
 
     #[test]
     fn test_calculate_win_rate_all_losses() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(-100.0));
         tracker.record_trade(create_test_trade(-50.0));
-        
+
         assert_eq!(tracker.calculate_win_rate(), 0.0);
     }
 
     #[test]
     fn test_calculate_win_rate_mixed() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         tracker.record_trade(create_test_trade(-50.0));
         tracker.record_trade(create_test_trade(75.0));
         tracker.record_trade(create_test_trade(-25.0));
-        
+
         // 2 wins out of 4 = 50%
         assert_eq!(tracker.calculate_win_rate(), 50.0);
     }
@@ -388,7 +388,7 @@ mod tests {
     fn test_calculate_sharpe_ratio_insufficient_data() {
         let tracker = EvolutionTracker::new(100);
         assert_eq!(tracker.calculate_sharpe_ratio(), 0.0);
-        
+
         let mut tracker2 = EvolutionTracker::new(100);
         tracker2.record_trade(create_test_trade(100.0));
         assert_eq!(tracker2.calculate_sharpe_ratio(), 0.0); // Need at least 2 trades
@@ -397,10 +397,10 @@ mod tests {
     #[test]
     fn test_calculate_sharpe_ratio_zero_volatility() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         // Manually set identical returns (zero volatility)
         tracker.returns = vec![10.0, 10.0, 10.0, 10.0];
-        
+
         let sharpe = tracker.calculate_sharpe_ratio();
         assert_eq!(sharpe, 0.0); // Zero volatility = zero Sharpe
     }
@@ -408,13 +408,13 @@ mod tests {
     #[test]
     fn test_get_metrics() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         tracker.record_trade(create_test_trade(-30.0));
         tracker.record_trade(create_test_trade(50.0));
-        
+
         let metrics = tracker.get_metrics();
-        
+
         assert_eq!(metrics.total_trades, 3);
         assert_eq!(metrics.total_pnl, 120.0);
         assert!((metrics.win_rate - 66.67).abs() < 0.1); // 2 wins out of 3
@@ -425,7 +425,7 @@ mod tests {
     fn test_get_metrics_no_trades() {
         let tracker = EvolutionTracker::new(100);
         let metrics = tracker.get_metrics();
-        
+
         assert_eq!(metrics.total_trades, 0);
         assert_eq!(metrics.total_pnl, 0.0);
         assert_eq!(metrics.win_rate, 0.0);
@@ -435,14 +435,14 @@ mod tests {
     #[test]
     fn test_fitness_score_all_positive() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         // Build good performance
         for _ in 0..10 {
             tracker.record_trade(create_test_trade(100.0));
         }
-        
+
         let fitness = tracker.fitness_score();
-        
+
         // Should have a positive fitness score (all wins, positive PnL, no drawdown)
         // Actual value depends on Sharpe calculation with limited data
         assert!(fitness > 0.0);
@@ -452,14 +452,14 @@ mod tests {
     #[test]
     fn test_fitness_score_poor_performance() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         // Build poor performance
         for _ in 0..10 {
             tracker.record_trade(create_test_trade(-100.0));
         }
-        
+
         let fitness = tracker.fitness_score();
-        
+
         // Should have a low fitness score (all losses, negative PnL)
         assert!(fitness < 50.0);
     }
@@ -467,13 +467,13 @@ mod tests {
     #[test]
     fn test_fitness_score_mixed() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         tracker.record_trade(create_test_trade(-50.0));
         tracker.record_trade(create_test_trade(75.0));
-        
+
         let fitness = tracker.fitness_score();
-        
+
         // Should be moderate (mixed results)
         assert!(fitness > 0.0);
         assert!(fitness < 100.0);
@@ -482,15 +482,15 @@ mod tests {
     #[test]
     fn test_reset() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         tracker.record_trade(create_test_trade(-50.0));
-        
+
         assert_eq!(tracker.trade_history.len(), 2);
         assert!(tracker.peak_equity > 0.0);
-        
+
         tracker.reset();
-        
+
         assert_eq!(tracker.trade_history.len(), 0);
         assert_eq!(tracker.peak_equity, 0.0);
         assert_eq!(tracker.current_drawdown, 0.0);
@@ -501,12 +501,12 @@ mod tests {
     #[test]
     fn test_get_trade_history() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         tracker.record_trade(create_test_trade(-50.0));
-        
+
         let history = tracker.get_trade_history();
-        
+
         assert_eq!(history.len(), 2);
         assert_eq!(history[0].pnl, 100.0);
         assert_eq!(history[1].pnl, -50.0);
@@ -515,12 +515,12 @@ mod tests {
     #[test]
     fn test_trade_count() {
         let mut tracker = EvolutionTracker::new(100);
-        
+
         assert_eq!(tracker.trade_count(), 0);
-        
+
         tracker.record_trade(create_test_trade(100.0));
         assert_eq!(tracker.trade_count(), 1);
-        
+
         tracker.record_trade(create_test_trade(-50.0));
         assert_eq!(tracker.trade_count(), 2);
     }
@@ -535,10 +535,10 @@ mod tests {
             size: 0.5,
             pnl: 500.0,
         };
-        
+
         let json = serde_json::to_string(&trade).unwrap();
         let deserialized: TradeRecord = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.asset, "BTC");
         assert_eq!(deserialized.entry_price, 50000.0);
         assert_eq!(deserialized.exit_price, 51000.0);
@@ -555,10 +555,10 @@ mod tests {
             total_trades: 10,
             avg_profit_per_trade: 100.0,
         };
-        
+
         let json = serde_json::to_string(&metrics).unwrap();
         let deserialized: PerformanceMetrics = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.win_rate, 75.0);
         assert_eq!(deserialized.total_pnl, 1000.0);
         assert_eq!(deserialized.sharpe_ratio, 1.5);
@@ -572,7 +572,7 @@ mod tests {
             5,
             "Improved performance".to_string(),
         );
-        
+
         assert_eq!(update.strategy_name, "FundingArbitrage");
         assert_eq!(update.generation, 5);
         assert_eq!(update.reason, "Improved performance");

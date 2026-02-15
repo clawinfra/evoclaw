@@ -1,5 +1,5 @@
-# Go
-evoclaw
+# Go binary
+/evoclaw
 *.exe
 vendor/
 
@@ -23,3 +23,6 @@ data/
 *.key
 *.pem
 .env
+evoclaw-new
+deploy/wallet.json
+deploy/node_modules/

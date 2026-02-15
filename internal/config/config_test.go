@@ -81,9 +81,8 @@ func TestLoadConfig(t *testing.T) {
 				Enabled:  true,
 				BotToken: "test-token-123",
 			},
-			WhatsApp: &WhatsAppConfig{
-				Enabled:   true,
-				AllowFrom: []string{"user1", "user2"},
+			TUI: &TUIConfig{
+				Enabled: true,
 			},
 		},
 		Models: ModelsConfig{
@@ -181,12 +180,12 @@ func TestLoadConfig(t *testing.T) {
 		t.Errorf("expected bot token test-token-123, got %s", loaded.Channels.Telegram.BotToken)
 	}
 
-	if loaded.Channels.WhatsApp == nil {
-		t.Fatal("expected whatsapp config, got nil")
+	if loaded.Channels.TUI == nil {
+		t.Fatal("expected TUI config, got nil")
 	}
 
-	if len(loaded.Channels.WhatsApp.AllowFrom) != 2 {
-		t.Errorf("expected 2 allowFrom entries, got %d", len(loaded.Channels.WhatsApp.AllowFrom))
+	if !loaded.Channels.TUI.Enabled {
+		t.Error("expected TUI enabled")
 	}
 
 	if loaded.Models.Routing.Simple != "ollama/llama3.2" {
@@ -355,8 +354,8 @@ func TestSaveConfigReadOnlyDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	
 	// Make directory read-only
-	os.Chmod(tmpDir, 0444)
-	defer os.Chmod(tmpDir, 0755)
+	_ = os.Chmod(tmpDir, 0444)
+	defer func() { _ = os.Chmod(tmpDir, 0755) }()
 	
 	configPath := filepath.Join(tmpDir, "config.json")
 	cfg := DefaultConfig()
@@ -382,7 +381,7 @@ func TestLoad_InvalidJSON(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "invalid.json")
 
 	// Write invalid JSON
-	os.WriteFile(configPath, []byte("invalid json{{{"), 0644)
+	_ = os.WriteFile(configPath, []byte("invalid json{{{"), 0644)
 
 	_, err := Load(configPath)
 	if err == nil {
@@ -416,5 +415,59 @@ func TestLoad_DataDirCreation(t *testing.T) {
 	// Verify data dir was created
 	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
 		t.Error("expected data dir to be created")
+	}
+}
+
+func TestSave_MarshalError(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.json")
+
+	cfg := DefaultConfig()
+	
+	// The Save function is straightforward - we test the happy path
+	err := cfg.Save(configPath)
+	if err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Verify the file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		t.Error("config file was not created")
+	}
+}
+
+func TestSave_WriteFileError(t *testing.T) {
+	cfg := DefaultConfig()
+	
+	// Try to write to a path that is a directory
+	tmpDir := t.TempDir()
+	dirPath := filepath.Join(tmpDir, "testdir")
+	_ = os.Mkdir(dirPath, 0755)
+	
+	// Try to write to the directory itself (not a file in it)
+	err := cfg.Save(dirPath)
+	if err == nil {
+		t.Error("expected error when writing to directory path")
+	}
+}
+
+func TestLoad_MkdirAllError(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.json")
+
+	cfg := DefaultConfig()
+	// Set data dir to a path that can't be created (file instead of dir)
+	filePath := filepath.Join(tmpDir, "blockingfile")
+	_ = os.WriteFile(filePath, []byte("test"), 0644)
+	cfg.Server.DataDir = filepath.Join(filePath, "subdir") // Can't create dir under a file
+
+	if err := cfg.Save(configPath); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Load should fail when trying to create data dir
+	_, err := Load(configPath)
+	if err == nil {
+		t.Error("expected error when data dir can't be created")
 	}
 }

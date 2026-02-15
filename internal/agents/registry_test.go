@@ -141,7 +141,7 @@ func TestListAgents(t *testing.T) {
 			ID:   string(rune(i)) + "-agent",
 			Name: "Agent " + string(rune(i)),
 		}
-		r.Create(def)
+		_, _ = r.Create(def)
 	}
 
 	agents = r.List()
@@ -443,13 +443,13 @@ func TestCheckHealth(t *testing.T) {
 			ID:   string(rune('a'+i-1)) + "-agent",
 			Name: "Agent " + string(rune('0'+i)),
 		}
-		r.Create(def)
+		_, _ = r.Create(def)
 	}
 
 	// Record heartbeats at different times
-	r.RecordHeartbeat("a-agent")
+	_ = r.RecordHeartbeat("a-agent")
 	time.Sleep(10 * time.Millisecond)
-	r.RecordHeartbeat("b-agent")
+	_ = r.RecordHeartbeat("b-agent")
 	// Don't record heartbeat for c-agent
 
 	// Simulate old heartbeat for a-agent
@@ -497,12 +497,12 @@ func TestRegistrySaveAndLoad(t *testing.T) {
 		Model: "test/model2",
 	}
 
-	r1.Create(def1)
-	r1.Create(def2)
+	_, _ = r1.Create(def1)
+	_, _ = r1.Create(def2)
 
 	// Record some activity
-	r1.RecordMessage("agent-1")
-	r1.UpdateMetrics("agent-1", 1000, 0.05, 500, true)
+	_ = r1.RecordMessage("agent-1")
+	_ = r1.UpdateMetrics("agent-1", 1000, 0.05, 500, true)
 
 	// Save all
 	err = r1.SaveAll()
@@ -560,8 +560,8 @@ func TestGetSnapshot(t *testing.T) {
 	}
 
 	// Update agent state
-	r.RecordMessage("test-agent-1")
-	r.UpdateMetrics("test-agent-1", 1000, 0.05, 500, true)
+	_ = r.RecordMessage("test-agent-1")
+	_ = r.UpdateMetrics("test-agent-1", 1000, 0.05, 500, true)
 
 	// Get snapshot
 	snapshot := agent.GetSnapshot()
@@ -599,7 +599,7 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 	// Concurrent message recording
 	for i := 0; i < 10; i++ {
 		go func() {
-			r.RecordMessage("test-agent-1")
+			_ = r.RecordMessage("test-agent-1")
 			done <- true
 		}()
 	}
@@ -607,7 +607,7 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 	// Concurrent metric updates
 	for i := 0; i < 10; i++ {
 		go func() {
-			r.UpdateMetrics("test-agent-1", 100, 0.01, 100, true)
+			_ = r.UpdateMetrics("test-agent-1", 100, 0.01, 100, true)
 			done <- true
 		}()
 	}
@@ -615,7 +615,7 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 	// Concurrent reads
 	for i := 0; i < 10; i++ {
 		go func() {
-			r.Get("test-agent-1")
+			_, _ = r.Get("test-agent-1")
 			done <- true
 		}()
 	}
@@ -642,7 +642,7 @@ func TestLoadWithInvalidJSON(t *testing.T) {
 	
 	// Write an invalid JSON file
 	invalidPath := tmpDir + "/invalid.json"
-	os.WriteFile(invalidPath, []byte("not valid json"), 0644)
+	_ = os.WriteFile(invalidPath, []byte("not valid json"), 0644)
 	
 	r, err := NewRegistry(tmpDir, logger)
 	if err != nil {
@@ -667,8 +667,8 @@ func TestSaveError(t *testing.T) {
 	}
 	
 	// Make the data directory read-only to force a save error
-	os.Chmod(r.dataDir, 0444)
-	defer os.Chmod(r.dataDir, 0755)
+	_ = os.Chmod(r.dataDir, 0444)
+	defer func() { _ = os.Chmod(r.dataDir, 0755) }()
 	
 	// SaveAll should continue despite errors
 	err = r.SaveAll()
@@ -693,14 +693,14 @@ func TestRegistry_LoadErrorHandling(t *testing.T) {
 		Type: "monitor",
 		Model: "test",
 	}
-	registry.Create(def)
+	_, _ = registry.Create(def)
 
 	// Save it
-	registry.SaveAll()
+	_ = registry.SaveAll()
 
 	// Create corrupted file
 	agentPath := filepath.Join(tmpDir, "agents", "test-agent.json")
-	os.WriteFile(agentPath, []byte("invalid json{{{"), 0644)
+	_ = os.WriteFile(agentPath, []byte("invalid json{{{"), 0644)
 
 	// Try to load - should handle error gracefully
 	newRegistry, _ := NewRegistry(tmpDir, logger)
@@ -723,12 +723,12 @@ func TestRegistry_SaveErrorHandling(t *testing.T) {
 		Type: "monitor",
 		Model: "test",
 	}
-	registry.Create(def)
+	_, _ = registry.Create(def)
 
 	// Make directory read-only to trigger save error
 	agentDir := filepath.Join(tmpDir, "agents")
-	os.MkdirAll(agentDir, 0755)
-	os.Chmod(agentDir, 0444)
+	_ = os.MkdirAll(agentDir, 0755)
+	_ = os.Chmod(agentDir, 0444)
 
 	err := registry.SaveAll()
 	if err != nil {
@@ -736,7 +736,7 @@ func TestRegistry_SaveErrorHandling(t *testing.T) {
 	}
 
 	// Restore permissions
-	os.Chmod(agentDir, 0755)
+	_ = os.Chmod(agentDir, 0755)
 }
 
 func TestMemoryStore_LoadErrorHandling(t *testing.T) {
@@ -748,11 +748,11 @@ func TestMemoryStore_LoadErrorHandling(t *testing.T) {
 	// Create memory and save
 	mem := memory.Get("test-agent")
 	mem.Add("user", "Hello")
-	memory.Save("test-agent")
+	_ = memory.Save("test-agent")
 
 	// Corrupt the file
 	memPath := filepath.Join(tmpDir, "memory", "test-agent.json")
-	os.WriteFile(memPath, []byte("invalid json{{{"), 0644)
+	_ = os.WriteFile(memPath, []byte("invalid json{{{"), 0644)
 
 	// Create new memory store and try to load
 	newMemory, _ := NewMemoryStore(tmpDir, logger)
@@ -783,8 +783,8 @@ func TestMemory_SaveErrorHandling(t *testing.T) {
 
 	// Make directory read-only
 	memDir := filepath.Join(tmpDir, "memory")
-	os.MkdirAll(memDir, 0755)
-	os.Chmod(memDir, 0444)
+	_ = os.MkdirAll(memDir, 0755)
+	_ = os.Chmod(memDir, 0444)
 
 	err := memory.Save("test-agent")
 	if err != nil {
@@ -792,5 +792,5 @@ func TestMemory_SaveErrorHandling(t *testing.T) {
 	}
 
 	// Restore permissions
-	os.Chmod(memDir, 0755)
+	_ = os.Chmod(memDir, 0755)
 }

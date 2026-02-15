@@ -4,25 +4,32 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/clawinfra/evoclaw/internal/agents"
+	"github.com/clawinfra/evoclaw/internal/channels"
 	"github.com/clawinfra/evoclaw/internal/models"
 	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/security"
 )
 
 // Server is the HTTP API server
 type Server struct {
-	port       int
-	orch       *orchestrator.Orchestrator
-	registry   *agents.Registry
-	memory     *agents.MemoryStore
-	router     *models.Router
-	logger     *slog.Logger
-	httpServer *http.Server
+	port        int
+	orch        *orchestrator.Orchestrator
+	registry    *agents.Registry
+	memory      *agents.MemoryStore
+	router      *models.Router
+	evolution   interface{} // Evolution engine interface
+	logger      *slog.Logger
+	httpServer  *http.Server
+	webFS       fs.FS // embedded web dashboard assets (optional)
+	jwtSecret   []byte
+	httpChannel *channels.HTTPChannel // HTTP channel for request-response pairs
 }
 
 // NewServer creates a new API server
@@ -34,30 +41,92 @@ func NewServer(
 	router *models.Router,
 	logger *slog.Logger,
 ) *Server {
-	return &Server{
-		port:     port,
-		orch:     orch,
-		registry: registry,
-		memory:   memory,
-		router:   router,
-		logger:   logger.With("component", "api"),
+	jwtSecret := security.GetJWTSecret()
+	if jwtSecret == nil {
+		logger.Warn("EVOCLAW_JWT_SECRET not set — running in dev mode (unauthenticated API access)")
 	}
+	
+	// Create and register HTTP channel (only if orchestrator exists)
+	httpChannel := channels.NewHTTPChannel()
+	if orch != nil {
+		orch.RegisterChannel(httpChannel)
+	}
+	
+	return &Server{
+		port:        port,
+		orch:        orch,
+		registry:    registry,
+		memory:      memory,
+		router:      router,
+		logger:      logger.With("component", "api"),
+		jwtSecret:   jwtSecret,
+		httpChannel: httpChannel,
+	}
+}
+
+// SetWebFS sets the embedded filesystem for the web dashboard
+func (s *Server) SetWebFS(webFS fs.FS) {
+	s.webFS = webFS
+}
+
+// SetEvolution sets the evolution engine interface
+func (s *Server) SetEvolution(evolution interface{}) {
+	s.evolution = evolution
 }
 
 // Start starts the HTTP server
 func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 
-	// Register routes
+	// Auth endpoint (unauthenticated — before auth middleware)
+	mux.HandleFunc("/api/auth/token", s.handleAuthToken)
+
+	// Terminal web UI
+	mux.HandleFunc("/terminal", s.handleTerminalPage)
+	
+	// Register API routes (protected by auth middleware applied at handler level)
 	mux.HandleFunc("/api/status", s.handleStatus)
+	mux.HandleFunc("/api/chat", s.handleChat)
+	mux.HandleFunc("/api/chat/stream", s.handleChatStream)
 	mux.HandleFunc("/api/agents", s.handleAgents)
 	mux.HandleFunc("/api/agents/", s.handleAgentDetail)
 	mux.HandleFunc("/api/models", s.handleModels)
 	mux.HandleFunc("/api/costs", s.handleCosts)
+	mux.HandleFunc("/api/dashboard", s.handleDashboard)
+	mux.HandleFunc("/api/logs/stream", s.handleLogStream)
+	mux.HandleFunc("/api/memory/stats", s.handleMemoryStats)
+	mux.HandleFunc("/api/memory/tree", s.handleMemoryTree)
+	mux.HandleFunc("/api/memory/retrieve", s.handleMemoryRetrieve)
+	
+	// Genome API routes
+	mux.HandleFunc("/api/agents/{id}/genome", s.handleGenomeRoutes)
+	mux.HandleFunc("/api/agents/{id}/genome/skills/{skill}", s.handleSkillRoutes)
+	mux.HandleFunc("/api/agents/{id}/genome/skills/{skill}/params", s.handleUpdateSkillParams)
+	mux.HandleFunc("/api/agents/{id}/genome/constraints", s.handleConstraintRoutes)
+	
+	// Layer 3: Behavioral Evolution API routes
+	mux.HandleFunc("/api/agents/{id}/feedback", s.handleFeedbackRoutes)
+	mux.HandleFunc("/api/agents/{id}/genome/behavior", s.handleBehaviorRoutes)
+	mux.HandleFunc("/api/agents/{id}/behavior/history", s.handleBehaviorHistoryRoutes)
+
+	// Security Layer 3: Evolution Firewall API routes
+	mux.HandleFunc("/api/agents/{id}/firewall", s.handleFirewallStatus)
+	mux.HandleFunc("/api/agents/{id}/firewall/rollback", s.handleFirewallRollback)
+	mux.HandleFunc("/api/agents/{id}/firewall/reset", s.handleFirewallReset)
+
+	// Serve embedded web dashboard
+	if s.webFS != nil {
+		fileServer := http.FileServer(http.FS(s.webFS))
+		mux.Handle("/", fileServer)
+		s.logger.Info("web dashboard enabled at /")
+	}
+
+	// Apply JWT auth middleware to all routes (skips /api/auth/token via path check)
+	authedHandler := s.jwtAuthWrapper(mux)
 
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.port),
-		Handler:      s.corsMiddleware(s.loggingMiddleware(mux)),
+		Handler:      s.corsMiddleware(s.loggingMiddleware(authedHandler)),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -188,6 +257,8 @@ func (s *Server) handleAgentDetail(w http.ResponseWriter, r *http.Request) {
 		s.handleAgentMetrics(w, agent)
 	case action == "evolve" && r.Method == http.MethodPost:
 		s.handleAgentEvolve(w, agent)
+	case action == "evolution" && r.Method == http.MethodGet:
+		s.handleAgentEvolution(w, r)
 	case action == "memory" && r.Method == http.MethodGet:
 		s.handleAgentMemory(w, agentID)
 	case action == "memory" && r.Method == http.MethodDelete:
@@ -195,9 +266,70 @@ func (s *Server) handleAgentDetail(w http.ResponseWriter, r *http.Request) {
 	case action == "" && r.Method == http.MethodGet:
 		// Get agent details
 		s.respondJSON(w, agent.GetSnapshot())
+	case action == "" && r.Method == http.MethodPatch:
+		// Update agent settings
+		s.handleAgentUpdate(w, r, agentID, agent)
 	default:
 		http.Error(w, "invalid action or method", http.StatusBadRequest)
 	}
+}
+
+// handleAgentUpdate updates agent settings (model, name, type)
+func (s *Server) handleAgentUpdate(w http.ResponseWriter, r *http.Request, agentID string, agent *agents.Agent) {
+	var update struct {
+		Name  string `json:"name"`
+		Type  string `json:"type"`
+		Model string `json:"model"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate model if specified
+	if update.Model != "" {
+		models := s.router.ListModels()
+		modelExists := false
+		for _, m := range models {
+			if m.ID == update.Model {
+				modelExists = true
+				break
+			}
+		}
+		if !modelExists {
+			http.Error(w, fmt.Sprintf("model not found: %s", update.Model), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Get current definition and update
+	def := agent.Def
+	if update.Name != "" {
+		def.Name = update.Name
+	}
+	if update.Type != "" {
+		def.Type = update.Type
+	}
+	if update.Model != "" {
+		def.Model = update.Model
+	}
+	
+	// Apply update via registry
+	if err := s.registry.Update(agentID, def); err != nil {
+		http.Error(w, fmt.Sprintf("failed to update agent: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	s.logger.Info("agent updated", "agent", agentID, "model", def.Model)
+
+	s.respondJSON(w, map[string]interface{}{
+		"status": "ok",
+		"agent":  agentID,
+		"name":   def.Name,
+		"type":   def.Type,
+		"model":  def.Model,
+	})
 }
 
 // handleAgentMetrics returns agent performance metrics
@@ -276,6 +408,76 @@ func (s *Server) handleCosts(w http.ResponseWriter, r *http.Request) {
 
 	costs := s.router.GetAllCosts()
 	s.respondJSON(w, costs)
+}
+
+// jwtAuthWrapper applies JWT authentication to all /api/ routes except /api/auth/token.
+func (s *Server) jwtAuthWrapper(next http.Handler) http.Handler {
+	authMW := security.AuthMiddleware(s.jwtSecret)
+	authed := authMW(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip auth for token endpoint and non-API routes
+		if r.URL.Path == "/api/auth/token" || !strings.HasPrefix(r.URL.Path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		authed.ServeHTTP(w, r)
+	})
+}
+
+// handleAuthToken generates a JWT token. In production, this should validate
+// API keys or owner credentials. For now it accepts a JSON body with agent_id and role.
+func (s *Server) handleAuthToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		AgentID string `json:"agent_id"`
+		Role    string `json:"role"`
+		APIKey  string `json:"api_key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.AgentID == "" || req.Role == "" {
+		http.Error(w, `{"error":"agent_id and role required"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Validate role
+	validRole := false
+	for _, r := range security.ValidRoles {
+		if r == req.Role {
+			validRole = true
+			break
+		}
+	}
+	if !validRole {
+		http.Error(w, `{"error":"invalid role"}`, http.StatusBadRequest)
+		return
+	}
+
+	secret := s.jwtSecret
+	if secret == nil {
+		// Dev mode: use a default secret for token generation
+		secret = []byte("evoclaw-dev-secret")
+	}
+
+	token, err := security.GenerateToken(req.AgentID, req.Role, secret, 24*time.Hour)
+	if err != nil {
+		s.logger.Error("failed to generate token", "error", err)
+		http.Error(w, `{"error":"token generation failed"}`, http.StatusInternalServerError)
+		return
+	}
+
+	s.respondJSON(w, map[string]interface{}{
+		"token":      token,
+		"expires_in": 86400,
+		"token_type": "Bearer",
+	})
 }
 
 // respondJSON writes a JSON response

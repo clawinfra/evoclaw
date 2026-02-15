@@ -1,0 +1,33 @@
+# github.com/clawinfra/evoclaw/internal/memory [github.com/clawinfra/evoclaw/internal/memory.test]
+internal/memory/cold_final_test.go:133:12: cannot use mock (variable of type *mockColdStorage) as *cloudsync.Client value in struct literal
+internal/memory/cold_final_test.go:142:57: unknown field Context in struct literal of type DistilledFact
+internal/memory/cold_final_test.go:188:12: cannot use mock (variable of type *mockColdStorage) as *cloudsync.Client value in struct literal
+internal/memory/cold_final_test.go:216:12: cannot use mock (variable of type *mockColdStorage) as *cloudsync.Client value in struct literal
+internal/memory/cold_final_test.go:242:12: cannot use mock (variable of type *mockColdStorage) as *cloudsync.Client value in struct literal
+internal/memory/cold_final_test.go:273:12: cannot use mock (variable of type *mockColdStorage) as *cloudsync.Client value in struct literal
+internal/memory/cold_final_test.go:303:12: cannot use mock (variable of type *mockColdStorage) as *cloudsync.Client value in struct literal
+internal/memory/cold_final_test.go:330:12: cannot use mock (variable of type *mockColdStorage) as *cloudsync.Client value in struct literal
+internal/memory/cold_final_test.go:360:12: cannot use mock (variable of type *mockColdStorage) as *cloudsync.Client value in struct literal
+internal/memory/cold_final_test.go:390:12: cannot use mock (variable of type *mockColdStorage) as *cloudsync.Client value in struct literal
+internal/memory/cold_final_test.go:390:12: too many errors
+ok  	github.com/clawinfra/evoclaw/cmd/evoclaw	1.016s
+?   	github.com/clawinfra/evoclaw/cmd/init-turso	[no test files]
+?   	github.com/clawinfra/evoclaw/cmd/tui	[no test files]
+ok  	github.com/clawinfra/evoclaw/internal/agents	1.047s
+ok  	github.com/clawinfra/evoclaw/internal/api	1.473s
+ok  	github.com/clawinfra/evoclaw/internal/channels	2.100s
+ok  	github.com/clawinfra/evoclaw/internal/clawchain	1.025s
+ok  	github.com/clawinfra/evoclaw/internal/cli	1.037s
+ok  	github.com/clawinfra/evoclaw/internal/cloudsync	2.686s
+ok  	github.com/clawinfra/evoclaw/internal/config	1.030s
+ok  	github.com/clawinfra/evoclaw/internal/evolution	1.083s
+ok  	github.com/clawinfra/evoclaw/internal/genome	1.027s
+FAIL	github.com/clawinfra/evoclaw/internal/memory [build failed]
+ok  	github.com/clawinfra/evoclaw/internal/models	1.032s
+ok  	github.com/clawinfra/evoclaw/internal/onchain	1.031s
+ok  	github.com/clawinfra/evoclaw/internal/orchestrator	8.490s
+ok  	github.com/clawinfra/evoclaw/internal/router	1.055s
+ok  	github.com/clawinfra/evoclaw/internal/security	1.018s
+ok  	github.com/clawinfra/evoclaw/internal/skills	1.114s
+ok  	github.com/clawinfra/evoclaw/internal/wal	1.010s
+FAIL

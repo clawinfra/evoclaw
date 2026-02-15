@@ -86,7 +86,7 @@ func TestOllamaChatSuccess(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -141,7 +141,7 @@ func TestOllamaChatError(t *testing.T) {
 	// Create mock server that returns error
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Internal server error"))
+		_, _ = w.Write([]byte("Internal server error"))
 	}))
 	defer server.Close()
 
@@ -166,7 +166,7 @@ func TestOllamaChatError(t *testing.T) {
 func TestOllamaChatWithSystemPrompt(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody ollamaChatRequest
-		json.NewDecoder(r.Body).Decode(&reqBody)
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 
 		// Should have system message + user message
 		if len(reqBody.Messages) != 2 {
@@ -186,7 +186,7 @@ func TestOllamaChatWithSystemPrompt(t *testing.T) {
 			Message: ollamaMessage{Role: "assistant", Content: "OK"},
 			Done:    true,
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -212,7 +212,7 @@ func TestOllamaChatWithSystemPrompt(t *testing.T) {
 func TestOllamaChatMultipleMessages(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody ollamaChatRequest
-		json.NewDecoder(r.Body).Decode(&reqBody)
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 
 		// Should have 3 messages
 		if len(reqBody.Messages) != 3 {
@@ -224,7 +224,7 @@ func TestOllamaChatMultipleMessages(t *testing.T) {
 			Message: ollamaMessage{Role: "assistant", Content: "Response"},
 			Done:    true,
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

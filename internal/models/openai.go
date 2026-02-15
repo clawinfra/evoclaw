@@ -126,7 +126,7 @@ func (p *OpenAIProvider) Chat(ctx context.Context, req orchestrator.ChatRequest)
 	if err != nil {
 		return nil, fmt.Errorf("http request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -135,7 +135,9 @@ func (p *OpenAIProvider) Chat(ctx context.Context, req orchestrator.ChatRequest)
 
 	if resp.StatusCode != 200 {
 		var apiErr openAIError
-		json.Unmarshal(respBody, &apiErr)
+		if err := json.Unmarshal(respBody, &apiErr); err != nil {
+			return nil, fmt.Errorf("API error %d (failed to parse error body: %w)", resp.StatusCode, err)
+		}
 		return nil, fmt.Errorf("API error %d: %s (%s)",
 			resp.StatusCode, apiErr.Error.Message, apiErr.Error.Type)
 	}

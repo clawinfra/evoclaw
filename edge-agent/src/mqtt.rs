@@ -135,7 +135,7 @@ mod tests {
         let cmd = parse_command(json.as_bytes()).unwrap();
         assert_eq!(cmd.command, "ping");
         assert_eq!(cmd.request_id, "req123");
-        assert_eq!(cmd.payload.get("test").unwrap().as_bool().unwrap(), true);
+        assert!(cmd.payload.get("test").unwrap().as_bool().unwrap());
     }
 
     #[test]
@@ -153,7 +153,10 @@ mod tests {
 
         let cmd = parse_command(json.as_bytes()).unwrap();
         assert_eq!(cmd.command, "execute");
-        assert_eq!(cmd.payload.get("action").unwrap().as_str().unwrap(), "place_order");
+        assert_eq!(
+            cmd.payload.get("action").unwrap().as_str().unwrap(),
+            "place_order"
+        );
         assert_eq!(cmd.payload.get("price").unwrap().as_f64().unwrap(), 50000.0);
     }
 
@@ -280,9 +283,16 @@ mod tests {
 
         let cmd = parse_command(json.as_bytes()).unwrap();
         assert_eq!(cmd.command, "complex");
-        let nested = cmd.payload.get("level1").unwrap()
-            .get("level2").unwrap()
-            .get("data").unwrap().as_str().unwrap();
+        let nested = cmd
+            .payload
+            .get("level1")
+            .unwrap()
+            .get("level2")
+            .unwrap()
+            .get("data")
+            .unwrap()
+            .as_str()
+            .unwrap();
         assert_eq!(nested, "deep");
     }
 
@@ -303,9 +313,30 @@ mod tests {
     #[test]
     fn test_mqtt_config_different_ports() {
         let configs = vec![
-            (MqttConfig { broker: "broker1".to_string(), port: 1883, keep_alive_secs: 30 }, 1883),
-            (MqttConfig { broker: "broker2".to_string(), port: 8883, keep_alive_secs: 30 }, 8883),
-            (MqttConfig { broker: "broker3".to_string(), port: 9001, keep_alive_secs: 30 }, 9001),
+            (
+                MqttConfig {
+                    broker: "broker1".to_string(),
+                    port: 1883,
+                    keep_alive_secs: 30,
+                },
+                1883,
+            ),
+            (
+                MqttConfig {
+                    broker: "broker2".to_string(),
+                    port: 8883,
+                    keep_alive_secs: 30,
+                },
+                8883,
+            ),
+            (
+                MqttConfig {
+                    broker: "broker3".to_string(),
+                    port: 9001,
+                    keep_alive_secs: 30,
+                },
+                9001,
+            ),
         ];
 
         for (config, expected_port) in configs {

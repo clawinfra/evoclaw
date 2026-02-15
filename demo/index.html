@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EvoClaw — Self-Evolving AI Agent Framework</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+</head>
+<body>
+    <div class="stars"></div>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="hero">
+                <div class="logo-container">
+                    <img src="logo.jpg" alt="EvoClaw Logo" class="logo">
+                </div>
+                <h1>EvoClaw</h1>
+                <p class="tagline">Self-Evolving AI Agent Framework</p>
+                <p class="subtitle">Adapts. Evolves. Everywhere. 🌊</p>
+            </div>
+        </header>
+
+        <!-- What is EvoClaw -->
+        <section class="intro-section">
+            <div class="card">
+                <h2>What is EvoClaw?</h2>
+                <p>EvoClaw is a <strong>lightweight, self-evolving AI agent</strong> that lives on YOUR machine with full OS access. Every device becomes an agent. Every agent evolves.</p>
+                <div class="highlights">
+                    <div class="highlight-item">
+                        <span class="highlight-icon">🧬</span>
+                        <div>
+                            <strong>Self-Evolution</strong>
+                            <p>Agents improve over time using genetic algorithms and fitness scoring</p>
+                        </div>
+                    </div>
+                    <div class="highlight-item">
+                        <span class="highlight-icon">🧠</span>
+                        <div>
+                            <strong>Tiered Memory</strong>
+                            <p>Hot/Warm/Cold architecture — scales to 5+ years without context bloat</p>
+                        </div>
+                    </div>
+                    <div class="highlight-item">
+                        <span class="highlight-icon">⛓️</span>
+                        <div>
+                            <strong>On-Chain Identity</strong>
+                            <p>Verifiable reputation on ClawChain — agents you can trust</p>
+                        </div>
+                    </div>
+                    <div class="highlight-item">
+                        <span class="highlight-icon">🪶</span>
+                        <div>
+                            <strong>Featherweight</strong>
+                            <p>7.2MB Go orchestrator + 1.8MB Rust edge agent</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Install Section -->
+        <section class="install-section">
+            <h2>Get Started</h2>
+            <div class="install-grid">
+                <div class="card install-card">
+                    <div class="install-header">
+                        <span class="install-icon">💻</span>
+                        <h3>Native Binary</h3>
+                        <span class="install-badge default">Default</span>
+                    </div>
+                    <p>Full OS access — bash, filesystem, network. Maximum power.</p>
+                    <div class="code-block">
+                        <code>curl -fsSL https://evoclaw.win/install.sh | sh</code>
+                        <button class="copy-btn" onclick="copyCode(this)">📋</button>
+                    </div>
+                    <div class="os-support">
+                        <span class="os-tag">🐧 Linux</span>
+                        <span class="os-tag">🍎 macOS</span>
+                        <span class="os-tag">🪟 Windows</span>
+                        <span class="os-tag">🍓 Raspberry Pi</span>
+                    </div>
+                    <p class="install-note">Recommended for power users who want their agent to have full system control.</p>
+                </div>
+                <div class="card install-card">
+                    <div class="install-header">
+                        <span class="install-icon">📦</span>
+                        <h3>Podman Container</h3>
+                        <span class="install-badge optin">Opt-in Sandbox</span>
+                    </div>
+                    <p>Local sandbox — rootless, daemonless. Your machine, contained.</p>
+                    <div class="code-block">
+                        <code>podman run -d ghcr.io/clawinfra/evoclaw</code>
+                        <button class="copy-btn" onclick="copyCode(this)">📋</button>
+                    </div>
+                    <p class="install-note">For users who want isolation without leaving their machine.</p>
+                </div>
+                <div class="card install-card">
+                    <div class="install-header">
+                        <span class="install-icon">☁️</span>
+                        <h3>E2B Cloud Sandbox</h3>
+                        <span class="install-badge optin">Opt-in Cloud</span>
+                    </div>
+                    <p>Remote sandbox — zero local footprint. Try without installing.</p>
+                    <div class="code-block">
+                        <code>evoclaw sandbox --provider e2b</code>
+                        <button class="copy-btn" onclick="copyCode(this)">📋</button>
+                    </div>
+                    <p class="install-note">For experimentation and cloud-first workflows.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Channels -->
+        <section class="channels-section">
+            <h2>Talk to Your Agent</h2>
+            <div class="channels-grid">
+                <div class="channel-item">
+                    <span class="channel-icon">🖥️</span>
+                    <span class="channel-name">Terminal TUI</span>
+                    <span class="channel-status done">✅ Built</span>
+                </div>
+                <div class="channel-item">
+                    <span class="channel-icon">💬</span>
+                    <span class="channel-name">Telegram</span>
+                    <span class="channel-status done">✅ Built</span>
+                </div>
+                <div class="channel-item">
+                    <span class="channel-icon">📡</span>
+                    <span class="channel-name">MQTT</span>
+                    <span class="channel-status done">✅ Built</span>
+                </div>
+                <div class="channel-item">
+                    <span class="channel-icon">🌐</span>
+                    <span class="channel-name">HTTP API</span>
+                    <span class="channel-status done">✅ Built</span>
+                </div>
+                <div class="channel-item">
+                    <span class="channel-icon">🔲</span>
+                    <span class="channel-name">Web Terminal</span>
+                    <span class="channel-status coming">🔜 Next</span>
+                </div>
+            </div>
+            <div class="tui-preview card">
+                <h3><code>evoclaw tui</code> — Chat in Your Terminal</h3>
+                <div class="terminal-mockup">
+                    <div class="terminal-bar">
+                        <span class="terminal-dot red"></span>
+                        <span class="terminal-dot yellow"></span>
+                        <span class="terminal-dot green"></span>
+                        <span class="terminal-title">evoclaw tui</span>
+                    </div>
+                    <div class="terminal-body">
+                        <div class="terminal-left">
+                            <div class="terminal-text dim">── Agent Status ──</div>
+                            <div class="terminal-text">🟢 Online</div>
+                            <div class="terminal-text">⏱️  Uptime: 4d 7h</div>
+                            <div class="terminal-text">🧬 Gen: 47</div>
+                            <div class="terminal-text">📊 Fitness: 0.847</div>
+                            <div class="terminal-text">🧠 Memory: 2.1KB hot</div>
+                            <div class="terminal-text dim">── Chains ──</div>
+                            <div class="terminal-text">⛓️  ClawChain: synced</div>
+                            <div class="terminal-text">💰 BSC: connected</div>
+                        </div>
+                        <div class="terminal-right">
+                            <div class="terminal-text dim">── Conversation ──</div>
+                            <div class="terminal-text"><span class="user-msg">You:</span> Check my portfolio</div>
+                            <div class="terminal-text"><span class="agent-msg">Agent:</span> Your portfolio across 3 exchanges:</div>
+                            <div class="terminal-text">  BTC: 0.42 ($18,234)</div>
+                            <div class="terminal-text">  ETH: 3.1 ($9,672)</div>
+                            <div class="terminal-text">  CLAW: 50,000 ($425)</div>
+                            <div class="terminal-text">  Total: $28,331 (+2.4% 24h)</div>
+                            <div class="terminal-text"><span class="agent-msg">Agent:</span> Funding arb opportunity on HL:</div>
+                            <div class="terminal-text">  ETH rate: +0.032%, est $3.10/day</div>
+                            <div class="terminal-text cursor">█</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Architecture -->
+        <section class="architecture-section">
+            <h2>Architecture</h2>
+            <div class="card">
+                <div class="arch-diagram">
+                    <div class="arch-row">
+                        <div class="arch-box primary">
+                            <h3>Go Orchestrator</h3>
+                            <p>7.2MB • Coordinates agents, routes models, manages evolution</p>
+                        </div>
+                        <div class="arch-box secondary">
+                            <h3>Rust Edge Agent</h3>
+                            <p>1.8MB • Runs on Pi, phones, IoT. Trading, monitoring, sensing</p>
+                        </div>
+                    </div>
+                    <div class="arch-connector">↕</div>
+                    <div class="arch-row">
+                        <div class="arch-box accent">
+                            <h3>🧬 Evolution Engine</h3>
+                            <p>Genetic algorithms • Fitness scoring • Strategy optimization</p>
+                        </div>
+                        <div class="arch-box accent">
+                            <h3>🧠 Tiered Memory</h3>
+                            <p>Hot (5KB) • Warm (scored) • Cold (Turso) • O(log n) tree search</p>
+                        </div>
+                    </div>
+                    <div class="arch-connector">↕</div>
+                    <div class="arch-row">
+                        <div class="arch-box chain-home">
+                            <h3>⛓️ ClawChain (Home)</h3>
+                            <p>Agent DID • Reputation • Governance • Default chain</p>
+                            <a href="https://testnet.clawchain.win" target="_blank" class="chain-link">testnet.clawchain.win</a>
+                        </div>
+                        <div class="arch-box chain-exec">
+                            <h3>🔗 Execution Chains (Opt-in)</h3>
+                            <p>BSC • ETH • Solana • Hyperliquid • Any EVM</p>
+                            <span class="chain-note">Actions reported back to ClawChain</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="arch-key">
+                    <p><strong>ClawChain is home.</strong> Every agent's identity, reputation, and governance lives on ClawChain — our Substrate L1 built for agents. Execution chains (BSC, ETH, etc.) are opt-in for specific tasks. All cross-chain actions report back to ClawChain for unified trust scoring.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Memory System -->
+        <section class="memory-section">
+            <h2>Tiered Memory</h2>
+            <div class="card">
+                <p class="section-desc">Inspired by human cognition and <a href="https://github.com/VectifyAI/PageIndex" target="_blank">PageIndex</a> — O(log n) tree search, not brute-force vector RAG.</p>
+                <div class="memory-tiers">
+                    <div class="tier hot">
+                        <div class="tier-header">
+                            <span class="tier-icon">🔥</span>
+                            <h3>Hot Memory</h3>
+                            <span class="tier-cap">5KB cap</span>
+                        </div>
+                        <p>Active working context. Auto-rebuilt by LLM distillation. Fixed size — never grows.</p>
+                    </div>
+                    <div class="tier warm">
+                        <div class="tier-header">
+                            <span class="tier-icon">🌡️</span>
+                            <h3>Warm Memory</h3>
+                            <span class="tier-cap">50KB scored</span>
+                        </div>
+                        <p>Scored facts with relevance decay. <code>score = importance × recency × ln(1+access)</code></p>
+                    </div>
+                    <div class="tier cold">
+                        <div class="tier-header">
+                            <span class="tier-icon">❄️</span>
+                            <h3>Cold Archive</h3>
+                            <span class="tier-cap">Unlimited</span>
+                        </div>
+                        <p>Turso (SQLite at the edge). Tree-indexed hierarchical retrieval. Scales to years.</p>
+                    </div>
+                </div>
+                <div class="memory-formula">
+                    <code>Relevance = importance × recency_decay(half_life=30d) × (1 + 0.1 × ln(1 + access_count))</code>
+                </div>
+            </div>
+        </section>
+
+        <!-- On-Chain Demo -->
+        <section class="onchain-section">
+            <h2>On-Chain Agent Registry</h2>
+            <p class="section-desc">Agents register on BSC Testnet (execution chain). Identity reports back to ClawChain.</p>
+
+            <!-- Wallet Section -->
+            <div class="card wallet-card">
+                <div id="walletConnect">
+                    <button id="connectBtn" class="btn btn-primary">
+                        <span class="btn-icon">🦊</span>
+                        Connect MetaMask (BSC Testnet)
+                    </button>
+                </div>
+                <div id="walletInfo" class="hidden">
+                    <div class="wallet-details">
+                        <div class="wallet-item">
+                            <span class="label">Address:</span>
+                            <span id="walletAddress" class="value mono"></span>
+                        </div>
+                        <div class="wallet-item">
+                            <span class="label">Balance:</span>
+                            <span id="walletBalance" class="value"></span>
+                        </div>
+                        <div class="wallet-item">
+                            <span class="label">Network:</span>
+                            <span id="networkStatus" class="value"></span>
+                        </div>
+                    </div>
+                    <button id="disconnectBtn" class="btn btn-secondary btn-sm">Disconnect</button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalAgents">-</div>
+                    <div class="stat-label">Agents On-Chain</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">BSC Testnet</div>
+                    <div class="stat-label">Execution Chain</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value mono small-text">
+                        <a href="https://testnet.bscscan.com/address/0xD20522b083ea53E1B34fBed018bF1eCF8670EaCf" target="_blank" class="contract-link">
+                            0xD205...EaCf
+                        </a>
+                    </div>
+                    <div class="stat-label">AgentRegistry Contract</div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="register">Register Agent</button>
+                <button class="tab-btn" data-tab="view">View Agents</button>
+            </div>
+
+            <div id="registerTab" class="tab-content active">
+                <div class="card">
+                    <p class="form-note">Already running EvoClaw? Register your agent's on-chain identity here.</p>
+                    <form id="registerForm">
+                        <div class="form-group">
+                            <label for="agentName">Agent Name</label>
+                            <input type="text" id="agentName" required placeholder="e.g., my-trading-agent">
+                        </div>
+                        <div class="form-group">
+                            <label for="agentModel">Model</label>
+                            <input type="text" id="agentModel" required placeholder="e.g., claude-sonnet-4, llama-3.3-70b">
+                        </div>
+                        <div class="form-group">
+                            <label for="agentCapabilities">Capabilities (comma-separated)</label>
+                            <input type="text" id="agentCapabilities" required placeholder="e.g., trading, monitoring, evolution">
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <span class="btn-icon">🤖</span>
+                            Register On-Chain
+                        </button>
+                    </form>
+                    <div id="registerStatus" class="status-msg hidden"></div>
+                </div>
+            </div>
+
+            <div id="viewTab" class="tab-content">
+                <div class="agents-controls">
+                    <button id="refreshAgents" class="btn btn-secondary">
+                        <span class="btn-icon">🔄</span>
+                        Refresh
+                    </button>
+                </div>
+                <div id="agentsList" class="agents-list">
+                    <div class="loading">Loading agents...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Ecosystem -->
+        <section class="ecosystem-section">
+            <h2>Ecosystem</h2>
+            <div class="eco-grid">
+                <a href="https://testnet.clawchain.win" target="_blank" class="eco-card">
+                    <span class="eco-icon">⛓️</span>
+                    <h3>ClawChain Testnet</h3>
+                    <p>L1 blockchain for agents. NPoS staking, 8 pallets, 6s blocks.</p>
+                    <span class="eco-link">testnet.clawchain.win →</span>
+                </a>
+                <a href="https://github.com/clawinfra/evoclaw" target="_blank" class="eco-card">
+                    <span class="eco-icon">🐙</span>
+                    <h3>GitHub</h3>
+                    <p>Open source. Go orchestrator + Rust edge agent. MIT license.</p>
+                    <span class="eco-link">github.com/clawinfra/evoclaw →</span>
+                </a>
+                <a href="https://clawhub.com" target="_blank" class="eco-card">
+                    <span class="eco-icon">🔧</span>
+                    <h3>ClawHub Skills</h3>
+                    <p>17 published skills — trading, memory, language servers, social.</p>
+                    <span class="eco-link">clawhub.com →</span>
+                </a>
+                <a href="https://polkadot.js.org/apps/?rpc=wss://testnet.clawchain.win" target="_blank" class="eco-card">
+                    <span class="eco-icon">🔍</span>
+                    <h3>Block Explorer</h3>
+                    <p>Browse ClawChain blocks, accounts, staking, and governance.</p>
+                    <span class="eco-link">Polkadot.js Apps →</span>
+                </a>
+            </div>
+        </section>
+
+        <!-- Philosophy -->
+        <section class="philosophy-section">
+            <div class="card">
+                <blockquote>
+                    "Empty your mind, be formless, shapeless — like water. You put water into a cup, it becomes the cup. You put water into a bottle, it becomes the bottle. Be water, my friend."
+                    <cite>— Bruce Lee</cite>
+                </blockquote>
+                <p>EvoClaw is formless. Put it in a teddy bear — it becomes a companion. Put it in a trading terminal — it becomes a trader. Put it on a farm sensor — it becomes a crop whisperer. The container changes. The essence doesn't.</p>
+                <div class="spectrum">
+                    <div class="spectrum-bar"></div>
+                    <div class="spectrum-labels">
+                        <div class="spectrum-item">
+                            <span>🧸</span>
+                            <span>Toy</span>
+                            <span>1.8MB</span>
+                        </div>
+                        <div class="spectrum-item">
+                            <span>👴</span>
+                            <span>Companion</span>
+                            <span>Pi Zero</span>
+                        </div>
+                        <div class="spectrum-item">
+                            <span>📈</span>
+                            <span>Trader</span>
+                            <span>Desktop</span>
+                        </div>
+                        <div class="spectrum-item">
+                            <span>🏢</span>
+                            <span>Enterprise</span>
+                            <span>Cluster</span>
+                        </div>
+                    </div>
+                </div>
+                <p class="spectrum-note">Same DNA. Same evolution. Different container. <strong>Be water, my agent.</strong> 🌊🧬</p>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer>
+            <div class="footer-links">
+                <a href="https://github.com/clawinfra/evoclaw" target="_blank">GitHub</a>
+                <a href="https://github.com/clawinfra/claw-chain" target="_blank">ClawChain</a>
+                <a href="https://clawhub.com" target="_blank">ClawHub</a>
+                <a href="https://testnet.clawchain.win" target="_blank">Testnet</a>
+            </div>
+            <p>EvoClaw — Adapts. Evolves. Everywhere. | Built for BNBChain Hackathon 2026</p>
+        </footer>
+    </div>
+
+    <!-- Agent Modal -->
+    <div id="agentModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="agentDetails"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

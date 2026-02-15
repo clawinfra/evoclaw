@@ -1,0 +1,3908 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>evoclaw: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/clawinfra/evoclaw/cmd/evoclaw/main.go (62.3%)</option>
+				
+				<option value="file1">github.com/clawinfra/evoclaw/internal/agents/memory.go (92.5%)</option>
+				
+				<option value="file2">github.com/clawinfra/evoclaw/internal/agents/registry.go (89.7%)</option>
+				
+				<option value="file3">github.com/clawinfra/evoclaw/internal/api/server.go (73.0%)</option>
+				
+				<option value="file4">github.com/clawinfra/evoclaw/internal/channels/http_client.go (100.0%)</option>
+				
+				<option value="file5">github.com/clawinfra/evoclaw/internal/channels/mqtt.go (86.0%)</option>
+				
+				<option value="file6">github.com/clawinfra/evoclaw/internal/channels/mqtt_client.go (40.0%)</option>
+				
+				<option value="file7">github.com/clawinfra/evoclaw/internal/channels/telegram.go (87.5%)</option>
+				
+				<option value="file8">github.com/clawinfra/evoclaw/internal/config/config.go (88.2%)</option>
+				
+				<option value="file9">github.com/clawinfra/evoclaw/internal/evolution/engine.go (92.6%)</option>
+				
+				<option value="file10">github.com/clawinfra/evoclaw/internal/models/anthropic.go (85.4%)</option>
+				
+				<option value="file11">github.com/clawinfra/evoclaw/internal/models/ollama.go (84.4%)</option>
+				
+				<option value="file12">github.com/clawinfra/evoclaw/internal/models/openai.go (81.6%)</option>
+				
+				<option value="file13">github.com/clawinfra/evoclaw/internal/models/router.go (98.9%)</option>
+				
+				<option value="file14">github.com/clawinfra/evoclaw/internal/orchestrator/orchestrator.go (83.1%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "errors"
+        "flag"
+        "fmt"
+        "log/slog"
+        "os"
+        "os/signal"
+        "syscall"
+
+        "github.com/clawinfra/evoclaw/internal/agents"
+        "github.com/clawinfra/evoclaw/internal/api"
+        "github.com/clawinfra/evoclaw/internal/channels"
+        "github.com/clawinfra/evoclaw/internal/config"
+        "github.com/clawinfra/evoclaw/internal/evolution"
+        "github.com/clawinfra/evoclaw/internal/models"
+        "github.com/clawinfra/evoclaw/internal/orchestrator"
+)
+
+var (
+        version   = "0.1.0"
+        buildTime = "dev"
+)
+
+// App holds all the runtime components
+type App struct {
+        Config       *config.Config
+        Logger       *slog.Logger
+        Registry     *agents.Registry
+        MemoryStore  *agents.MemoryStore
+        Router       *models.Router
+        EvoEngine    *evolution.Engine
+        Orchestrator *orchestrator.Orchestrator
+        APIServer    *api.Server
+        apiContext   context.Context
+        apiCancel    context.CancelFunc
+}
+
+func main() <span class="cov0" title="0">{
+        os.Exit(run())
+}</span>
+
+func run() int <span class="cov0" title="0">{
+        configPath := flag.String("config", "evoclaw.json", "Path to config file")
+        showVersion := flag.Bool("version", false, "Show version")
+        flag.Parse()
+
+        if *showVersion </span><span class="cov0" title="0">{
+                fmt.Printf("EvoClaw v%s (built %s)\n", version, buildTime)
+                fmt.Println("Self-evolving agent framework for edge devices")
+                fmt.Println("https://github.com/clawinfra/evoclaw")
+                return 0
+        }</span>
+
+        // Setup application
+        <span class="cov0" title="0">app, err := setup(*configPath)
+        if err != nil </span><span class="cov0" title="0">{
+                fmt.Fprintf(os.Stderr, "Setup failed: %v\n", err)
+                return 1
+        }</span>
+
+        // Start services
+        <span class="cov0" title="0">if err := startServices(app); err != nil </span><span class="cov0" title="0">{
+                app.Logger.Error("failed to start services", "error", err)
+                return 1
+        }</span>
+
+        // Print banner
+        <span class="cov0" title="0">printBanner(app)
+
+        // Wait for shutdown
+        if err := waitForShutdown(app); err != nil </span><span class="cov0" title="0">{
+                app.Logger.Error("shutdown error", "error", err)
+                return 1
+        }</span>
+
+        <span class="cov0" title="0">return 0</span>
+}
+
+// setup initializes all application components
+func setup(configPath string) (*App, error) <span class="cov8" title="1">{
+        app := &amp;App{}
+
+        // Setup logger (initially at Info level)
+        app.Logger = slog.New(slog.NewTextHandler(os.Stdout, &amp;slog.HandlerOptions{
+                Level: slog.LevelInfo,
+        }))
+
+        app.Logger.Info("starting EvoClaw",
+                "version", version,
+                "config", configPath,
+        )
+
+        // Load config
+        cfg, err := loadConfig(configPath, app.Logger)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("load config: %w", err)
+        }</span>
+        <span class="cov8" title="1">app.Config = cfg
+
+        // Recreate logger with config's log level
+        logLevel := parseLogLevel(cfg.Server.LogLevel)
+        app.Logger = slog.New(slog.NewTextHandler(os.Stdout, &amp;slog.HandlerOptions{
+                Level: logLevel,
+        }))
+
+        // Create agent registry
+        registry, err := agents.NewRegistry(cfg.Server.DataDir, app.Logger)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("create registry: %w", err)
+        }</span>
+        <span class="cov8" title="1">app.Registry = registry
+
+        // Load existing agents
+        if err := registry.Load(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("load agents: %w", err)
+        }</span>
+
+        // Initialize agents from config
+        <span class="cov8" title="1">if err := initializeAgents(registry, cfg, app.Logger); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("initialize agents: %w", err)
+        }</span>
+
+        // Create memory store
+        <span class="cov8" title="1">memoryStore, err := agents.NewMemoryStore(cfg.Server.DataDir, app.Logger)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("create memory store: %w", err)
+        }</span>
+        <span class="cov8" title="1">app.MemoryStore = memoryStore
+
+        // Create model router
+        app.Router = models.NewRouter(app.Logger)
+
+        // Register model providers
+        if err := registerProviders(app.Router, cfg, app.Logger); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("register providers: %w", err)
+        }</span>
+
+        // Create evolution engine if enabled
+        <span class="cov8" title="1">if cfg.Evolution.Enabled </span><span class="cov8" title="1">{
+                app.EvoEngine = evolution.NewEngine(cfg.Server.DataDir, app.Logger)
+                app.Logger.Info("evolution engine enabled",
+                        "evalInterval", cfg.Evolution.EvalIntervalSec,
+                        "minSamples", cfg.Evolution.MinSamplesForEval,
+                )
+        }</span>
+
+        // Create orchestrator
+        <span class="cov8" title="1">app.Orchestrator = orchestrator.New(cfg, app.Logger)
+
+        // Wire evolution engine
+        if app.EvoEngine != nil </span><span class="cov8" title="1">{
+                app.Orchestrator.SetEvolutionEngine(app.EvoEngine)
+        }</span>
+
+        // Register channels
+        <span class="cov8" title="1">if err := registerChannels(app.Orchestrator, cfg, app.Logger); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("register channels: %w", err)
+        }</span>
+
+        // Register providers to orchestrator
+        <span class="cov8" title="1">registerProvidersToOrchestrator(app.Orchestrator, app.Router, cfg)
+
+        // Create API server
+        app.APIServer = api.NewServer(
+                cfg.Server.Port,
+                app.Orchestrator,
+                app.Registry,
+                app.MemoryStore,
+                app.Router,
+                app.Logger,
+        )
+
+        return app, nil</span>
+}
+
+// loadConfig loads configuration from file or creates default
+func loadConfig(path string, logger *slog.Logger) (*config.Config, error) <span class="cov8" title="1">{
+        cfg, err := config.Load(path)
+        if err != nil </span><span class="cov8" title="1">{
+                if errors.Is(err, os.ErrNotExist) </span><span class="cov8" title="1">{
+                        logger.Info("no config found, creating default")
+                        cfg = config.DefaultConfig()
+                        if err := cfg.Save(path); err != nil </span><span class="cov0" title="0">{
+                                return nil, fmt.Errorf("save default config: %w", err)
+                        }</span>
+                        <span class="cov8" title="1">logger.Info("default config created", "path", path)
+                        return cfg, nil</span>
+                }
+                <span class="cov8" title="1">return nil, err</span>
+        }
+        <span class="cov8" title="1">return cfg, nil</span>
+}
+
+// parseLogLevel converts string log level to slog.Level
+func parseLogLevel(level string) slog.Level <span class="cov8" title="1">{
+        switch level </span>{
+        case "debug":<span class="cov8" title="1">
+                return slog.LevelDebug</span>
+        case "info":<span class="cov8" title="1">
+                return slog.LevelInfo</span>
+        case "warn":<span class="cov8" title="1">
+                return slog.LevelWarn</span>
+        case "error":<span class="cov8" title="1">
+                return slog.LevelError</span>
+        default:<span class="cov8" title="1">
+                return slog.LevelInfo</span>
+        }
+}
+
+// initializeAgents creates agents from config if they don't exist
+func initializeAgents(registry *agents.Registry, cfg *config.Config, logger *slog.Logger) error <span class="cov8" title="1">{
+        for _, agentDef := range cfg.Agents </span><span class="cov8" title="1">{
+                if _, err := registry.Get(agentDef.ID); err == nil </span><span class="cov8" title="1">{
+                        logger.Info("agent already loaded", "id", agentDef.ID)
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">if _, err := registry.Create(agentDef); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("create agent %s: %w", agentDef.ID, err)
+                }</span>
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+// registerProviders registers model providers to the router
+func registerProviders(router *models.Router, cfg *config.Config, logger *slog.Logger) error <span class="cov8" title="1">{
+        for providerName, provCfg := range cfg.Models.Providers </span><span class="cov8" title="1">{
+                logger.Info("initializing provider", "name", providerName, "models", len(provCfg.Models))
+
+                switch providerName </span>{
+                case "anthropic":<span class="cov8" title="1">
+                        router.RegisterProvider(models.NewAnthropicProvider(provCfg))</span>
+                case "ollama":<span class="cov8" title="1">
+                        router.RegisterProvider(models.NewOllamaProvider(provCfg))</span>
+                case "openai":<span class="cov8" title="1">
+                        router.RegisterProvider(models.NewOpenAIProvider("openai", provCfg))</span>
+                case "openrouter":<span class="cov8" title="1">
+                        router.RegisterProvider(models.NewOpenAIProvider("openrouter", provCfg))</span>
+                default:<span class="cov8" title="1">
+                        // Assume OpenAI-compatible
+                        router.RegisterProvider(models.NewOpenAIProvider(providerName, provCfg))</span>
+                }
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+// registerChannels registers communication channels to orchestrator
+func registerChannels(orch *orchestrator.Orchestrator, cfg *config.Config, logger *slog.Logger) error <span class="cov8" title="1">{
+        // Telegram
+        if cfg.Channels.Telegram != nil &amp;&amp; cfg.Channels.Telegram.Enabled </span><span class="cov8" title="1">{
+                logger.Info("enabling telegram channel")
+                telegram := channels.NewTelegram(cfg.Channels.Telegram.BotToken, logger)
+                orch.RegisterChannel(telegram)
+        }</span>
+
+        // MQTT
+        <span class="cov8" title="1">if cfg.MQTT.Port &gt; 0 </span><span class="cov8" title="1">{
+                logger.Info("enabling mqtt channel",
+                        "host", cfg.MQTT.Host,
+                        "port", cfg.MQTT.Port,
+                )
+                mqtt := channels.NewMQTT(
+                        cfg.MQTT.Host,
+                        cfg.MQTT.Port,
+                        cfg.MQTT.Username,
+                        cfg.MQTT.Password,
+                        logger,
+                )
+                orch.RegisterChannel(mqtt)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// registerProvidersToOrchestrator registers providers from router to orchestrator
+func registerProvidersToOrchestrator(orch *orchestrator.Orchestrator, router *models.Router, cfg *config.Config) <span class="cov8" title="1">{
+        for providerName := range cfg.Models.Providers </span><span class="cov8" title="1">{
+                modelInfos := router.ListModels()
+                for _, info := range modelInfos </span><span class="cov8" title="1">{
+                        if info.Provider == providerName </span><span class="cov8" title="1">{
+                                orch.RegisterProvider(info.ProviderImpl)
+                                break</span>
+                        }
+                }
+        }
+}
+
+// startServices starts all services
+func startServices(app *App) error <span class="cov0" title="0">{
+        // Start orchestrator
+        if err := app.Orchestrator.Start(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("start orchestrator: %w", err)
+        }</span>
+
+        // Start API server in background
+        <span class="cov0" title="0">app.apiContext, app.apiCancel = context.WithCancel(context.Background())
+        go func() </span><span class="cov0" title="0">{
+                if err := app.APIServer.Start(app.apiContext); err != nil </span><span class="cov0" title="0">{
+                        app.Logger.Error("API server error", "error", err)
+                }</span>
+        }()
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// printBanner displays the startup banner
+func printBanner(app *App) <span class="cov8" title="1">{
+        fmt.Println()
+        fmt.Println("  ╔═══════════════════════════════════════╗")
+        fmt.Println("  ║        🧬 EvoClaw v" + version + "            ║")
+        fmt.Println("  ║  Self-Evolving Agent Framework        ║")
+        fmt.Println("  ║  Every device is an agent.            ║")
+        fmt.Println("  ║  Every agent evolves.                 ║")
+        fmt.Println("  ╚═══════════════════════════════════════╝")
+        fmt.Println()
+        fmt.Printf("  🌐 API: http://localhost:%d\n", app.Config.Server.Port)
+        fmt.Printf("  📊 Agents: %d loaded\n", len(app.Registry.List()))
+        fmt.Printf("  🤖 Models: %d available\n", len(app.Router.ListModels()))
+        fmt.Println()
+}</span>
+
+// waitForShutdown waits for termination signal and performs graceful shutdown
+func waitForShutdown(app *App) error <span class="cov0" title="0">{
+        sigCh := make(chan os.Signal, 1)
+        signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+        sig := &lt;-sigCh
+        app.Logger.Info("shutdown signal received", "signal", sig)
+
+        // Stop API server
+        if app.apiCancel != nil </span><span class="cov0" title="0">{
+                app.apiCancel()
+        }</span>
+
+        // Graceful shutdown
+        <span class="cov0" title="0">app.Logger.Info("saving state...")
+        if err := app.Registry.SaveAll(); err != nil </span><span class="cov0" title="0">{
+                app.Logger.Error("failed to save agents", "error", err)
+        }</span>
+        <span class="cov0" title="0">if err := app.MemoryStore.SaveAll(); err != nil </span><span class="cov0" title="0">{
+                app.Logger.Error("failed to save memory", "error", err)
+        }</span>
+
+        // Stop orchestrator
+        <span class="cov0" title="0">if err := app.Orchestrator.Stop(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("stop orchestrator: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">app.Logger.Info("EvoClaw stopped")
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package agents
+
+import (
+        "encoding/json"
+        "fmt"
+        "log/slog"
+        "os"
+        "path/filepath"
+        "sync"
+        "time"
+
+        "github.com/clawinfra/evoclaw/internal/orchestrator"
+)
+
+// MemoryStore manages conversation memory for agents
+type MemoryStore struct {
+        dataDir string
+        logger  *slog.Logger
+        mu      sync.RWMutex
+        // In-memory cache of recent conversations
+        cache map[string]*ConversationMemory
+}
+
+// ConversationMemory stores chat history for an agent
+type ConversationMemory struct {
+        AgentID      string                     `json:"agent_id"`
+        Messages     []orchestrator.ChatMessage `json:"messages"`
+        MaxMessages  int                        `json:"max_messages"`
+        TotalTokens  int                        `json:"total_tokens"`
+        TokenLimit   int                        `json:"token_limit"`
+        LastAccessed time.Time                  `json:"last_accessed"`
+        mu           sync.RWMutex
+}
+
+// NewMemoryStore creates a new memory store
+func NewMemoryStore(dataDir string, logger *slog.Logger) (*MemoryStore, error) <span class="cov8" title="1">{
+        memoryDir := filepath.Join(dataDir, "memory")
+        if err := os.MkdirAll(memoryDir, 0750); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("create memory dir: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;MemoryStore{
+                dataDir: memoryDir,
+                logger:  logger.With("component", "memory"),
+                cache:   make(map[string]*ConversationMemory),
+        }, nil</span>
+}
+
+// Get retrieves or creates conversation memory for an agent
+func (m *MemoryStore) Get(agentID string) *ConversationMemory <span class="cov8" title="1">{
+        m.mu.RLock()
+        mem, ok := m.cache[agentID]
+        m.mu.RUnlock()
+
+        if ok </span><span class="cov8" title="1">{
+                mem.mu.Lock()
+                mem.LastAccessed = time.Now()
+                mem.mu.Unlock()
+                return mem
+        }</span>
+
+        // Try to load from disk
+        <span class="cov8" title="1">mem = m.loadFromDisk(agentID)
+        if mem != nil </span><span class="cov8" title="1">{
+                m.mu.Lock()
+                m.cache[agentID] = mem
+                m.mu.Unlock()
+                return mem
+        }</span>
+
+        // Create new memory
+        <span class="cov8" title="1">mem = &amp;ConversationMemory{
+                AgentID:      agentID,
+                Messages:     make([]orchestrator.ChatMessage, 0),
+                MaxMessages:  100,    // Keep last 100 messages
+                TokenLimit:   100000, // Rough token limit
+                LastAccessed: time.Now(),
+        }
+
+        m.mu.Lock()
+        m.cache[agentID] = mem
+        m.mu.Unlock()
+
+        m.logger.Info("conversation memory created", "agent", agentID)
+        return mem</span>
+}
+
+// Add adds a message to the conversation history
+func (c *ConversationMemory) Add(role, content string) <span class="cov8" title="1">{
+        c.mu.Lock()
+        defer c.mu.Unlock()
+
+        msg := orchestrator.ChatMessage{
+                Role:    role,
+                Content: content,
+        }
+
+        c.Messages = append(c.Messages, msg)
+        c.TotalTokens += estimateTokens(content)
+
+        // Trim if we exceed limits
+        c.trim()
+
+        c.LastAccessed = time.Now()
+}</span>
+
+// GetMessages returns all messages in the conversation
+func (c *ConversationMemory) GetMessages() []orchestrator.ChatMessage <span class="cov8" title="1">{
+        c.mu.RLock()
+        defer c.mu.RUnlock()
+
+        // Return a copy
+        msgs := make([]orchestrator.ChatMessage, len(c.Messages))
+        copy(msgs, c.Messages)
+        return msgs
+}</span>
+
+// GetRecentMessages returns the last N messages
+func (c *ConversationMemory) GetRecentMessages(n int) []orchestrator.ChatMessage <span class="cov8" title="1">{
+        c.mu.RLock()
+        defer c.mu.RUnlock()
+
+        if n &gt;= len(c.Messages) </span><span class="cov8" title="1">{
+                msgs := make([]orchestrator.ChatMessage, len(c.Messages))
+                copy(msgs, c.Messages)
+                return msgs
+        }</span>
+
+        <span class="cov8" title="1">start := len(c.Messages) - n
+        msgs := make([]orchestrator.ChatMessage, n)
+        copy(msgs, c.Messages[start:])
+        return msgs</span>
+}
+
+// Clear removes all messages from memory
+func (c *ConversationMemory) Clear() <span class="cov8" title="1">{
+        c.mu.Lock()
+        defer c.mu.Unlock()
+
+        c.Messages = make([]orchestrator.ChatMessage, 0)
+        c.TotalTokens = 0
+        c.LastAccessed = time.Now()
+}</span>
+
+// trim removes old messages when limits are exceeded
+func (c *ConversationMemory) trim() <span class="cov8" title="1">{
+        // Trim by message count
+        if len(c.Messages) &gt; c.MaxMessages </span><span class="cov8" title="1">{
+                // Keep most recent messages
+                keep := c.MaxMessages / 2 // Keep half
+                c.Messages = c.Messages[len(c.Messages)-keep:]
+                c.recalculateTokens()
+        }</span>
+
+        // Trim by token count (rough estimate)
+        <span class="cov8" title="1">for c.TotalTokens &gt; c.TokenLimit &amp;&amp; len(c.Messages) &gt; 10 </span><span class="cov8" title="1">{
+                // Remove oldest message
+                c.Messages = c.Messages[1:]
+                c.recalculateTokens()
+        }</span>
+}
+
+// recalculateTokens recounts total tokens in memory
+func (c *ConversationMemory) recalculateTokens() <span class="cov8" title="1">{
+        total := 0
+        for _, msg := range c.Messages </span><span class="cov8" title="1">{
+                total += estimateTokens(msg.Content)
+        }</span>
+        <span class="cov8" title="1">c.TotalTokens = total</span>
+}
+
+// Save persists the conversation memory to disk
+func (m *MemoryStore) Save(agentID string) error <span class="cov8" title="1">{
+        mem := m.Get(agentID)
+        if mem == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("no memory for agent: %s", agentID)
+        }</span>
+
+        <span class="cov8" title="1">return m.saveMemory(agentID, mem)</span>
+}
+
+// saveMemory is an internal helper that saves a memory without calling Get
+// This avoids deadlocks when called while holding locks
+func (m *MemoryStore) saveMemory(agentID string, mem *ConversationMemory) error <span class="cov8" title="1">{
+        mem.mu.RLock()
+        defer mem.mu.RUnlock()
+
+        data, err := json.MarshalIndent(mem, "", "  ")
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("marshal memory: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">path := m.memoryPath(agentID)
+        if err := os.WriteFile(path, data, 0640); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("write memory file: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">m.logger.Debug("memory saved", "agent", agentID, "messages", len(mem.Messages))
+        return nil</span>
+}
+
+// SaveAll persists all cached memories to disk
+func (m *MemoryStore) SaveAll() error <span class="cov8" title="1">{
+        m.mu.RLock()
+        defer m.mu.RUnlock()
+
+        for agentID := range m.cache </span><span class="cov8" title="1">{
+                if err := m.Save(agentID); err != nil </span><span class="cov0" title="0">{
+                        m.logger.Error("failed to save memory", "agent", agentID, "error", err)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// loadFromDisk attempts to load memory from disk
+func (m *MemoryStore) loadFromDisk(agentID string) *ConversationMemory <span class="cov8" title="1">{
+        path := m.memoryPath(agentID)
+        data, err := os.ReadFile(path)
+        if err != nil </span><span class="cov8" title="1">{
+                if !os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        m.logger.Error("failed to read memory file", "agent", agentID, "error", err)
+                }</span>
+                <span class="cov8" title="1">return nil</span>
+        }
+
+        <span class="cov8" title="1">var mem ConversationMemory
+        if err := json.Unmarshal(data, &amp;mem); err != nil </span><span class="cov8" title="1">{
+                m.logger.Error("failed to parse memory file", "agent", agentID, "error", err)
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">mem.LastAccessed = time.Now()
+        m.logger.Info("memory loaded", "agent", agentID, "messages", len(mem.Messages))
+        return &amp;mem</span>
+}
+
+// memoryPath returns the file path for an agent's memory
+func (m *MemoryStore) memoryPath(agentID string) string <span class="cov8" title="1">{
+        return filepath.Join(m.dataDir, agentID+".json")
+}</span>
+
+// Cleanup removes old memory files that haven't been accessed recently
+func (m *MemoryStore) Cleanup(maxAgeHours int) error <span class="cov8" title="1">{
+        m.mu.Lock()
+        defer m.mu.Unlock()
+
+        threshold := time.Now().Add(-time.Duration(maxAgeHours) * time.Hour)
+
+        // Clean up in-memory cache
+        for agentID, mem := range m.cache </span><span class="cov8" title="1">{
+                mem.mu.RLock()
+                lastAccess := mem.LastAccessed
+                mem.mu.RUnlock()
+
+                if lastAccess.Before(threshold) </span><span class="cov8" title="1">{
+                        // Save before removing (using internal helper to avoid deadlock)
+                        if err := m.saveMemory(agentID, mem); err != nil </span><span class="cov0" title="0">{
+                                m.logger.Error("failed to save memory during cleanup", "agent", agentID, "error", err)
+                        }</span>
+                        <span class="cov8" title="1">delete(m.cache, agentID)
+                        m.logger.Info("memory evicted from cache", "agent", agentID)</span>
+                }
+        }
+
+        // Clean up old files on disk
+        <span class="cov8" title="1">entries, err := os.ReadDir(m.dataDir)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("read memory dir: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">for _, entry := range entries </span><span class="cov8" title="1">{
+                if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">path := filepath.Join(m.dataDir, entry.Name())
+                info, err := entry.Info()
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">if info.ModTime().Before(threshold) </span><span class="cov8" title="1">{
+                        if err := os.Remove(path); err != nil </span><span class="cov0" title="0">{
+                                m.logger.Error("failed to delete old memory file", "path", path, "error", err)
+                        }</span> else<span class="cov8" title="1"> {
+                                m.logger.Info("old memory file deleted", "path", path)
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// GetStats returns statistics about the memory store
+func (m *MemoryStore) GetStats() map[string]interface{} <span class="cov8" title="1">{
+        m.mu.RLock()
+        defer m.mu.RUnlock()
+
+        totalMessages := 0
+        totalTokens := 0
+
+        for _, mem := range m.cache </span><span class="cov8" title="1">{
+                mem.mu.RLock()
+                totalMessages += len(mem.Messages)
+                totalTokens += mem.TotalTokens
+                mem.mu.RUnlock()
+        }</span>
+
+        <span class="cov8" title="1">return map[string]interface{}{
+                "cached_agents":  len(m.cache),
+                "total_messages": totalMessages,
+                "total_tokens":   totalTokens,
+        }</span>
+}
+
+// estimateTokens provides a rough token count estimate
+// Real token counting would use tiktoken or similar
+func estimateTokens(text string) int <span class="cov8" title="1">{
+        // Rough estimate: ~4 chars per token for English
+        return len(text) / 4
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package agents
+
+import (
+        "encoding/json"
+        "fmt"
+        "log/slog"
+        "os"
+        "path/filepath"
+        "sync"
+        "time"
+
+        "github.com/clawinfra/evoclaw/internal/config"
+)
+
+// Registry manages all agents and their state
+type Registry struct {
+        agents  map[string]*Agent
+        dataDir string
+        logger  *slog.Logger
+        mu      sync.RWMutex
+}
+
+// Agent represents a running agent
+type Agent struct {
+        ID            string          `json:"id"`
+        Def           config.AgentDef `json:"def"`
+        Status        string          `json:"status"` // "idle", "running", "error", "evolving"
+        StartedAt     time.Time       `json:"started_at"`
+        LastActive    time.Time       `json:"last_active"`
+        LastHeartbeat time.Time       `json:"last_heartbeat"`
+        MessageCount  int64           `json:"message_count"`
+        ErrorCount    int64           `json:"error_count"`
+        Metrics       Metrics         `json:"metrics"`
+        mu            sync.RWMutex
+}
+
+// Metrics tracks agent performance
+type Metrics struct {
+        TotalActions      int64              `json:"total_actions"`
+        SuccessfulActions int64              `json:"successful_actions"`
+        FailedActions     int64              `json:"failed_actions"`
+        AvgResponseMs     float64            `json:"avg_response_ms"`
+        TokensUsed        int64              `json:"tokens_used"`
+        CostUSD           float64            `json:"cost_usd"`
+        Custom            map[string]float64 `json:"custom,omitempty"`
+}
+
+// NewRegistry creates a new agent registry
+func NewRegistry(dataDir string, logger *slog.Logger) (*Registry, error) <span class="cov8" title="1">{
+        agentsDir := filepath.Join(dataDir, "agents")
+        if err := os.MkdirAll(agentsDir, 0750); err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("create agents dir: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;Registry{
+                agents:  make(map[string]*Agent),
+                dataDir: agentsDir,
+                logger:  logger.With("component", "registry"),
+        }, nil</span>
+}
+
+// Create adds a new agent to the registry
+func (r *Registry) Create(def config.AgentDef) (*Agent, error) <span class="cov8" title="1">{
+        r.mu.Lock()
+        defer r.mu.Unlock()
+
+        if _, exists := r.agents[def.ID]; exists </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("agent already exists: %s", def.ID)
+        }</span>
+
+        <span class="cov8" title="1">agent := &amp;Agent{
+                ID:        def.ID,
+                Def:       def,
+                Status:    "idle",
+                StartedAt: time.Now(),
+                Metrics: Metrics{
+                        Custom: make(map[string]float64),
+                },
+        }
+
+        r.agents[def.ID] = agent
+
+        // Persist to disk
+        if err := r.save(agent); err != nil </span><span class="cov0" title="0">{
+                r.logger.Error("failed to persist agent", "id", def.ID, "error", err)
+                // Don't fail creation if save fails
+        }</span>
+
+        <span class="cov8" title="1">r.logger.Info("agent created", "id", def.ID, "type", def.Type)
+        return agent, nil</span>
+}
+
+// Get retrieves an agent by ID
+func (r *Registry) Get(id string) (*Agent, error) <span class="cov8" title="1">{
+        r.mu.RLock()
+        defer r.mu.RUnlock()
+
+        agent, ok := r.agents[id]
+        if !ok </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("agent not found: %s", id)
+        }</span>
+
+        <span class="cov8" title="1">return agent, nil</span>
+}
+
+// List returns all agents
+func (r *Registry) List() []*Agent <span class="cov8" title="1">{
+        r.mu.RLock()
+        defer r.mu.RUnlock()
+
+        agents := make([]*Agent, 0, len(r.agents))
+        for _, a := range r.agents </span><span class="cov8" title="1">{
+                agents = append(agents, a)
+        }</span>
+        <span class="cov8" title="1">return agents</span>
+}
+
+// Update modifies an agent's definition
+func (r *Registry) Update(id string, def config.AgentDef) error <span class="cov8" title="1">{
+        r.mu.Lock()
+        defer r.mu.Unlock()
+
+        agent, ok := r.agents[id]
+        if !ok </span><span class="cov8" title="1">{
+                return fmt.Errorf("agent not found: %s", id)
+        }</span>
+
+        <span class="cov8" title="1">agent.mu.Lock()
+        agent.Def = def
+        agent.mu.Unlock()
+
+        if err := r.save(agent); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("save agent: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">r.logger.Info("agent updated", "id", id)
+        return nil</span>
+}
+
+// Delete removes an agent
+func (r *Registry) Delete(id string) error <span class="cov8" title="1">{
+        r.mu.Lock()
+        defer r.mu.Unlock()
+
+        agent, ok := r.agents[id]
+        if !ok </span><span class="cov8" title="1">{
+                return fmt.Errorf("agent not found: %s", id)
+        }</span>
+
+        <span class="cov8" title="1">delete(r.agents, id)
+
+        // Delete from disk
+        path := r.agentPath(id)
+        if err := os.Remove(path); err != nil &amp;&amp; !os.IsNotExist(err) </span><span class="cov0" title="0">{
+                r.logger.Error("failed to delete agent file", "id", id, "error", err)
+        }</span>
+
+        <span class="cov8" title="1">r.logger.Info("agent deleted", "id", id, "type", agent.Def.Type)
+        return nil</span>
+}
+
+// UpdateStatus changes an agent's status
+func (r *Registry) UpdateStatus(id, status string) error <span class="cov8" title="1">{
+        agent, err := r.Get(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">agent.mu.Lock()
+        agent.Status = status
+        agent.LastActive = time.Now()
+        agent.mu.Unlock()
+
+        return nil</span>
+}
+
+// RecordHeartbeat updates the agent's last heartbeat time
+func (r *Registry) RecordHeartbeat(id string) error <span class="cov8" title="1">{
+        agent, err := r.Get(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">agent.mu.Lock()
+        agent.LastHeartbeat = time.Now()
+        agent.mu.Unlock()
+
+        return nil</span>
+}
+
+// RecordMessage increments message count
+func (r *Registry) RecordMessage(id string) error <span class="cov8" title="1">{
+        agent, err := r.Get(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">agent.mu.Lock()
+        agent.MessageCount++
+        agent.LastActive = time.Now()
+        agent.mu.Unlock()
+
+        return nil</span>
+}
+
+// RecordError increments error count
+func (r *Registry) RecordError(id string) error <span class="cov8" title="1">{
+        agent, err := r.Get(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">agent.mu.Lock()
+        agent.ErrorCount++
+        agent.Metrics.FailedActions++
+        agent.mu.Unlock()
+
+        return nil</span>
+}
+
+// UpdateMetrics updates agent performance metrics
+func (r *Registry) UpdateMetrics(id string, tokensUsed int, costUSD float64, responseMs int64, success bool) error <span class="cov8" title="1">{
+        agent, err := r.Get(id)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">agent.mu.Lock()
+        defer agent.mu.Unlock()
+
+        agent.Metrics.TotalActions++
+        if success </span><span class="cov8" title="1">{
+                agent.Metrics.SuccessfulActions++
+        }</span> else<span class="cov8" title="1"> {
+                agent.Metrics.FailedActions++
+        }</span>
+
+        <span class="cov8" title="1">agent.Metrics.TokensUsed += int64(tokensUsed)
+        agent.Metrics.CostUSD += costUSD
+
+        // Update running average response time
+        n := float64(agent.Metrics.TotalActions)
+        agent.Metrics.AvgResponseMs = agent.Metrics.AvgResponseMs*(n-1)/n + float64(responseMs)/n
+
+        return nil</span>
+}
+
+// CheckHealth identifies unhealthy agents based on heartbeat
+func (r *Registry) CheckHealth(timeoutSec int) []string <span class="cov8" title="1">{
+        r.mu.RLock()
+        defer r.mu.RUnlock()
+
+        var unhealthy []string
+        threshold := time.Now().Add(-time.Duration(timeoutSec) * time.Second)
+
+        for id, agent := range r.agents </span><span class="cov8" title="1">{
+                agent.mu.RLock()
+                lastBeat := agent.LastHeartbeat
+                agent.mu.RUnlock()
+
+                if !lastBeat.IsZero() &amp;&amp; lastBeat.Before(threshold) </span><span class="cov8" title="1">{
+                        unhealthy = append(unhealthy, id)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return unhealthy</span>
+}
+
+// Load restores agents from disk
+func (r *Registry) Load() error <span class="cov8" title="1">{
+        entries, err := os.ReadDir(r.dataDir)
+        if err != nil </span><span class="cov0" title="0">{
+                if os.IsNotExist(err) </span><span class="cov0" title="0">{
+                        return nil // No agents yet
+                }</span>
+                <span class="cov0" title="0">return fmt.Errorf("read agents dir: %w", err)</span>
+        }
+
+        <span class="cov8" title="1">for _, entry := range entries </span><span class="cov8" title="1">{
+                if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">path := filepath.Join(r.dataDir, entry.Name())
+                data, err := os.ReadFile(path)
+                if err != nil </span><span class="cov0" title="0">{
+                        r.logger.Error("failed to read agent file", "path", path, "error", err)
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">var agent Agent
+                if err := json.Unmarshal(data, &amp;agent); err != nil </span><span class="cov8" title="1">{
+                        r.logger.Error("failed to parse agent file", "path", path, "error", err)
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">r.mu.Lock()
+                r.agents[agent.ID] = &amp;agent
+                r.mu.Unlock()
+
+                r.logger.Info("agent loaded", "id", agent.ID, "type", agent.Def.Type)</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// SaveAll persists all agents to disk
+func (r *Registry) SaveAll() error <span class="cov8" title="1">{
+        r.mu.RLock()
+        defer r.mu.RUnlock()
+
+        for _, agent := range r.agents </span><span class="cov8" title="1">{
+                if err := r.save(agent); err != nil </span><span class="cov8" title="1">{
+                        r.logger.Error("failed to save agent", "id", agent.ID, "error", err)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// save writes an agent to disk
+func (r *Registry) save(agent *Agent) error <span class="cov8" title="1">{
+        agent.mu.RLock()
+        defer agent.mu.RUnlock()
+
+        data, err := json.MarshalIndent(agent, "", "  ")
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("marshal agent: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">path := r.agentPath(agent.ID)
+        if err := os.WriteFile(path, data, 0640); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("write agent file: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// agentPath returns the file path for an agent
+func (r *Registry) agentPath(id string) string <span class="cov8" title="1">{
+        return filepath.Join(r.dataDir, id+".json")
+}</span>
+
+// GetSnapshot returns a safe copy of an agent (no mutex)
+func (a *Agent) GetSnapshot() Agent <span class="cov8" title="1">{
+        a.mu.RLock()
+        defer a.mu.RUnlock()
+
+        return Agent{
+                ID:            a.ID,
+                Def:           a.Def,
+                Status:        a.Status,
+                StartedAt:     a.StartedAt,
+                LastActive:    a.LastActive,
+                LastHeartbeat: a.LastHeartbeat,
+                MessageCount:  a.MessageCount,
+                ErrorCount:    a.ErrorCount,
+                Metrics:       a.Metrics,
+        }
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package api
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "log/slog"
+        "net/http"
+        "strings"
+        "time"
+
+        "github.com/clawinfra/evoclaw/internal/agents"
+        "github.com/clawinfra/evoclaw/internal/models"
+        "github.com/clawinfra/evoclaw/internal/orchestrator"
+)
+
+// Server is the HTTP API server
+type Server struct {
+        port       int
+        orch       *orchestrator.Orchestrator
+        registry   *agents.Registry
+        memory     *agents.MemoryStore
+        router     *models.Router
+        logger     *slog.Logger
+        httpServer *http.Server
+}
+
+// NewServer creates a new API server
+func NewServer(
+        port int,
+        orch *orchestrator.Orchestrator,
+        registry *agents.Registry,
+        memory *agents.MemoryStore,
+        router *models.Router,
+        logger *slog.Logger,
+) *Server <span class="cov8" title="1">{
+        return &amp;Server{
+                port:     port,
+                orch:     orch,
+                registry: registry,
+                memory:   memory,
+                router:   router,
+                logger:   logger.With("component", "api"),
+        }
+}</span>
+
+// Start starts the HTTP server
+func (s *Server) Start(ctx context.Context) error <span class="cov0" title="0">{
+        mux := http.NewServeMux()
+
+        // Register routes
+        mux.HandleFunc("/api/status", s.handleStatus)
+        mux.HandleFunc("/api/agents", s.handleAgents)
+        mux.HandleFunc("/api/agents/", s.handleAgentDetail)
+        mux.HandleFunc("/api/models", s.handleModels)
+        mux.HandleFunc("/api/costs", s.handleCosts)
+
+        s.httpServer = &amp;http.Server{
+                Addr:         fmt.Sprintf(":%d", s.port),
+                Handler:      s.corsMiddleware(s.loggingMiddleware(mux)),
+                ReadTimeout:  15 * time.Second,
+                WriteTimeout: 15 * time.Second,
+                IdleTimeout:  60 * time.Second,
+        }
+
+        s.logger.Info("API server starting", "port", s.port)
+
+        // Run server in goroutine
+        errCh := make(chan error, 1)
+        go func() </span><span class="cov0" title="0">{
+                if err := s.httpServer.ListenAndServe(); err != nil &amp;&amp; err != http.ErrServerClosed </span><span class="cov0" title="0">{
+                        errCh &lt;- err
+                }</span>
+        }()
+
+        // Wait for shutdown or error
+        <span class="cov0" title="0">select </span>{
+        case &lt;-ctx.Done():<span class="cov0" title="0">
+                s.logger.Info("shutting down API server")
+                shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+                defer cancel()
+                return s.httpServer.Shutdown(shutdownCtx)</span>
+        case err := &lt;-errCh:<span class="cov0" title="0">
+                return err</span>
+        }
+}
+
+// loggingMiddleware logs HTTP requests
+func (s *Server) loggingMiddleware(next http.Handler) http.Handler <span class="cov8" title="1">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                start := time.Now()
+                next.ServeHTTP(w, r)
+                s.logger.Debug("http request",
+                        "method", r.Method,
+                        "path", r.URL.Path,
+                        "duration", time.Since(start),
+                )
+        }</span>)
+}
+
+// corsMiddleware adds CORS headers
+func (s *Server) corsMiddleware(next http.Handler) http.Handler <span class="cov8" title="1">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                w.Header().Set("Access-Control-Allow-Origin", "*")
+                w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+                w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+                if r.Method == "OPTIONS" </span><span class="cov8" title="1">{
+                        w.WriteHeader(http.StatusOK)
+                        return
+                }</span>
+
+                <span class="cov8" title="1">next.ServeHTTP(w, r)</span>
+        })
+}
+
+// handleStatus returns system status
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        if r.Method != http.MethodGet </span><span class="cov8" title="1">{
+                http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+                return
+        }</span>
+
+        <span class="cov8" title="1">agentList := s.registry.List()
+        memStats := s.memory.GetStats()
+        allCosts := s.router.GetAllCosts()
+
+        totalCost := 0.0
+        for _, cost := range allCosts </span><span class="cov0" title="0">{
+                totalCost += cost.TotalCostUSD
+        }</span>
+
+        <span class="cov8" title="1">status := map[string]interface{}{
+                "version":    "0.1.0",
+                "uptime":     time.Since(time.Now()), // TODO: track actual uptime
+                "agents":     len(agentList),
+                "models":     len(s.router.ListModels()),
+                "memory":     memStats,
+                "total_cost": totalCost,
+        }
+
+        s.respondJSON(w, status)</span>
+}
+
+// handleAgents handles agent listing
+func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        switch r.Method </span>{
+        case http.MethodGet:<span class="cov8" title="1">
+                agentList := s.registry.List()
+                snapshots := make([]agents.Agent, len(agentList))
+                for i, a := range agentList </span><span class="cov8" title="1">{
+                        snapshots[i] = a.GetSnapshot()
+                }</span>
+                <span class="cov8" title="1">s.respondJSON(w, snapshots)</span>
+
+        default:<span class="cov0" title="0">
+                http.Error(w, "method not allowed", http.StatusMethodNotAllowed)</span>
+        }
+}
+
+// handleAgentDetail handles individual agent operations
+func (s *Server) handleAgentDetail(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        // Extract agent ID from path: /api/agents/{id}/{action}
+        path := strings.TrimPrefix(r.URL.Path, "/api/agents/")
+        parts := strings.Split(path, "/")
+
+        if len(parts) == 0 </span><span class="cov0" title="0">{
+                http.Error(w, "agent id required", http.StatusBadRequest)
+                return
+        }</span>
+
+        <span class="cov8" title="1">agentID := parts[0]
+        action := ""
+        if len(parts) &gt; 1 </span><span class="cov8" title="1">{
+                action = parts[1]
+        }</span>
+
+        // Get agent
+        <span class="cov8" title="1">agent, err := s.registry.Get(agentID)
+        if err != nil </span><span class="cov8" title="1">{
+                http.Error(w, "agent not found", http.StatusNotFound)
+                return
+        }</span>
+
+        // Handle different actions
+        <span class="cov8" title="1">switch </span>{
+        case action == "metrics" &amp;&amp; r.Method == http.MethodGet:<span class="cov8" title="1">
+                s.handleAgentMetrics(w, agent)</span>
+        case action == "evolve" &amp;&amp; r.Method == http.MethodPost:<span class="cov8" title="1">
+                s.handleAgentEvolve(w, agent)</span>
+        case action == "memory" &amp;&amp; r.Method == http.MethodGet:<span class="cov8" title="1">
+                s.handleAgentMemory(w, agentID)</span>
+        case action == "memory" &amp;&amp; r.Method == http.MethodDelete:<span class="cov8" title="1">
+                s.handleClearMemory(w, agentID)</span>
+        case action == "" &amp;&amp; r.Method == http.MethodGet:<span class="cov8" title="1">
+                // Get agent details
+                s.respondJSON(w, agent.GetSnapshot())</span>
+        default:<span class="cov8" title="1">
+                http.Error(w, "invalid action or method", http.StatusBadRequest)</span>
+        }
+}
+
+// handleAgentMetrics returns agent performance metrics
+func (s *Server) handleAgentMetrics(w http.ResponseWriter, agent *agents.Agent) <span class="cov8" title="1">{
+        snapshot := agent.GetSnapshot()
+        s.respondJSON(w, map[string]interface{}{
+                "agent_id": agent.ID,
+                "metrics":  snapshot.Metrics,
+                "status":   snapshot.Status,
+                "uptime":   time.Since(snapshot.StartedAt).Seconds(),
+        })
+}</span>
+
+// handleAgentEvolve triggers evolution for an agent
+func (s *Server) handleAgentEvolve(w http.ResponseWriter, agent *agents.Agent) <span class="cov8" title="1">{
+        // TODO: Trigger evolution engine
+        s.respondJSON(w, map[string]interface{}{
+                "message":  "evolution triggered",
+                "agent_id": agent.ID,
+        })
+}</span>
+
+// handleAgentMemory returns agent conversation memory
+func (s *Server) handleAgentMemory(w http.ResponseWriter, agentID string) <span class="cov8" title="1">{
+        mem := s.memory.Get(agentID)
+        if mem == nil </span><span class="cov0" title="0">{
+                http.Error(w, "memory not found", http.StatusNotFound)
+                return
+        }</span>
+
+        <span class="cov8" title="1">messages := mem.GetMessages()
+        s.respondJSON(w, map[string]interface{}{
+                "agent_id":      agentID,
+                "message_count": len(messages),
+                "total_tokens":  mem.TotalTokens,
+                "messages":      messages,
+        })</span>
+}
+
+// handleClearMemory clears agent conversation memory
+func (s *Server) handleClearMemory(w http.ResponseWriter, agentID string) <span class="cov8" title="1">{
+        mem := s.memory.Get(agentID)
+        if mem == nil </span><span class="cov0" title="0">{
+                http.Error(w, "memory not found", http.StatusNotFound)
+                return
+        }</span>
+
+        <span class="cov8" title="1">mem.Clear()
+        if err := s.memory.Save(agentID); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("failed to save cleared memory", "agent", agentID, "error", err)
+        }</span>
+
+        <span class="cov8" title="1">s.respondJSON(w, map[string]interface{}{
+                "message":  "memory cleared",
+                "agent_id": agentID,
+        })</span>
+}
+
+// handleModels lists available models
+func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        if r.Method != http.MethodGet </span><span class="cov8" title="1">{
+                http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+                return
+        }</span>
+
+        <span class="cov8" title="1">modelList := s.router.ListModels()
+        s.respondJSON(w, modelList)</span>
+}
+
+// handleCosts returns cost tracking data
+func (s *Server) handleCosts(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        if r.Method != http.MethodGet </span><span class="cov8" title="1">{
+                http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+                return
+        }</span>
+
+        <span class="cov8" title="1">costs := s.router.GetAllCosts()
+        s.respondJSON(w, costs)</span>
+}
+
+// respondJSON writes a JSON response
+func (s *Server) respondJSON(w http.ResponseWriter, data interface{}) <span class="cov8" title="1">{
+        w.Header().Set("Content-Type", "application/json")
+        if err := json.NewEncoder(w).Encode(data); err != nil </span><span class="cov8" title="1">{
+                s.logger.Error("failed to encode JSON", "error", err)
+                http.Error(w, "internal server error", http.StatusInternalServerError)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package channels
+
+import "net/http"
+
+// HTTPClient is an interface for making HTTP requests
+// This allows us to mock HTTP calls in tests
+type HTTPClient interface {
+        Do(req *http.Request) (*http.Response, error)
+}
+
+// DefaultHTTPClient wraps the standard http.Client
+type DefaultHTTPClient struct {
+        client *http.Client
+}
+
+func (d *DefaultHTTPClient) Do(req *http.Request) (*http.Response, error) <span class="cov8" title="1">{
+        return d.client.Do(req)
+}</span>
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package channels
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "log/slog"
+        "sync"
+        "time"
+
+        "github.com/clawinfra/evoclaw/internal/orchestrator"
+        mqtt "github.com/eclipse/paho.mqtt.golang"
+)
+
+const (
+        // MQTT topics for agent communication
+        commandsTopic  = "evoclaw/agents/%s/commands" // orchestrator → agent
+        reportsTopic   = "evoclaw/agents/%s/reports"  // agent → orchestrator
+        broadcastTopic = "evoclaw/broadcast"          // orchestrator → all agents
+        statusTopic    = "evoclaw/agents/%s/status"   // agent heartbeats
+)
+
+// MQTTChannel implements the Channel interface for MQTT communication
+type MQTTChannel struct {
+        broker   string
+        port     int
+        clientID string
+        username string
+        password string
+        logger   *slog.Logger
+        inbox    chan orchestrator.Message
+        client   MQTTClient
+        ctx      context.Context
+        cancel   context.CancelFunc
+        wg       sync.WaitGroup
+        // Factory function for creating MQTT client
+        clientFactory func(opts *mqtt.ClientOptions) MQTTClient
+}
+
+// NewMQTT creates a new MQTT channel adapter
+func NewMQTT(broker string, port int, username, password string, logger *slog.Logger) *MQTTChannel <span class="cov8" title="1">{
+        return &amp;MQTTChannel{
+                broker:   broker,
+                port:     port,
+                clientID: fmt.Sprintf("evoclaw-orchestrator-%d", time.Now().Unix()),
+                username: username,
+                password: password,
+                logger:   logger.With("channel", "mqtt"),
+                inbox:    make(chan orchestrator.Message, 100),
+                clientFactory: func(opts *mqtt.ClientOptions) MQTTClient </span><span class="cov0" title="0">{
+                        return &amp;DefaultMQTTClient{client: mqtt.NewClient(opts)}
+                }</span>,
+        }
+}
+
+// NewMQTTWithClient creates an MQTT channel with a custom client factory (for testing)
+func NewMQTTWithClient(broker string, port int, username, password string, logger *slog.Logger, clientFactory func(*mqtt.ClientOptions) MQTTClient) *MQTTChannel <span class="cov8" title="1">{
+        return &amp;MQTTChannel{
+                broker:        broker,
+                port:          port,
+                clientID:      fmt.Sprintf("evoclaw-orchestrator-%d", time.Now().Unix()),
+                username:      username,
+                password:      password,
+                logger:        logger.With("channel", "mqtt"),
+                inbox:         make(chan orchestrator.Message, 100),
+                clientFactory: clientFactory,
+        }
+}</span>
+
+func (m *MQTTChannel) Name() string <span class="cov8" title="1">{
+        return "mqtt"
+}</span>
+
+func (m *MQTTChannel) Start(ctx context.Context) error <span class="cov8" title="1">{
+        m.ctx, m.cancel = context.WithCancel(ctx)
+
+        // Configure MQTT client
+        opts := mqtt.NewClientOptions()
+        brokerURL := fmt.Sprintf("tcp://%s:%d", m.broker, m.port)
+        opts.AddBroker(brokerURL)
+        opts.SetClientID(m.clientID)
+
+        if m.username != "" </span><span class="cov8" title="1">{
+                opts.SetUsername(m.username)
+                opts.SetPassword(m.password)
+        }</span>
+
+        <span class="cov8" title="1">opts.SetKeepAlive(30 * time.Second)
+        opts.SetPingTimeout(10 * time.Second)
+        opts.SetCleanSession(true)
+        opts.SetAutoReconnect(true)
+        opts.SetMaxReconnectInterval(30 * time.Second)
+
+        // Connection lost handler
+        opts.SetConnectionLostHandler(func(c mqtt.Client, err error) </span><span class="cov0" title="0">{
+                m.logger.Warn("mqtt connection lost", "error", err)
+        }</span>)
+
+        // On connect handler
+        <span class="cov8" title="1">opts.SetOnConnectHandler(func(c mqtt.Client) </span><span class="cov0" title="0">{
+                m.logger.Info("mqtt connected, subscribing to topics")
+                if err := m.subscribe(); err != nil </span><span class="cov0" title="0">{
+                        m.logger.Error("failed to subscribe", "error", err)
+                }</span>
+        })
+
+        <span class="cov8" title="1">m.client = m.clientFactory(opts)
+
+        // Connect
+        m.logger.Info("connecting to mqtt broker", "broker", brokerURL)
+        token := m.client.Connect()
+        if !token.WaitTimeout(10 * time.Second) </span><span class="cov8" title="1">{
+                return fmt.Errorf("connection timeout")
+        }</span>
+        <span class="cov8" title="1">if err := token.Error(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("connect to mqtt: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">m.logger.Info("mqtt channel started")
+        return nil</span>
+}
+
+func (m *MQTTChannel) Stop() error <span class="cov8" title="1">{
+        m.logger.Info("stopping mqtt channel")
+
+        if m.client != nil &amp;&amp; m.client.IsConnected() </span><span class="cov8" title="1">{
+                m.client.Disconnect(250)
+        }</span>
+
+        <span class="cov8" title="1">if m.cancel != nil </span><span class="cov8" title="1">{
+                m.cancel()
+        }</span>
+
+        <span class="cov8" title="1">m.wg.Wait()
+        close(m.inbox)
+        return nil</span>
+}
+
+func (m *MQTTChannel) Send(ctx context.Context, msg orchestrator.Response) error <span class="cov8" title="1">{
+        if !m.client.IsConnected() </span><span class="cov8" title="1">{
+                return fmt.Errorf("mqtt not connected")
+        }</span>
+
+        // Determine the topic based on the recipient
+        <span class="cov8" title="1">topic := fmt.Sprintf(commandsTopic, msg.To)
+
+        // Serialize message
+        payload, err := json.Marshal(map[string]interface{}{
+                "agent_id": msg.AgentID,
+                "content":  msg.Content,
+                "reply_to": msg.ReplyTo,
+                "metadata": msg.Metadata,
+                "sent_at":  time.Now().Unix(),
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("marshal message: %w", err)
+        }</span>
+
+        // Publish with QoS 1 (at least once delivery)
+        <span class="cov8" title="1">token := m.client.Publish(topic, 1, false, payload)
+        if !token.WaitTimeout(5 * time.Second) </span><span class="cov8" title="1">{
+                return fmt.Errorf("publish timeout")
+        }</span>
+        <span class="cov8" title="1">if err := token.Error(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("publish: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">m.logger.Debug("message sent", "topic", topic, "size", len(payload))
+        return nil</span>
+}
+
+func (m *MQTTChannel) Receive() &lt;-chan orchestrator.Message <span class="cov8" title="1">{
+        return m.inbox
+}</span>
+
+// subscribe to relevant MQTT topics
+func (m *MQTTChannel) subscribe() error <span class="cov8" title="1">{
+        // Subscribe to all agent reports (wildcard)
+        reportPattern := "evoclaw/agents/+/reports"
+        token := m.client.Subscribe(reportPattern, 1, m.handleMessage)
+        if !token.WaitTimeout(5 * time.Second) </span><span class="cov8" title="1">{
+                return fmt.Errorf("subscribe timeout")
+        }</span>
+        <span class="cov8" title="1">if err := token.Error(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("subscribe to %s: %w", reportPattern, err)
+        }</span>
+        <span class="cov8" title="1">m.logger.Info("subscribed", "topic", reportPattern)
+
+        // Subscribe to all agent status updates
+        statusPattern := "evoclaw/agents/+/status"
+        token = m.client.Subscribe(statusPattern, 1, m.handleStatus)
+        if !token.WaitTimeout(5 * time.Second) </span><span class="cov0" title="0">{
+                return fmt.Errorf("subscribe timeout")
+        }</span>
+        <span class="cov8" title="1">if err := token.Error(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("subscribe to %s: %w", statusPattern, err)
+        }</span>
+        <span class="cov8" title="1">m.logger.Info("subscribed", "topic", statusPattern)
+
+        return nil</span>
+}
+
+// handleMessage processes incoming messages from agents
+func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) <span class="cov8" title="1">{
+        m.logger.Debug("mqtt message received", "topic", mqttMsg.Topic())
+
+        var payload struct {
+                AgentID  string            `json:"agent_id"`
+                Content  string            `json:"content"`
+                ReplyTo  string            `json:"reply_to,omitempty"`
+                Metadata map[string]string `json:"metadata,omitempty"`
+                SentAt   int64             `json:"sent_at"`
+        }
+
+        if err := json.Unmarshal(mqttMsg.Payload(), &amp;payload); err != nil </span><span class="cov8" title="1">{
+                m.logger.Error("failed to parse mqtt message", "error", err)
+                return
+        }</span>
+
+        <span class="cov8" title="1">msg := orchestrator.Message{
+                ID:        fmt.Sprintf("mqtt-%d", time.Now().UnixNano()),
+                Channel:   "mqtt",
+                From:      payload.AgentID,
+                To:        "orchestrator",
+                Content:   payload.Content,
+                Timestamp: time.Unix(payload.SentAt, 0),
+                ReplyTo:   payload.ReplyTo,
+                Metadata:  payload.Metadata,
+        }
+
+        if msg.Metadata == nil </span><span class="cov0" title="0">{
+                msg.Metadata = make(map[string]string)
+        }</span>
+        <span class="cov8" title="1">msg.Metadata["mqtt_topic"] = mqttMsg.Topic()
+
+        select </span>{
+        case m.inbox &lt;- msg:<span class="cov8" title="1">
+                m.logger.Debug("message queued", "from", msg.From, "length", len(msg.Content))</span>
+        case &lt;-m.ctx.Done():<span class="cov0" title="0">
+                return</span>
+        default:<span class="cov0" title="0">
+                m.logger.Warn("inbox full, dropping message", "from", msg.From)</span>
+        }
+}
+
+// handleStatus processes agent heartbeat/status updates
+func (m *MQTTChannel) handleStatus(client mqtt.Client, mqttMsg mqtt.Message) <span class="cov8" title="1">{
+        m.logger.Debug("agent status update", "topic", mqttMsg.Topic())
+
+        var status struct {
+                AgentID   string  `json:"agent_id"`
+                Status    string  `json:"status"` // "online", "idle", "busy", "error"
+                Timestamp int64   `json:"timestamp"`
+                Uptime    float64 `json:"uptime_seconds,omitempty"`
+                CPU       float64 `json:"cpu_percent,omitempty"`
+                Memory    float64 `json:"memory_mb,omitempty"`
+        }
+
+        if err := json.Unmarshal(mqttMsg.Payload(), &amp;status); err != nil </span><span class="cov8" title="1">{
+                m.logger.Error("failed to parse status", "error", err)
+                return
+        }</span>
+
+        <span class="cov8" title="1">m.logger.Debug("agent status",
+                "agent", status.AgentID,
+                "status", status.Status,
+                "uptime", status.Uptime,
+        )</span>
+
+        // TODO: Update agent registry with heartbeat info
+        // This would integrate with internal/agents/registry.go
+}
+
+// Broadcast sends a message to all agents
+func (m *MQTTChannel) Broadcast(ctx context.Context, content string) error <span class="cov8" title="1">{
+        if !m.client.IsConnected() </span><span class="cov8" title="1">{
+                return fmt.Errorf("mqtt not connected")
+        }</span>
+
+        <span class="cov8" title="1">payload, err := json.Marshal(map[string]interface{}{
+                "content": content,
+                "sent_at": time.Now().Unix(),
+        })
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("marshal broadcast: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">token := m.client.Publish(broadcastTopic, 1, false, payload)
+        if !token.WaitTimeout(5 * time.Second) </span><span class="cov0" title="0">{
+                return fmt.Errorf("broadcast timeout")
+        }</span>
+        <span class="cov8" title="1">if err := token.Error(); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("broadcast: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">m.logger.Info("broadcast sent", "size", len(payload))
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package channels
+
+import (
+        mqtt "github.com/eclipse/paho.mqtt.golang"
+)
+
+// MQTTClient is an interface for MQTT client operations
+// This allows us to mock MQTT calls in tests
+type MQTTClient interface {
+        Connect() mqtt.Token
+        Disconnect(quiesce uint)
+        Publish(topic string, qos byte, retained bool, payload interface{}) mqtt.Token
+        Subscribe(topic string, qos byte, callback mqtt.MessageHandler) mqtt.Token
+        IsConnected() bool
+}
+
+// DefaultMQTTClient wraps the paho MQTT client
+type DefaultMQTTClient struct {
+        client mqtt.Client
+}
+
+func (d *DefaultMQTTClient) Connect() mqtt.Token <span class="cov0" title="0">{
+        return d.client.Connect()
+}</span>
+
+func (d *DefaultMQTTClient) Disconnect(quiesce uint) <span class="cov8" title="1">{
+        d.client.Disconnect(quiesce)
+}</span>
+
+func (d *DefaultMQTTClient) Publish(topic string, qos byte, retained bool, payload interface{}) mqtt.Token <span class="cov0" title="0">{
+        return d.client.Publish(topic, qos, retained, payload)
+}</span>
+
+func (d *DefaultMQTTClient) Subscribe(topic string, qos byte, callback mqtt.MessageHandler) mqtt.Token <span class="cov0" title="0">{
+        return d.client.Subscribe(topic, qos, callback)
+}</span>
+
+func (d *DefaultMQTTClient) IsConnected() bool <span class="cov8" title="1">{
+        return d.client.IsConnected()
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package channels
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "io"
+        "log/slog"
+        "net/http"
+        "net/url"
+        "strconv"
+        "sync"
+        "time"
+
+        "github.com/clawinfra/evoclaw/internal/orchestrator"
+)
+
+const (
+        telegramAPIURL = "https://api.telegram.org/bot"
+        pollTimeout    = 60 // long polling timeout in seconds
+)
+
+// TelegramChannel implements the Channel interface for Telegram Bot API
+type TelegramChannel struct {
+        botToken string
+        logger   *slog.Logger
+        inbox    chan orchestrator.Message
+        ctx      context.Context
+        cancel   context.CancelFunc
+        wg       sync.WaitGroup
+        client   HTTPClient
+        offset   int64 // for long polling
+}
+
+// NewTelegram creates a new Telegram channel adapter
+func NewTelegram(botToken string, logger *slog.Logger) *TelegramChannel <span class="cov8" title="1">{
+        return NewTelegramWithClient(botToken, logger, &amp;DefaultHTTPClient{
+                client: &amp;http.Client{
+                        Timeout: time.Second * 70, // slightly longer than pollTimeout
+                },
+        })
+}</span>
+
+// NewTelegramWithClient creates a Telegram channel with a custom HTTP client (for testing)
+func NewTelegramWithClient(botToken string, logger *slog.Logger, client HTTPClient) *TelegramChannel <span class="cov8" title="1">{
+        return &amp;TelegramChannel{
+                botToken: botToken,
+                logger:   logger.With("channel", "telegram"),
+                inbox:    make(chan orchestrator.Message, 100),
+                client:   client,
+        }
+}</span>
+
+func (t *TelegramChannel) Name() string <span class="cov8" title="1">{
+        return "telegram"
+}</span>
+
+func (t *TelegramChannel) Start(ctx context.Context) error <span class="cov8" title="1">{
+        t.ctx, t.cancel = context.WithCancel(ctx)
+
+        // Verify bot token by getting bot info
+        if err := t.verifyToken(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("verify token: %w", err)
+        }</span>
+
+        // Start polling loop
+        <span class="cov8" title="1">t.wg.Add(1)
+        go t.pollLoop()
+
+        t.logger.Info("telegram channel started")
+        return nil</span>
+}
+
+func (t *TelegramChannel) Stop() error <span class="cov8" title="1">{
+        t.logger.Info("stopping telegram channel")
+        if t.cancel != nil </span><span class="cov8" title="1">{
+                t.cancel()
+        }</span>
+        <span class="cov8" title="1">t.wg.Wait()
+        close(t.inbox)
+        return nil</span>
+}
+
+func (t *TelegramChannel) Send(ctx context.Context, msg orchestrator.Response) error <span class="cov8" title="1">{
+        params := url.Values{}
+        params.Set("chat_id", msg.To)
+        params.Set("text", msg.Content)
+
+        if msg.ReplyTo != "" </span><span class="cov8" title="1">{
+                params.Set("reply_to_message_id", msg.ReplyTo)
+        }</span>
+
+        <span class="cov8" title="1">apiURL := fmt.Sprintf("%s%s/sendMessage", telegramAPIURL, t.botToken)
+        req, err := http.NewRequestWithContext(ctx, "POST", apiURL, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("create request: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">req.URL.RawQuery = params.Encode()
+
+        resp, err := t.client.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("send message: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov8" title="1">{
+                body, _ := io.ReadAll(resp.Body)
+                return fmt.Errorf("telegram api error: %s (status %d)", body, resp.StatusCode)
+        }</span>
+
+        <span class="cov8" title="1">t.logger.Debug("message sent", "to", msg.To, "length", len(msg.Content))
+        return nil</span>
+}
+
+func (t *TelegramChannel) Receive() &lt;-chan orchestrator.Message <span class="cov8" title="1">{
+        return t.inbox
+}</span>
+
+// verifyToken checks that the bot token is valid
+func (t *TelegramChannel) verifyToken() error <span class="cov8" title="1">{
+        apiURL := fmt.Sprintf("%s%s/getMe", telegramAPIURL, t.botToken)
+        req, err := http.NewRequest("GET", apiURL, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("create request: %w", err)
+        }</span>
+        
+        <span class="cov8" title="1">resp, err := t.client.Do(req)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("get bot info: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov8" title="1">{
+                body, _ := io.ReadAll(resp.Body)
+                return fmt.Errorf("invalid token: %s (status %d)", body, resp.StatusCode)
+        }</span>
+
+        <span class="cov8" title="1">var result struct {
+                OK     bool `json:"ok"`
+                Result struct {
+                        Username  string `json:"username"`
+                        FirstName string `json:"first_name"`
+                } `json:"result"`
+        }
+
+        if err := json.NewDecoder(resp.Body).Decode(&amp;result); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("decode response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if !result.OK </span><span class="cov8" title="1">{
+                return fmt.Errorf("api returned ok=false")
+        }</span>
+
+        <span class="cov8" title="1">t.logger.Info("bot verified", "username", result.Result.Username, "name", result.Result.FirstName)
+        return nil</span>
+}
+
+// pollLoop continuously polls for new messages using long polling
+func (t *TelegramChannel) pollLoop() <span class="cov8" title="1">{
+        defer t.wg.Done()
+
+        t.logger.Info("starting poll loop")
+
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                case &lt;-t.ctx.Done():<span class="cov8" title="1">
+                        t.logger.Info("poll loop stopped")
+                        return</span>
+                default:<span class="cov8" title="1">
+                        if err := t.pollOnce(); err != nil </span><span class="cov0" title="0">{
+                                t.logger.Error("poll error", "error", err)
+                                // Back off on error
+                                select </span>{
+                                case &lt;-t.ctx.Done():<span class="cov0" title="0">
+                                        return</span>
+                                case &lt;-time.After(time.Second * 5):<span class="cov0" title="0"></span>
+                                }
+                        }
+                }
+        }
+}
+
+// pollOnce performs a single getUpdates call
+func (t *TelegramChannel) pollOnce() error <span class="cov8" title="1">{
+        params := url.Values{}
+        params.Set("offset", strconv.FormatInt(t.offset, 10))
+        params.Set("timeout", strconv.Itoa(pollTimeout))
+        params.Set("allowed_updates", `["message"]`)
+
+        apiURL := fmt.Sprintf("%s%s/getUpdates?%s", telegramAPIURL, t.botToken, params.Encode())
+
+        req, err := http.NewRequestWithContext(t.ctx, "GET", apiURL, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("create request: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">resp, err := t.client.Do(req)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("get updates: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov8" title="1">{
+                body, _ := io.ReadAll(resp.Body)
+                return fmt.Errorf("api error: %s (status %d)", body, resp.StatusCode)
+        }</span>
+
+        <span class="cov8" title="1">var result struct {
+                OK     bool             `json:"ok"`
+                Result []TelegramUpdate `json:"result"`
+        }
+
+        if err := json.NewDecoder(resp.Body).Decode(&amp;result); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("decode response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if !result.OK </span><span class="cov8" title="1">{
+                return fmt.Errorf("api returned ok=false")
+        }</span>
+
+        // Process each update
+        <span class="cov8" title="1">for _, update := range result.Result </span><span class="cov8" title="1">{
+                // Update offset to acknowledge this update
+                if int64(update.UpdateID) &gt;= t.offset </span><span class="cov8" title="1">{
+                        t.offset = int64(update.UpdateID) + 1
+                }</span>
+
+                // Only process text messages for now
+                <span class="cov8" title="1">if update.Message == nil || update.Message.Text == "" </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">msg := orchestrator.Message{
+                        ID:        strconv.FormatInt(int64(update.Message.MessageID), 10),
+                        Channel:   "telegram",
+                        From:      strconv.FormatInt(update.Message.From.ID, 10),
+                        To:        strconv.FormatInt(update.Message.Chat.ID, 10),
+                        Content:   update.Message.Text,
+                        Timestamp: time.Unix(int64(update.Message.Date), 0),
+                        Metadata: map[string]string{
+                                "username":   update.Message.From.Username,
+                                "first_name": update.Message.From.FirstName,
+                                "chat_type":  update.Message.Chat.Type,
+                        },
+                }
+
+                if update.Message.ReplyToMessage != nil </span><span class="cov8" title="1">{
+                        msg.ReplyTo = strconv.FormatInt(int64(update.Message.ReplyToMessage.MessageID), 10)
+                }</span>
+
+                <span class="cov8" title="1">select </span>{
+                case t.inbox &lt;- msg:<span class="cov8" title="1">
+                        t.logger.Debug("message received",
+                                "from", msg.Metadata["username"],
+                                "chat", msg.To,
+                                "text", msg.Content,
+                        )</span>
+                case &lt;-t.ctx.Done():<span class="cov0" title="0">
+                        return nil</span>
+                }
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// TelegramUpdate represents an update from the Telegram API
+type TelegramUpdate struct {
+        UpdateID int              `json:"update_id"`
+        Message  *TelegramMessage `json:"message,omitempty"`
+}
+
+// TelegramMessage represents a message from Telegram
+type TelegramMessage struct {
+        MessageID      int              `json:"message_id"`
+        From           TelegramUser     `json:"from"`
+        Chat           TelegramChat     `json:"chat"`
+        Date           int              `json:"date"`
+        Text           string           `json:"text,omitempty"`
+        ReplyToMessage *TelegramMessage `json:"reply_to_message,omitempty"`
+}
+
+// TelegramUser represents a Telegram user
+type TelegramUser struct {
+        ID        int64  `json:"id"`
+        Username  string `json:"username,omitempty"`
+        FirstName string `json:"first_name"`
+        LastName  string `json:"last_name,omitempty"`
+}
+
+// TelegramChat represents a Telegram chat
+type TelegramChat struct {
+        ID   int64  `json:"id"`
+        Type string `json:"type"` // "private", "group", "supergroup", "channel"
+}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package config
+
+import (
+        "encoding/json"
+        "fmt"
+        "os"
+        "path/filepath"
+)
+
+// Config holds all EvoClaw configuration
+type Config struct {
+        // Server settings
+        Server ServerConfig `json:"server"`
+
+        // MQTT broker for agent mesh
+        MQTT MQTTConfig `json:"mqtt"`
+
+        // Channel configurations
+        Channels ChannelConfig `json:"channels"`
+
+        // LLM provider settings
+        Models ModelsConfig `json:"models"`
+
+        // Evolution engine settings
+        Evolution EvolutionConfig `json:"evolution"`
+
+        // Agent definitions
+        Agents []AgentDef `json:"agents"`
+}
+
+type ServerConfig struct {
+        Port     int    `json:"port"`
+        DataDir  string `json:"dataDir"`
+        LogLevel string `json:"logLevel"`
+}
+
+type MQTTConfig struct {
+        Port     int    `json:"port"`
+        Host     string `json:"host"`
+        Username string `json:"username,omitempty"`
+        Password string `json:"password,omitempty"`
+}
+
+type ChannelConfig struct {
+        WhatsApp *WhatsAppConfig `json:"whatsapp,omitempty"`
+        Telegram *TelegramConfig `json:"telegram,omitempty"`
+}
+
+type WhatsAppConfig struct {
+        Enabled   bool     `json:"enabled"`
+        AllowFrom []string `json:"allowFrom"`
+}
+
+type TelegramConfig struct {
+        Enabled  bool   `json:"enabled"`
+        BotToken string `json:"botToken"`
+}
+
+type ModelsConfig struct {
+        Providers map[string]ProviderConfig `json:"providers"`
+        // Routing rules: task complexity → model selection
+        Routing ModelRouting `json:"routing"`
+}
+
+type ProviderConfig struct {
+        BaseURL string  `json:"baseUrl"`
+        APIKey  string  `json:"apiKey"`
+        Models  []Model `json:"models"`
+}
+
+type Model struct {
+        ID            string   `json:"id"`
+        Name          string   `json:"name"`
+        ContextWindow int      `json:"contextWindow"`
+        CostInput     float64  `json:"costInput"`    // per million tokens
+        CostOutput    float64  `json:"costOutput"`   // per million tokens
+        Capabilities  []string `json:"capabilities"` // "reasoning", "code", "vision"
+}
+
+type ModelRouting struct {
+        // Simple tasks use cheap models
+        Simple string `json:"simple"`
+        // Complex tasks use expensive models
+        Complex string `json:"complex"`
+        // Critical tasks (trading, money) use best available
+        Critical string `json:"critical"`
+}
+
+type EvolutionConfig struct {
+        Enabled bool `json:"enabled"`
+        // How often to evaluate agent performance (seconds)
+        EvalIntervalSec int `json:"evalIntervalSec"`
+        // Minimum trades/actions before evaluation
+        MinSamplesForEval int `json:"minSamplesForEval"`
+        // Maximum strategy mutation rate (0.0 - 1.0)
+        MaxMutationRate float64 `json:"maxMutationRate"`
+}
+
+type AgentDef struct {
+        ID           string            `json:"id"`
+        Name         string            `json:"name"`
+        Type         string            `json:"type"` // "orchestrator", "trader", "monitor", "governance"
+        Model        string            `json:"model"`
+        SystemPrompt string            `json:"systemPrompt,omitempty"`
+        Skills       []string          `json:"skills"`
+        Config       map[string]string `json:"config,omitempty"`
+        // Container isolation settings
+        Container ContainerConfig `json:"container"`
+}
+
+type ContainerConfig struct {
+        Enabled    bool     `json:"enabled"`
+        Image      string   `json:"image,omitempty"`
+        MemoryMB   int      `json:"memoryMb"`
+        CPUShares  int      `json:"cpuShares"`
+        Mounts     []Mount  `json:"mounts,omitempty"`
+        AllowNet   bool     `json:"allowNet"`
+        AllowTools []string `json:"allowTools,omitempty"`
+}
+
+type Mount struct {
+        HostPath      string `json:"hostPath"`
+        ContainerPath string `json:"containerPath"`
+        ReadOnly      bool   `json:"readOnly"`
+}
+
+// DefaultConfig returns a sensible default configuration
+func DefaultConfig() *Config <span class="cov8" title="1">{
+        return &amp;Config{
+                Server: ServerConfig{
+                        Port:     8420,
+                        DataDir:  "./data",
+                        LogLevel: "info",
+                },
+                MQTT: MQTTConfig{
+                        Port: 1883,
+                        Host: "0.0.0.0",
+                },
+                Evolution: EvolutionConfig{
+                        Enabled:           true,
+                        EvalIntervalSec:   3600, // every hour
+                        MinSamplesForEval: 10,
+                        MaxMutationRate:   0.2,
+                },
+                Models: ModelsConfig{
+                        Routing: ModelRouting{
+                                Simple:   "local/small",
+                                Complex:  "anthropic/claude-sonnet",
+                                Critical: "anthropic/claude-opus",
+                        },
+                },
+        }
+}</span>
+
+// Load reads config from a JSON file
+func Load(path string) (*Config, error) <span class="cov8" title="1">{
+        data, err := os.ReadFile(path)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("read config: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">cfg := DefaultConfig()
+        if err := json.Unmarshal(data, cfg); err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("parse config: %w", err)
+        }</span>
+
+        // Ensure data directory exists
+        <span class="cov8" title="1">if err := os.MkdirAll(cfg.Server.DataDir, 0750); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("create data dir: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return cfg, nil</span>
+}
+
+// Save writes config to a JSON file
+func (c *Config) Save(path string) error <span class="cov8" title="1">{
+        dir := filepath.Dir(path)
+        if err := os.MkdirAll(dir, 0750); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("create config dir: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">data, err := json.MarshalIndent(c, "", "  ")
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("marshal config: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return os.WriteFile(path, data, 0640)</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package evolution
+
+import (
+        "encoding/json"
+        "fmt"
+        "log/slog"
+        "math"
+        "os"
+        "path/filepath"
+        "sync"
+        "time"
+)
+
+// Strategy represents an agent's current strategy that can be mutated
+type Strategy struct {
+        ID        string    `json:"id"`
+        AgentID   string    `json:"agentId"`
+        Version   int       `json:"version"`
+        CreatedAt time.Time `json:"createdAt"`
+        // Prompt engineering
+        SystemPrompt string `json:"systemPrompt"`
+        // Model selection preferences
+        PreferredModel string `json:"preferredModel"`
+        FallbackModel  string `json:"fallbackModel"`
+        // Behavioral parameters
+        Temperature float64 `json:"temperature"`
+        MaxTokens   int     `json:"maxTokens"`
+        // Custom strategy parameters (agent-type specific)
+        Params map[string]float64 `json:"params"`
+        // Fitness score from evaluation
+        Fitness float64 `json:"fitness"`
+        // Number of evaluations
+        EvalCount int `json:"evalCount"`
+}
+
+// TradeMetrics for trading-specific evolution
+type TradeMetrics struct {
+        TotalTrades int     `json:"totalTrades"`
+        WinRate     float64 `json:"winRate"`
+        ProfitLoss  float64 `json:"profitLoss"`
+        SharpeRatio float64 `json:"sharpeRatio"`
+        MaxDrawdown float64 `json:"maxDrawdown"`
+        AvgHoldTime float64 `json:"avgHoldTimeSec"`
+}
+
+// Engine manages the evolutionary process for all agents
+type Engine struct {
+        strategies map[string]*Strategy   // agentID -&gt; current strategy
+        history    map[string][]*Strategy // agentID -&gt; past strategies
+        dataDir    string
+        logger     *slog.Logger
+        mu         sync.RWMutex
+}
+
+// NewEngine creates a new evolution engine
+func NewEngine(dataDir string, logger *slog.Logger) *Engine <span class="cov8" title="1">{
+        dir := filepath.Join(dataDir, "evolution")
+        os.MkdirAll(dir, 0750)
+
+        e := &amp;Engine{
+                strategies: make(map[string]*Strategy),
+                history:    make(map[string][]*Strategy),
+                dataDir:    dir,
+                logger:     logger,
+        }
+
+        // Load existing strategies from disk
+        e.loadStrategies()
+
+        return e
+}</span>
+
+// GetStrategy returns the current strategy for an agent
+func (e *Engine) GetStrategy(agentID string) interface{} <span class="cov8" title="1">{
+        e.mu.RLock()
+        defer e.mu.RUnlock()
+        return e.strategies[agentID]
+}</span>
+
+// SetStrategy sets the initial strategy for an agent
+func (e *Engine) SetStrategy(agentID string, s *Strategy) <span class="cov8" title="1">{
+        e.mu.Lock()
+        defer e.mu.Unlock()
+        s.AgentID = agentID
+        s.CreatedAt = time.Now()
+        e.strategies[agentID] = s
+        e.saveStrategy(s)
+}</span>
+
+// Evaluate scores a strategy based on performance metrics
+func (e *Engine) Evaluate(agentID string, metrics map[string]float64) float64 <span class="cov8" title="1">{
+        e.mu.Lock()
+        defer e.mu.Unlock()
+
+        s, ok := e.strategies[agentID]
+        if !ok </span><span class="cov8" title="1">{
+                return 0
+        }</span>
+
+        // Compute fitness score (higher is better)
+        <span class="cov8" title="1">fitness := computeFitness(metrics)
+
+        // Exponential moving average of fitness
+        alpha := 0.3 // Weight of new observation
+        if s.EvalCount == 0 </span><span class="cov8" title="1">{
+                s.Fitness = fitness
+        }</span> else<span class="cov8" title="1"> {
+                s.Fitness = alpha*fitness + (1-alpha)*s.Fitness
+        }</span>
+        <span class="cov8" title="1">s.EvalCount++
+
+        e.saveStrategy(s)
+        e.logger.Info("strategy evaluated",
+                "agent", agentID,
+                "fitness", s.Fitness,
+                "evalCount", s.EvalCount,
+                "rawFitness", fitness,
+        )
+
+        return s.Fitness</span>
+}
+
+// Mutate creates a new strategy variant based on the current one
+func (e *Engine) Mutate(agentID string, mutationRate float64) (interface{}, error) <span class="cov8" title="1">{
+        e.mu.Lock()
+        defer e.mu.Unlock()
+
+        current, ok := e.strategies[agentID]
+        if !ok </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("no strategy found for agent %s", agentID)
+        }</span>
+
+        // Archive current strategy
+        <span class="cov8" title="1">e.history[agentID] = append(e.history[agentID], current)
+
+        // Create mutated version
+        mutated := &amp;Strategy{
+                ID:             fmt.Sprintf("%s-v%d", agentID, current.Version+1),
+                AgentID:        agentID,
+                Version:        current.Version + 1,
+                CreatedAt:      time.Now(),
+                SystemPrompt:   current.SystemPrompt, // Prompt mutation handled separately
+                PreferredModel: current.PreferredModel,
+                FallbackModel:  current.FallbackModel,
+                Temperature:    mutateFloat(current.Temperature, mutationRate, 0.0, 2.0),
+                MaxTokens:      current.MaxTokens,
+                Params:         make(map[string]float64),
+                Fitness:        0,
+                EvalCount:      0,
+        }
+
+        // Mutate custom parameters
+        for k, v := range current.Params </span><span class="cov8" title="1">{
+                mutated.Params[k] = mutateFloat(v, mutationRate, -1000, 1000)
+        }</span>
+
+        <span class="cov8" title="1">e.strategies[agentID] = mutated
+        e.saveStrategy(mutated)
+
+        e.logger.Info("strategy mutated",
+                "agent", agentID,
+                "version", mutated.Version,
+                "mutationRate", mutationRate,
+        )
+
+        return mutated, nil</span>
+}
+
+// Revert rolls back to the previous strategy if the current one is worse
+func (e *Engine) Revert(agentID string) error <span class="cov8" title="1">{
+        e.mu.Lock()
+        defer e.mu.Unlock()
+
+        history, ok := e.history[agentID]
+        if !ok || len(history) == 0 </span><span class="cov8" title="1">{
+                return fmt.Errorf("no history for agent %s", agentID)
+        }</span>
+
+        // Pop the last strategy from history
+        <span class="cov8" title="1">prev := history[len(history)-1]
+        e.history[agentID] = history[:len(history)-1]
+        e.strategies[agentID] = prev
+        e.saveStrategy(prev)
+
+        e.logger.Info("strategy reverted",
+                "agent", agentID,
+                "version", prev.Version,
+        )
+
+        return nil</span>
+}
+
+// ShouldEvolve determines if an agent needs evolution based on its fitness
+func (e *Engine) ShouldEvolve(agentID string, minFitness float64) bool <span class="cov8" title="1">{
+        e.mu.RLock()
+        defer e.mu.RUnlock()
+
+        s, ok := e.strategies[agentID]
+        if !ok </span><span class="cov8" title="1">{
+                return false
+        }</span>
+
+        // Need enough evaluations before evolving
+        <span class="cov8" title="1">if s.EvalCount &lt; 5 </span><span class="cov8" title="1">{
+                return false
+        }</span>
+
+        <span class="cov8" title="1">return s.Fitness &lt; minFitness</span>
+}
+
+// computeFitness calculates a fitness score from metrics
+func computeFitness(metrics map[string]float64) float64 <span class="cov8" title="1">{
+        // Weighted combination of metrics
+        // Higher success rate = better
+        successRate := metrics["successRate"]
+        // Lower cost = better (invert)
+        costEfficiency := 1.0 / (1.0 + metrics["costUSD"])
+        // Lower latency = better (invert)
+        speedScore := 1.0 / (1.0 + metrics["avgResponseMs"]/1000.0)
+        // Custom: profit for traders
+        profitScore := math.Max(0, metrics["profitLoss"]+1.0) // Normalize around 1.0
+
+        // Weighted fitness
+        fitness := 0.4*successRate + 0.2*costEfficiency + 0.1*speedScore + 0.3*profitScore
+        return fitness
+}</span>
+
+// mutateFloat applies gaussian-like mutation to a float parameter
+func mutateFloat(value, rate, min, max float64) float64 <span class="cov8" title="1">{
+        // Simple mutation: add/subtract a percentage
+        delta := value * rate * 0.1 // 10% of value * mutation rate
+        // Alternate direction randomly based on current nanosecond
+        if time.Now().UnixNano()%2 == 0 </span><span class="cov8" title="1">{
+                delta = -delta
+        }</span>
+        <span class="cov8" title="1">result := value + delta
+        // Clamp
+        if result &lt; min </span><span class="cov0" title="0">{
+                result = min
+        }</span>
+        <span class="cov8" title="1">if result &gt; max </span><span class="cov8" title="1">{
+                result = max
+        }</span>
+        <span class="cov8" title="1">return result</span>
+}
+
+func (e *Engine) saveStrategy(s *Strategy) <span class="cov8" title="1">{
+        path := filepath.Join(e.dataDir, fmt.Sprintf("%s.json", s.AgentID))
+        data, err := json.MarshalIndent(s, "", "  ")
+        if err != nil </span><span class="cov0" title="0">{
+                e.logger.Error("failed to marshal strategy", "error", err)
+                return
+        }</span>
+        <span class="cov8" title="1">os.WriteFile(path, data, 0640)</span>
+}
+
+func (e *Engine) loadStrategies() <span class="cov8" title="1">{
+        entries, err := os.ReadDir(e.dataDir)
+        if err != nil </span><span class="cov0" title="0">{
+                return
+        }</span>
+        <span class="cov8" title="1">for _, entry := range entries </span><span class="cov8" title="1">{
+                if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">data, err := os.ReadFile(filepath.Join(e.dataDir, entry.Name()))
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">var s Strategy
+                if err := json.Unmarshal(data, &amp;s); err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">e.strategies[s.AgentID] = &amp;s
+                e.logger.Info("loaded strategy", "agent", s.AgentID, "version", s.Version)</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package models
+
+import (
+        "bytes"
+        "context"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "time"
+
+        "github.com/clawinfra/evoclaw/internal/config"
+        "github.com/clawinfra/evoclaw/internal/orchestrator"
+)
+
+// AnthropicProvider implements ModelProvider for Anthropic's API
+type AnthropicProvider struct {
+        baseURL string
+        apiKey  string
+        models  []config.Model
+        client  *http.Client
+}
+
+type anthropicRequest struct {
+        Model     string             `json:"model"`
+        MaxTokens int                `json:"max_tokens"`
+        System    string             `json:"system,omitempty"`
+        Messages  []anthropicMessage `json:"messages"`
+}
+
+type anthropicMessage struct {
+        Role    string `json:"role"`
+        Content string `json:"content"`
+}
+
+type anthropicResponse struct {
+        ID      string `json:"id"`
+        Type    string `json:"type"`
+        Role    string `json:"role"`
+        Content []struct {
+                Type string `json:"type"`
+                Text string `json:"text"`
+        } `json:"content"`
+        Model      string `json:"model"`
+        StopReason string `json:"stop_reason"`
+        Usage      struct {
+                InputTokens  int `json:"input_tokens"`
+                OutputTokens int `json:"output_tokens"`
+        } `json:"usage"`
+}
+
+type anthropicError struct {
+        Type  string `json:"type"`
+        Error struct {
+                Type    string `json:"type"`
+                Message string `json:"message"`
+        } `json:"error"`
+}
+
+// NewAnthropicProvider creates a new Anthropic provider
+func NewAnthropicProvider(cfg config.ProviderConfig) *AnthropicProvider <span class="cov8" title="1">{
+        baseURL := cfg.BaseURL
+        if baseURL == "" </span><span class="cov0" title="0">{
+                baseURL = "https://api.anthropic.com"
+        }</span>
+        <span class="cov8" title="1">return &amp;AnthropicProvider{
+                baseURL: baseURL,
+                apiKey:  cfg.APIKey,
+                models:  cfg.Models,
+                client: &amp;http.Client{
+                        Timeout: 120 * time.Second,
+                },
+        }</span>
+}
+
+func (p *AnthropicProvider) Name() string <span class="cov8" title="1">{ return "anthropic" }</span>
+
+func (p *AnthropicProvider) Models() []config.Model <span class="cov8" title="1">{ return p.models }</span>
+
+func (p *AnthropicProvider) Chat(ctx context.Context, req orchestrator.ChatRequest) (*orchestrator.ChatResponse, error) <span class="cov8" title="1">{
+        // Convert messages
+        msgs := make([]anthropicMessage, len(req.Messages))
+        for i, m := range req.Messages </span><span class="cov8" title="1">{
+                msgs[i] = anthropicMessage{
+                        Role:    m.Role,
+                        Content: m.Content,
+                }
+        }</span>
+
+        <span class="cov8" title="1">maxTokens := req.MaxTokens
+        if maxTokens == 0 </span><span class="cov8" title="1">{
+                maxTokens = 4096
+        }</span>
+
+        <span class="cov8" title="1">body := anthropicRequest{
+                Model:     req.Model,
+                MaxTokens: maxTokens,
+                System:    req.SystemPrompt,
+                Messages:  msgs,
+        }
+
+        jsonBody, err := json.Marshal(body)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("marshal request: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">httpReq, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/v1/messages", bytes.NewReader(jsonBody))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("create request: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">httpReq.Header.Set("Content-Type", "application/json")
+        httpReq.Header.Set("x-api-key", p.apiKey)
+        httpReq.Header.Set("anthropic-version", "2023-06-01")
+
+        resp, err := p.client.Do(httpReq)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("http request: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        respBody, err := io.ReadAll(resp.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("read response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if resp.StatusCode != 200 </span><span class="cov8" title="1">{
+                var apiErr anthropicError
+                json.Unmarshal(respBody, &amp;apiErr)
+                return nil, fmt.Errorf("API error %d: %s - %s",
+                        resp.StatusCode, apiErr.Error.Type, apiErr.Error.Message)
+        }</span>
+
+        <span class="cov8" title="1">var apiResp anthropicResponse
+        if err := json.Unmarshal(respBody, &amp;apiResp); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("unmarshal response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">content := ""
+        for _, c := range apiResp.Content </span><span class="cov8" title="1">{
+                if c.Type == "text" </span><span class="cov8" title="1">{
+                        content += c.Text
+                }</span>
+        }
+
+        <span class="cov8" title="1">return &amp;orchestrator.ChatResponse{
+                Content:      content,
+                Model:        apiResp.Model,
+                TokensInput:  apiResp.Usage.InputTokens,
+                TokensOutput: apiResp.Usage.OutputTokens,
+                FinishReason: apiResp.StopReason,
+        }, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package models
+
+import (
+        "bytes"
+        "context"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "time"
+
+        "github.com/clawinfra/evoclaw/internal/config"
+        "github.com/clawinfra/evoclaw/internal/orchestrator"
+)
+
+// OllamaProvider implements ModelProvider for local Ollama inference
+type OllamaProvider struct {
+        baseURL string
+        models  []config.Model
+        client  *http.Client
+}
+
+type ollamaChatRequest struct {
+        Model    string          `json:"model"`
+        Messages []ollamaMessage `json:"messages"`
+        Stream   bool            `json:"stream"`
+        Options  *ollamaOptions  `json:"options,omitempty"`
+}
+
+type ollamaMessage struct {
+        Role    string `json:"role"`
+        Content string `json:"content"`
+}
+
+type ollamaOptions struct {
+        Temperature float64 `json:"temperature,omitempty"`
+        NumPredict  int     `json:"num_predict,omitempty"`
+}
+
+type ollamaChatResponse struct {
+        Model   string        `json:"model"`
+        Message ollamaMessage `json:"message"`
+        Done    bool          `json:"done"`
+        // Metrics
+        TotalDuration   int64 `json:"total_duration"`
+        PromptEvalCount int   `json:"prompt_eval_count"`
+        EvalCount       int   `json:"eval_count"`
+}
+
+// NewOllamaProvider creates a new Ollama provider for local inference
+func NewOllamaProvider(cfg config.ProviderConfig) *OllamaProvider <span class="cov8" title="1">{
+        baseURL := cfg.BaseURL
+        if baseURL == "" </span><span class="cov8" title="1">{
+                baseURL = "http://localhost:11434"
+        }</span>
+        <span class="cov8" title="1">return &amp;OllamaProvider{
+                baseURL: baseURL,
+                models:  cfg.Models,
+                client: &amp;http.Client{
+                        Timeout: 300 * time.Second, // Local inference can be slow
+                },
+        }</span>
+}
+
+func (p *OllamaProvider) Name() string <span class="cov8" title="1">{ return "ollama" }</span>
+
+func (p *OllamaProvider) Models() []config.Model <span class="cov8" title="1">{ return p.models }</span>
+
+func (p *OllamaProvider) Chat(ctx context.Context, req orchestrator.ChatRequest) (*orchestrator.ChatResponse, error) <span class="cov8" title="1">{
+        msgs := make([]ollamaMessage, 0, len(req.Messages)+1)
+
+        // Add system prompt as first message
+        if req.SystemPrompt != "" </span><span class="cov8" title="1">{
+                msgs = append(msgs, ollamaMessage{
+                        Role:    "system",
+                        Content: req.SystemPrompt,
+                })
+        }</span>
+
+        <span class="cov8" title="1">for _, m := range req.Messages </span><span class="cov8" title="1">{
+                msgs = append(msgs, ollamaMessage{
+                        Role:    m.Role,
+                        Content: m.Content,
+                })
+        }</span>
+
+        <span class="cov8" title="1">body := ollamaChatRequest{
+                Model:    req.Model,
+                Messages: msgs,
+                Stream:   false,
+                Options: &amp;ollamaOptions{
+                        Temperature: req.Temperature,
+                        NumPredict:  req.MaxTokens,
+                },
+        }
+
+        jsonBody, err := json.Marshal(body)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("marshal request: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">httpReq, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/api/chat", bytes.NewReader(jsonBody))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("create request: %w", err)
+        }</span>
+        <span class="cov8" title="1">httpReq.Header.Set("Content-Type", "application/json")
+
+        resp, err := p.client.Do(httpReq)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("http request: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        respBody, err := io.ReadAll(resp.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("read response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if resp.StatusCode != 200 </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("ollama error %d: %s", resp.StatusCode, string(respBody))
+        }</span>
+
+        <span class="cov8" title="1">var apiResp ollamaChatResponse
+        if err := json.Unmarshal(respBody, &amp;apiResp); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("unmarshal response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;orchestrator.ChatResponse{
+                Content:      apiResp.Message.Content,
+                Model:        apiResp.Model,
+                TokensInput:  apiResp.PromptEvalCount,
+                TokensOutput: apiResp.EvalCount,
+                FinishReason: "stop",
+        }, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package models
+
+import (
+        "bytes"
+        "context"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "time"
+
+        "github.com/clawinfra/evoclaw/internal/config"
+        "github.com/clawinfra/evoclaw/internal/orchestrator"
+)
+
+// OpenAIProvider implements ModelProvider for OpenAI-compatible APIs
+// This works with OpenAI, OpenRouter, Together, and any OpenAI-compatible endpoint
+type OpenAIProvider struct {
+        name    string
+        baseURL string
+        apiKey  string
+        models  []config.Model
+        client  *http.Client
+}
+
+type openAIRequest struct {
+        Model       string          `json:"model"`
+        Messages    []openAIMessage `json:"messages"`
+        MaxTokens   int             `json:"max_tokens,omitempty"`
+        Temperature float64         `json:"temperature,omitempty"`
+        Stream      bool            `json:"stream"`
+}
+
+type openAIMessage struct {
+        Role    string `json:"role"`
+        Content string `json:"content"`
+}
+
+type openAIResponse struct {
+        ID      string `json:"id"`
+        Object  string `json:"object"`
+        Created int64  `json:"created"`
+        Model   string `json:"model"`
+        Choices []struct {
+                Index        int           `json:"index"`
+                Message      openAIMessage `json:"message"`
+                FinishReason string        `json:"finish_reason"`
+        } `json:"choices"`
+        Usage struct {
+                PromptTokens     int `json:"prompt_tokens"`
+                CompletionTokens int `json:"completion_tokens"`
+                TotalTokens      int `json:"total_tokens"`
+        } `json:"usage"`
+}
+
+type openAIError struct {
+        Error struct {
+                Message string `json:"message"`
+                Type    string `json:"type"`
+                Code    string `json:"code"`
+        } `json:"error"`
+}
+
+// NewOpenAIProvider creates a new OpenAI-compatible provider
+func NewOpenAIProvider(name string, cfg config.ProviderConfig) *OpenAIProvider <span class="cov8" title="1">{
+        baseURL := cfg.BaseURL
+        if baseURL == "" </span><span class="cov0" title="0">{
+                baseURL = "https://api.openai.com/v1"
+        }</span>
+        <span class="cov8" title="1">return &amp;OpenAIProvider{
+                name:    name,
+                baseURL: baseURL,
+                apiKey:  cfg.APIKey,
+                models:  cfg.Models,
+                client: &amp;http.Client{
+                        Timeout: 120 * time.Second,
+                },
+        }</span>
+}
+
+func (p *OpenAIProvider) Name() string <span class="cov8" title="1">{ return p.name }</span>
+
+func (p *OpenAIProvider) Models() []config.Model <span class="cov8" title="1">{ return p.models }</span>
+
+func (p *OpenAIProvider) Chat(ctx context.Context, req orchestrator.ChatRequest) (*orchestrator.ChatResponse, error) <span class="cov8" title="1">{
+        // Convert messages
+        msgs := make([]openAIMessage, 0, len(req.Messages)+1)
+
+        // Add system prompt if present
+        if req.SystemPrompt != "" </span><span class="cov8" title="1">{
+                msgs = append(msgs, openAIMessage{
+                        Role:    "system",
+                        Content: req.SystemPrompt,
+                })
+        }</span>
+
+        <span class="cov8" title="1">for _, m := range req.Messages </span><span class="cov8" title="1">{
+                msgs = append(msgs, openAIMessage{
+                        Role:    m.Role,
+                        Content: m.Content,
+                })
+        }</span>
+
+        <span class="cov8" title="1">body := openAIRequest{
+                Model:       req.Model,
+                Messages:    msgs,
+                MaxTokens:   req.MaxTokens,
+                Temperature: req.Temperature,
+                Stream:      false,
+        }
+
+        jsonBody, err := json.Marshal(body)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("marshal request: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">httpReq, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/chat/completions", bytes.NewReader(jsonBody))
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("create request: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">httpReq.Header.Set("Content-Type", "application/json")
+        httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+
+        resp, err := p.client.Do(httpReq)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("http request: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        respBody, err := io.ReadAll(resp.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("read response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if resp.StatusCode != 200 </span><span class="cov8" title="1">{
+                var apiErr openAIError
+                json.Unmarshal(respBody, &amp;apiErr)
+                return nil, fmt.Errorf("API error %d: %s (%s)",
+                        resp.StatusCode, apiErr.Error.Message, apiErr.Error.Type)
+        }</span>
+
+        <span class="cov8" title="1">var apiResp openAIResponse
+        if err := json.Unmarshal(respBody, &amp;apiResp); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("unmarshal response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if len(apiResp.Choices) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("no choices in response")
+        }</span>
+
+        <span class="cov8" title="1">choice := apiResp.Choices[0]
+
+        return &amp;orchestrator.ChatResponse{
+                Content:      choice.Message.Content,
+                Model:        apiResp.Model,
+                TokensInput:  apiResp.Usage.PromptTokens,
+                TokensOutput: apiResp.Usage.CompletionTokens,
+                FinishReason: choice.FinishReason,
+        }, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package models
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "strings"
+        "sync"
+
+        "github.com/clawinfra/evoclaw/internal/config"
+        "github.com/clawinfra/evoclaw/internal/orchestrator"
+)
+
+// Router handles intelligent model selection and fallback chains
+type Router struct {
+        providers map[string]orchestrator.ModelProvider
+        models    map[string]*ModelInfo // model ID -&gt; full info
+        costs     *CostTracker
+        logger    *slog.Logger
+        mu        sync.RWMutex
+}
+
+// ModelInfo contains full information about a model
+type ModelInfo struct {
+        ID           string
+        Provider     string
+        Config       config.Model
+        ProviderImpl orchestrator.ModelProvider
+}
+
+// CostTracker tracks API usage costs
+type CostTracker struct {
+        mu    sync.RWMutex
+        costs map[string]*ModelCost // model ID -&gt; costs
+}
+
+// ModelCost tracks cost for a specific model
+type ModelCost struct {
+        TotalRequests   int64
+        TotalTokensIn   int64
+        TotalTokensOut  int64
+        TotalCostUSD    float64
+        LastRequestTime int64
+}
+
+// NewRouter creates a new model router
+func NewRouter(logger *slog.Logger) *Router <span class="cov8" title="1">{
+        return &amp;Router{
+                providers: make(map[string]orchestrator.ModelProvider),
+                models:    make(map[string]*ModelInfo),
+                costs: &amp;CostTracker{
+                        costs: make(map[string]*ModelCost),
+                },
+                logger: logger.With("component", "model-router"),
+        }
+}</span>
+
+// RegisterProvider adds a provider and indexes all its models
+func (r *Router) RegisterProvider(p orchestrator.ModelProvider) <span class="cov8" title="1">{
+        r.mu.Lock()
+        defer r.mu.Unlock()
+
+        providerName := p.Name()
+        r.providers[providerName] = p
+
+        // Index all models from this provider
+        for _, model := range p.Models() </span><span class="cov8" title="1">{
+                fullID := fmt.Sprintf("%s/%s", providerName, model.ID)
+                r.models[fullID] = &amp;ModelInfo{
+                        ID:           fullID,
+                        Provider:     providerName,
+                        Config:       model,
+                        ProviderImpl: p,
+                }
+                r.logger.Info("model registered",
+                        "id", fullID,
+                        "name", model.Name,
+                        "context", model.ContextWindow,
+                )
+        }</span>
+
+        <span class="cov8" title="1">r.logger.Info("provider registered",
+                "name", providerName,
+                "models", len(p.Models()),
+        )</span>
+}
+
+// Chat routes a chat request to the appropriate model with fallback
+func (r *Router) Chat(ctx context.Context, modelID string, req orchestrator.ChatRequest, fallback []string) (*orchestrator.ChatResponse, error) <span class="cov8" title="1">{
+        // Try primary model
+        resp, err := r.chatSingle(ctx, modelID, req)
+        if err == nil </span><span class="cov8" title="1">{
+                return resp, nil
+        }</span>
+
+        <span class="cov8" title="1">r.logger.Warn("primary model failed, trying fallback",
+                "primary", modelID,
+                "error", err,
+                "fallbacks", len(fallback),
+        )
+
+        // Try fallback chain
+        for i, fbModel := range fallback </span><span class="cov8" title="1">{
+                r.logger.Info("trying fallback", "model", fbModel, "attempt", i+1)
+                resp, fbErr := r.chatSingle(ctx, fbModel, req)
+                if fbErr == nil </span><span class="cov8" title="1">{
+                        return resp, nil
+                }</span>
+                <span class="cov8" title="1">r.logger.Warn("fallback failed", "model", fbModel, "error", fbErr)</span>
+        }
+
+        // All failed
+        <span class="cov8" title="1">return nil, fmt.Errorf("all models failed, primary error: %w", err)</span>
+}
+
+// chatSingle performs a single chat request and tracks cost
+func (r *Router) chatSingle(ctx context.Context, modelID string, req orchestrator.ChatRequest) (*orchestrator.ChatResponse, error) <span class="cov8" title="1">{
+        // Parse model ID (format: "provider/model-name")
+        provider, model, err := r.parseModelID(modelID)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+
+        // Update request with correct model name
+        <span class="cov8" title="1">req.Model = model
+
+        // Get provider implementation
+        r.mu.RLock()
+        modelInfo, ok := r.models[modelID]
+        r.mu.RUnlock()
+
+        if !ok </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("model not found: %s", modelID)
+        }</span>
+
+        // Make the request
+        <span class="cov8" title="1">resp, err := provider.Chat(ctx, req)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("chat error: %w", err)
+        }</span>
+
+        // Track cost
+        <span class="cov8" title="1">r.trackCost(modelID, modelInfo.Config, resp)
+
+        return resp, nil</span>
+}
+
+// parseModelID splits "provider/model" into components
+func (r *Router) parseModelID(modelID string) (orchestrator.ModelProvider, string, error) <span class="cov8" title="1">{
+        parts := strings.SplitN(modelID, "/", 2)
+        if len(parts) != 2 </span><span class="cov8" title="1">{
+                return nil, "", fmt.Errorf("invalid model ID format (expected provider/model): %s", modelID)
+        }</span>
+
+        <span class="cov8" title="1">providerName := parts[0]
+        modelName := parts[1]
+
+        r.mu.RLock()
+        provider, ok := r.providers[providerName]
+        r.mu.RUnlock()
+
+        if !ok </span><span class="cov8" title="1">{
+                return nil, "", fmt.Errorf("provider not found: %s", providerName)
+        }</span>
+
+        <span class="cov8" title="1">return provider, modelName, nil</span>
+}
+
+// trackCost records usage and cost for a model
+func (r *Router) trackCost(modelID string, modelCfg config.Model, resp *orchestrator.ChatResponse) <span class="cov8" title="1">{
+        r.costs.mu.Lock()
+        defer r.costs.mu.Unlock()
+
+        cost, ok := r.costs.costs[modelID]
+        if !ok </span><span class="cov8" title="1">{
+                cost = &amp;ModelCost{}
+                r.costs.costs[modelID] = cost
+        }</span>
+
+        <span class="cov8" title="1">cost.TotalRequests++
+        cost.TotalTokensIn += int64(resp.TokensInput)
+        cost.TotalTokensOut += int64(resp.TokensOutput)
+
+        // Calculate cost (prices are per million tokens)
+        inputCost := float64(resp.TokensInput) * modelCfg.CostInput / 1_000_000
+        outputCost := float64(resp.TokensOutput) * modelCfg.CostOutput / 1_000_000
+        cost.TotalCostUSD += inputCost + outputCost
+
+        r.logger.Debug("cost tracked",
+                "model", modelID,
+                "tokens_in", resp.TokensInput,
+                "tokens_out", resp.TokensOutput,
+                "cost_usd", inputCost+outputCost,
+                "total_cost_usd", cost.TotalCostUSD,
+        )</span>
+}
+
+// GetCost returns cost stats for a model
+func (r *Router) GetCost(modelID string) *ModelCost <span class="cov8" title="1">{
+        r.costs.mu.RLock()
+        defer r.costs.mu.RUnlock()
+
+        cost, ok := r.costs.costs[modelID]
+        if !ok </span><span class="cov8" title="1">{
+                return &amp;ModelCost{}
+        }</span>
+
+        // Return a copy
+        <span class="cov8" title="1">return &amp;ModelCost{
+                TotalRequests:  cost.TotalRequests,
+                TotalTokensIn:  cost.TotalTokensIn,
+                TotalTokensOut: cost.TotalTokensOut,
+                TotalCostUSD:   cost.TotalCostUSD,
+        }</span>
+}
+
+// GetAllCosts returns cost stats for all models
+func (r *Router) GetAllCosts() map[string]*ModelCost <span class="cov8" title="1">{
+        r.costs.mu.RLock()
+        defer r.costs.mu.RUnlock()
+
+        result := make(map[string]*ModelCost)
+        for id, cost := range r.costs.costs </span><span class="cov8" title="1">{
+                result[id] = &amp;ModelCost{
+                        TotalRequests:  cost.TotalRequests,
+                        TotalTokensIn:  cost.TotalTokensIn,
+                        TotalTokensOut: cost.TotalTokensOut,
+                        TotalCostUSD:   cost.TotalCostUSD,
+                }
+        }</span>
+        <span class="cov8" title="1">return result</span>
+}
+
+// GetModel returns info about a specific model
+func (r *Router) GetModel(modelID string) (*ModelInfo, error) <span class="cov8" title="1">{
+        r.mu.RLock()
+        defer r.mu.RUnlock()
+
+        info, ok := r.models[modelID]
+        if !ok </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("model not found: %s", modelID)
+        }</span>
+
+        <span class="cov8" title="1">return info, nil</span>
+}
+
+// ListModels returns all available models
+func (r *Router) ListModels() []*ModelInfo <span class="cov8" title="1">{
+        r.mu.RLock()
+        defer r.mu.RUnlock()
+
+        models := make([]*ModelInfo, 0, len(r.models))
+        for _, info := range r.models </span><span class="cov8" title="1">{
+                models = append(models, info)
+        }</span>
+        <span class="cov8" title="1">return models</span>
+}
+
+// SelectModel chooses the best model based on task complexity
+func (r *Router) SelectModel(complexity string, routing config.ModelRouting) string <span class="cov8" title="1">{
+        switch complexity </span>{
+        case "simple":<span class="cov8" title="1">
+                return routing.Simple</span>
+        case "complex":<span class="cov8" title="1">
+                return routing.Complex</span>
+        case "critical":<span class="cov8" title="1">
+                return routing.Critical</span>
+        default:<span class="cov8" title="1">
+                return routing.Complex</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package orchestrator
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "sync"
+        "time"
+
+        "github.com/clawinfra/evoclaw/internal/config"
+)
+
+// Message represents a message from any channel
+type Message struct {
+        ID        string
+        Channel   string // "whatsapp", "telegram", "mqtt"
+        From      string
+        To        string
+        Content   string
+        Timestamp time.Time
+        ReplyTo   string
+        Metadata  map[string]string
+}
+
+// Response represents an agent's response
+type Response struct {
+        AgentID  string
+        Content  string
+        Channel  string
+        To       string
+        ReplyTo  string
+        Metadata map[string]string
+}
+
+// AgentState tracks a running agent's state
+type AgentState struct {
+        ID           string
+        Def          config.AgentDef
+        Status       string // "running", "idle", "error", "evolving"
+        StartedAt    time.Time
+        LastActive   time.Time
+        MessageCount int64
+        ErrorCount   int64
+        // Performance metrics for evolution
+        Metrics AgentMetrics
+        mu      sync.RWMutex
+}
+
+// AgentMetrics tracks performance for the evolution engine
+type AgentMetrics struct {
+        TotalActions      int64
+        SuccessfulActions int64
+        FailedActions     int64
+        AvgResponseMs     float64
+        TokensUsed        int64
+        CostUSD           float64
+        // Custom metrics per agent type
+        Custom map[string]float64
+}
+
+// Channel is the interface for all messaging channels
+type Channel interface {
+        Name() string
+        Start(ctx context.Context) error
+        Stop() error
+        Send(ctx context.Context, msg Response) error
+        Receive() &lt;-chan Message
+}
+
+// ModelProvider is the interface for LLM providers
+type ModelProvider interface {
+        Name() string
+        Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error)
+        Models() []config.Model
+}
+
+// EvolutionEngine interface for pluggable evolution
+type EvolutionEngine interface {
+        GetStrategy(agentID string) interface{}
+        Evaluate(agentID string, metrics map[string]float64) float64
+        ShouldEvolve(agentID string, minFitness float64) bool
+        Mutate(agentID string, mutationRate float64) (interface{}, error)
+}
+
+type ChatRequest struct {
+        Model        string
+        SystemPrompt string
+        Messages     []ChatMessage
+        MaxTokens    int
+        Temperature  float64
+}
+
+type ChatMessage struct {
+        Role    string `json:"role"`
+        Content string `json:"content"`
+}
+
+type ChatResponse struct {
+        Content      string
+        Model        string
+        TokensInput  int
+        TokensOutput int
+        FinishReason string
+}
+
+// Orchestrator is the core of EvoClaw
+type Orchestrator struct {
+        cfg       *config.Config
+        channels  map[string]Channel
+        providers map[string]ModelProvider
+        agents    map[string]*AgentState
+        inbox     chan Message
+        outbox    chan Response
+        logger    *slog.Logger
+        mu        sync.RWMutex
+        ctx       context.Context
+        cancel    context.CancelFunc
+        // Evolution engine (optional, set via SetEvolutionEngine)
+        evolution EvolutionEngine
+}
+
+// New creates a new Orchestrator
+func New(cfg *config.Config, logger *slog.Logger) *Orchestrator <span class="cov8" title="1">{
+        ctx, cancel := context.WithCancel(context.Background())
+        return &amp;Orchestrator{
+                cfg:       cfg,
+                channels:  make(map[string]Channel),
+                providers: make(map[string]ModelProvider),
+                agents:    make(map[string]*AgentState),
+                inbox:     make(chan Message, 1000),
+                outbox:    make(chan Response, 1000),
+                logger:    logger,
+                ctx:       ctx,
+                cancel:    cancel,
+        }
+}</span>
+
+// RegisterChannel adds a messaging channel
+func (o *Orchestrator) RegisterChannel(ch Channel) <span class="cov8" title="1">{
+        o.mu.Lock()
+        defer o.mu.Unlock()
+        o.channels[ch.Name()] = ch
+        o.logger.Info("channel registered", "name", ch.Name())
+}</span>
+
+// RegisterProvider adds an LLM provider
+func (o *Orchestrator) RegisterProvider(p ModelProvider) <span class="cov8" title="1">{
+        o.mu.Lock()
+        defer o.mu.Unlock()
+        o.providers[p.Name()] = p
+        o.logger.Info("model provider registered", "name", p.Name())
+}</span>
+
+// SetEvolutionEngine sets the evolution engine
+func (o *Orchestrator) SetEvolutionEngine(e EvolutionEngine) <span class="cov8" title="1">{
+        o.mu.Lock()
+        defer o.mu.Unlock()
+        o.evolution = e
+        o.logger.Info("evolution engine registered")
+}</span>
+
+// Start begins the orchestrator loop
+func (o *Orchestrator) Start() error <span class="cov8" title="1">{
+        o.logger.Info("starting EvoClaw orchestrator",
+                "port", o.cfg.Server.Port,
+                "channels", len(o.channels),
+                "providers", len(o.providers),
+        )
+
+        // Start all channels
+        for name, ch := range o.channels </span><span class="cov8" title="1">{
+                o.logger.Info("starting channel", "name", name)
+                if err := ch.Start(o.ctx); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("start channel %s: %w", name, err)
+                }</span>
+        }
+
+        // Initialize agents from config
+        <span class="cov8" title="1">for _, def := range o.cfg.Agents </span><span class="cov8" title="1">{
+                o.agents[def.ID] = &amp;AgentState{
+                        ID:        def.ID,
+                        Def:       def,
+                        Status:    "idle",
+                        StartedAt: time.Now(),
+                        Metrics: AgentMetrics{
+                                Custom: make(map[string]float64),
+                        },
+                }
+                o.logger.Info("agent initialized", "id", def.ID, "type", def.Type)
+        }</span>
+
+        // Start message routing
+        <span class="cov8" title="1">go o.routeIncoming()
+        go o.routeOutgoing()
+
+        // Start channel receivers
+        for _, ch := range o.channels </span><span class="cov8" title="1">{
+                go o.receiveFrom(ch)
+        }</span>
+
+        // Start evolution engine if enabled
+        <span class="cov8" title="1">if o.cfg.Evolution.Enabled </span><span class="cov8" title="1">{
+                go o.evolutionLoop()
+        }</span>
+
+        <span class="cov8" title="1">o.logger.Info("EvoClaw orchestrator running")
+        return nil</span>
+}
+
+// Stop gracefully shuts down the orchestrator
+func (o *Orchestrator) Stop() error <span class="cov8" title="1">{
+        o.logger.Info("stopping EvoClaw orchestrator")
+        o.cancel()
+
+        for name, ch := range o.channels </span><span class="cov8" title="1">{
+                if err := ch.Stop(); err != nil </span><span class="cov0" title="0">{
+                        o.logger.Error("error stopping channel", "name", name, "error", err)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// receiveFrom pipes messages from a channel into the inbox
+func (o *Orchestrator) receiveFrom(ch Channel) <span class="cov8" title="1">{
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                case &lt;-o.ctx.Done():<span class="cov8" title="1">
+                        return</span>
+                case msg := &lt;-ch.Receive():<span class="cov8" title="1">
+                        msg.Channel = ch.Name()
+                        o.inbox &lt;- msg</span>
+                }
+        }
+}
+
+// routeIncoming processes incoming messages and routes to agents
+func (o *Orchestrator) routeIncoming() <span class="cov8" title="1">{
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                case &lt;-o.ctx.Done():<span class="cov8" title="1">
+                        return</span>
+                case msg := &lt;-o.inbox:<span class="cov8" title="1">
+                        o.handleMessage(msg)</span>
+                }
+        }
+}
+
+// routeOutgoing sends responses back through channels
+func (o *Orchestrator) routeOutgoing() <span class="cov8" title="1">{
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                case &lt;-o.ctx.Done():<span class="cov8" title="1">
+                        return</span>
+                case resp := &lt;-o.outbox:<span class="cov8" title="1">
+                        o.mu.RLock()
+                        ch, ok := o.channels[resp.Channel]
+                        o.mu.RUnlock()
+
+                        if !ok </span><span class="cov0" title="0">{
+                                o.logger.Error("unknown channel for response", "channel", resp.Channel)
+                                continue</span>
+                        }
+
+                        <span class="cov8" title="1">if err := ch.Send(o.ctx, resp); err != nil </span><span class="cov0" title="0">{
+                                o.logger.Error("error sending response",
+                                        "channel", resp.Channel,
+                                        "error", err,
+                                )
+                        }</span>
+                }
+        }
+}
+
+// handleMessage routes a message to the appropriate agent
+func (o *Orchestrator) handleMessage(msg Message) <span class="cov8" title="1">{
+        o.logger.Info("incoming message",
+                "channel", msg.Channel,
+                "from", msg.From,
+                "length", len(msg.Content),
+        )
+
+        // Determine which agent should handle this
+        agentID := o.selectAgent(msg)
+        if agentID == "" </span><span class="cov0" title="0">{
+                o.logger.Warn("no agent selected for message", "from", msg.From)
+                return
+        }</span>
+
+        <span class="cov8" title="1">o.mu.RLock()
+        agent, ok := o.agents[agentID]
+        o.mu.RUnlock()
+
+        if !ok </span><span class="cov0" title="0">{
+                o.logger.Error("agent not found", "id", agentID)
+                return
+        }</span>
+
+        // Select the right model based on task complexity
+        <span class="cov8" title="1">model := o.selectModel(msg, agent)
+
+        // Process with LLM
+        go o.processWithAgent(agent, msg, model)</span>
+}
+
+// selectAgent picks the best agent for a message
+func (o *Orchestrator) selectAgent(msg Message) string <span class="cov8" title="1">{
+        // For now, simple routing: use the first agent
+        // TODO: Implement smart routing based on message content,
+        // agent capabilities, and load balancing
+        for id := range o.agents </span><span class="cov8" title="1">{
+                return id
+        }</span>
+        <span class="cov0" title="0">return ""</span>
+}
+
+// selectModel picks the right model based on task complexity
+func (o *Orchestrator) selectModel(msg Message, agent *AgentState) string <span class="cov8" title="1">{
+        // TODO: Implement adaptive model selection
+        // - Simple queries → cheap local model
+        // - Complex reasoning → mid-tier model
+        // - Critical (trading, money) → best available
+        if agent.Def.Model != "" </span><span class="cov8" title="1">{
+                return agent.Def.Model
+        }</span>
+        <span class="cov0" title="0">return o.cfg.Models.Routing.Complex</span>
+}
+
+// processWithAgent runs a message through an agent's LLM
+func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model string) <span class="cov8" title="1">{
+        start := time.Now()
+
+        agent.mu.Lock()
+        agent.Status = "running"
+        agent.LastActive = time.Now()
+        agent.MessageCount++
+        agent.mu.Unlock()
+
+        defer func() </span><span class="cov8" title="1">{
+                agent.mu.Lock()
+                agent.Status = "idle"
+                agent.mu.Unlock()
+        }</span>()
+
+        // Build chat request
+        <span class="cov8" title="1">req := ChatRequest{
+                Model:        model,
+                SystemPrompt: agent.Def.SystemPrompt,
+                Messages: []ChatMessage{
+                        {Role: "user", Content: msg.Content},
+                },
+                MaxTokens:   4096,
+                Temperature: 0.7,
+        }
+
+        // Find provider for this model
+        provider := o.findProvider(model)
+        if provider == nil </span><span class="cov0" title="0">{
+                o.logger.Error("no provider for model", "model", model)
+                return
+        }</span>
+
+        // Call LLM
+        <span class="cov8" title="1">resp, err := provider.Chat(o.ctx, req)
+        if err != nil </span><span class="cov0" title="0">{
+                o.logger.Error("LLM error", "model", model, "error", err)
+                agent.mu.Lock()
+                agent.ErrorCount++
+                agent.Metrics.FailedActions++
+                agent.mu.Unlock()
+                return
+        }</span>
+
+        <span class="cov8" title="1">elapsed := time.Since(start)
+
+        // Update metrics
+        agent.mu.Lock()
+        agent.Metrics.TotalActions++
+        agent.Metrics.SuccessfulActions++
+        agent.Metrics.TokensUsed += int64(resp.TokensInput + resp.TokensOutput)
+        // Running average response time
+        n := float64(agent.Metrics.TotalActions)
+        agent.Metrics.AvgResponseMs = agent.Metrics.AvgResponseMs*(n-1)/n + float64(elapsed.Milliseconds())/n
+
+        // Prepare metrics for evolution evaluation
+        metrics := agent.Metrics
+        agent.mu.Unlock()
+
+        // Report to evolution engine if available
+        if o.evolution != nil </span><span class="cov0" title="0">{
+                successRate := float64(metrics.SuccessfulActions) / float64(metrics.TotalActions)
+                evalMetrics := map[string]float64{
+                        "successRate":   successRate,
+                        "avgResponseMs": metrics.AvgResponseMs,
+                        "costUSD":       metrics.CostUSD,
+                        "totalActions":  float64(metrics.TotalActions),
+                }
+                // Add custom metrics
+                for k, v := range metrics.Custom </span><span class="cov0" title="0">{
+                        evalMetrics[k] = v
+                }</span>
+
+                <span class="cov0" title="0">o.evolution.Evaluate(agent.ID, evalMetrics)</span>
+        }
+
+        // Send response back
+        <span class="cov8" title="1">o.outbox &lt;- Response{
+                AgentID: agent.ID,
+                Content: resp.Content,
+                Channel: msg.Channel,
+                To:      msg.From,
+                ReplyTo: msg.ID,
+        }
+
+        o.logger.Info("agent responded",
+                "agent", agent.ID,
+                "model", model,
+                "elapsed", elapsed,
+                "tokens", resp.TokensInput+resp.TokensOutput,
+        )</span>
+}
+
+// findProvider locates the right provider for a model string like "anthropic/claude-opus"
+func (o *Orchestrator) findProvider(model string) ModelProvider <span class="cov8" title="1">{
+        // Model format: "provider/model-name"
+        // For now, return first provider
+        // TODO: Parse provider from model string
+        for _, p := range o.providers </span><span class="cov8" title="1">{
+                return p
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+// evolutionLoop periodically evaluates and improves agents
+func (o *Orchestrator) evolutionLoop() <span class="cov8" title="1">{
+        ticker := time.NewTicker(time.Duration(o.cfg.Evolution.EvalIntervalSec) * time.Second)
+        defer ticker.Stop()
+
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                case &lt;-o.ctx.Done():<span class="cov8" title="1">
+                        return</span>
+                case &lt;-ticker.C:<span class="cov8" title="1">
+                        o.evaluateAgents()</span>
+                }
+        }
+}
+
+// evaluateAgents runs the evolution engine on all agents
+func (o *Orchestrator) evaluateAgents() <span class="cov8" title="1">{
+        if o.evolution == nil </span><span class="cov0" title="0">{
+                return
+        }</span>
+
+        <span class="cov8" title="1">o.mu.RLock()
+        defer o.mu.RUnlock()
+
+        for _, agent := range o.agents </span><span class="cov8" title="1">{
+                agent.mu.RLock()
+                metrics := agent.Metrics
+                agentID := agent.ID
+                agent.mu.RUnlock()
+
+                if metrics.TotalActions &lt; int64(o.cfg.Evolution.MinSamplesForEval) </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">successRate := float64(metrics.SuccessfulActions) / float64(metrics.TotalActions)
+
+                // Prepare metrics for evaluation
+                evalMetrics := map[string]float64{
+                        "successRate":   successRate,
+                        "avgResponseMs": metrics.AvgResponseMs,
+                        "costUSD":       metrics.CostUSD,
+                        "totalActions":  float64(metrics.TotalActions),
+                }
+                for k, v := range metrics.Custom </span><span class="cov0" title="0">{
+                        evalMetrics[k] = v
+                }</span>
+
+                // Get current fitness
+                <span class="cov8" title="1">fitness := o.evolution.Evaluate(agentID, evalMetrics)
+
+                o.logger.Info("agent evaluation",
+                        "agent", agentID,
+                        "actions", metrics.TotalActions,
+                        "successRate", successRate,
+                        "avgResponseMs", metrics.AvgResponseMs,
+                        "tokensUsed", metrics.TokensUsed,
+                        "fitness", fitness,
+                )
+
+                // Check if evolution is needed
+                minFitness := 0.6 // Threshold for acceptable performance
+                if o.evolution.ShouldEvolve(agentID, minFitness) </span><span class="cov8" title="1">{
+                        o.logger.Warn("agent fitness below threshold, triggering evolution",
+                                "agent", agentID,
+                                "fitness", fitness,
+                                "threshold", minFitness,
+                        )
+
+                        // Trigger evolution
+                        agent.mu.Lock()
+                        agent.Status = "evolving"
+                        agent.mu.Unlock()
+
+                        go o.evolveAgent(agent, fitness)
+                }</span>
+        }
+}
+
+// evolveAgent performs evolution on a single agent
+func (o *Orchestrator) evolveAgent(agent *AgentState, currentFitness float64) <span class="cov8" title="1">{
+        defer func() </span><span class="cov8" title="1">{
+                agent.mu.Lock()
+                agent.Status = "idle"
+                agent.mu.Unlock()
+        }</span>()
+
+        <span class="cov8" title="1">o.logger.Info("starting agent evolution", "agent", agent.ID, "fitness", currentFitness)
+
+        // Mutate strategy
+        _, err := o.evolution.Mutate(agent.ID, o.cfg.Evolution.MaxMutationRate)
+        if err != nil </span><span class="cov0" title="0">{
+                o.logger.Error("evolution failed", "agent", agent.ID, "error", err)
+                return
+        }</span>
+
+        // Reset metrics for new strategy evaluation
+        <span class="cov8" title="1">agent.mu.Lock()
+        agent.Metrics = AgentMetrics{
+                Custom: make(map[string]float64),
+        }
+        agent.mu.Unlock()
+
+        o.logger.Info("agent evolved successfully", "agent", agent.ID)</span>
+}
+
+// GetAgentMetrics returns current metrics for an agent
+func (o *Orchestrator) GetAgentMetrics(agentID string) (*AgentMetrics, error) <span class="cov8" title="1">{
+        o.mu.RLock()
+        agent, ok := o.agents[agentID]
+        o.mu.RUnlock()
+
+        if !ok </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("agent not found: %s", agentID)
+        }</span>
+
+        <span class="cov8" title="1">agent.mu.RLock()
+        defer agent.mu.RUnlock()
+
+        m := agent.Metrics
+        return &amp;m, nil</span>
+}
+
+// AgentInfo is a snapshot of agent state without the mutex
+type AgentInfo struct {
+        ID           string
+        Def          config.AgentDef
+        Status       string
+        StartedAt    time.Time
+        LastActive   time.Time
+        MessageCount int64
+        ErrorCount   int64
+        Metrics      AgentMetrics
+}
+
+// ListAgents returns all registered agents (safe copies without mutex)
+func (o *Orchestrator) ListAgents() []AgentInfo <span class="cov8" title="1">{
+        o.mu.RLock()
+        defer o.mu.RUnlock()
+
+        agents := make([]AgentInfo, 0, len(o.agents))
+        for _, a := range o.agents </span><span class="cov8" title="1">{
+                a.mu.RLock()
+                agents = append(agents, AgentInfo{
+                        ID:           a.ID,
+                        Def:          a.Def,
+                        Status:       a.Status,
+                        StartedAt:    a.StartedAt,
+                        LastActive:   a.LastActive,
+                        MessageCount: a.MessageCount,
+                        ErrorCount:   a.ErrorCount,
+                        Metrics:      a.Metrics,
+                })
+                a.mu.RUnlock()
+        }</span>
+        <span class="cov8" title="1">return agents</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

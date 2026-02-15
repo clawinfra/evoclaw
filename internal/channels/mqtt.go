@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/types"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -20,6 +20,13 @@ const (
 	statusTopic    = "evoclaw/agents/%s/status"   // agent heartbeats
 )
 
+// EdgeAgentCommand represents the message format expected by Rust edge agents
+type EdgeAgentCommand struct {
+	Command   string                 `json:"command"`   // "message", "ping", "status", etc.
+	Payload   map[string]interface{} `json:"payload"`   // Command-specific data
+	RequestID string                 `json:"request_id"` // Unique request identifier
+}
+
 // MQTTChannel implements the Channel interface for MQTT communication
 type MQTTChannel struct {
 	broker   string
@@ -28,13 +35,16 @@ type MQTTChannel struct {
 	username string
 	password string
 	logger   *slog.Logger
-	inbox    chan orchestrator.Message
+	inbox    chan types.Message
 	client   MQTTClient
 	ctx      context.Context
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
 	// Factory function for creating MQTT client
 	clientFactory func(opts *mqtt.ClientOptions) MQTTClient
+	// Result callback for tool execution results
+	resultCallback func(requestID string, result map[string]interface{})
+	resultMu       sync.RWMutex
 }
 
 // NewMQTT creates a new MQTT channel adapter
@@ -46,24 +56,26 @@ func NewMQTT(broker string, port int, username, password string, logger *slog.Lo
 		username: username,
 		password: password,
 		logger:   logger.With("channel", "mqtt"),
-		inbox:    make(chan orchestrator.Message, 100),
+		inbox:    make(chan types.Message, 100),
 		clientFactory: func(opts *mqtt.ClientOptions) MQTTClient {
 			return &DefaultMQTTClient{client: mqtt.NewClient(opts)}
 		},
+		resultCallback: nil, // Will be set by orchestrator
 	}
 }
 
 // NewMQTTWithClient creates an MQTT channel with a custom client factory (for testing)
 func NewMQTTWithClient(broker string, port int, username, password string, logger *slog.Logger, clientFactory func(*mqtt.ClientOptions) MQTTClient) *MQTTChannel {
 	return &MQTTChannel{
-		broker:        broker,
-		port:          port,
-		clientID:      fmt.Sprintf("evoclaw-orchestrator-%d", time.Now().Unix()),
-		username:      username,
-		password:      password,
-		logger:        logger.With("channel", "mqtt"),
-		inbox:         make(chan orchestrator.Message, 100),
-		clientFactory: clientFactory,
+		broker:          broker,
+		port:            port,
+		clientID:        fmt.Sprintf("evoclaw-orchestrator-%d", time.Now().Unix()),
+		username:        username,
+		password:        password,
+		logger:          logger.With("channel", "mqtt"),
+		inbox:           make(chan types.Message, 100),
+		clientFactory:   clientFactory,
+		resultCallback: nil, // Will be set by orchestrator
 	}
 }
 
@@ -123,12 +135,12 @@ func (m *MQTTChannel) Start(ctx context.Context) error {
 func (m *MQTTChannel) Stop() error {
 	m.logger.Info("stopping mqtt channel")
 
-	if m.client != nil && m.client.IsConnected() {
-		m.client.Disconnect(250)
-	}
-
 	if m.cancel != nil {
 		m.cancel()
+	}
+
+	if m.client != nil && m.client.IsConnected() {
+		m.client.Disconnect(250)
 	}
 
 	m.wg.Wait()
@@ -136,7 +148,7 @@ func (m *MQTTChannel) Stop() error {
 	return nil
 }
 
-func (m *MQTTChannel) Send(ctx context.Context, msg orchestrator.Response) error {
+func (m *MQTTChannel) Send(ctx context.Context, msg types.Response) error {
 	if !m.client.IsConnected() {
 		return fmt.Errorf("mqtt not connected")
 	}
@@ -144,14 +156,35 @@ func (m *MQTTChannel) Send(ctx context.Context, msg orchestrator.Response) error
 	// Determine the topic based on the recipient
 	topic := fmt.Sprintf(commandsTopic, msg.To)
 
-	// Serialize message
-	payload, err := json.Marshal(map[string]interface{}{
-		"agent_id": msg.AgentID,
-		"content":  msg.Content,
-		"reply_to": msg.ReplyTo,
-		"metadata": msg.Metadata,
-		"sent_at":  time.Now().Unix(),
-	})
+	// Convert orchestrator Response to edge agent command format
+	// Generate request_id from metadata or create a new one
+	requestID := fmt.Sprintf("req-%d", time.Now().UnixNano())
+	if msg.MessageID != "" {
+		requestID = msg.MessageID
+	}
+
+	// Build command for edge agent
+	cmd := EdgeAgentCommand{
+		Command:   "message", // Default command for natural language content
+		RequestID: requestID,
+		Payload: map[string]interface{}{
+			"agent_id": msg.AgentID,
+			"content":  msg.Content,
+			"reply_to": msg.ReplyTo,
+			"metadata": msg.Metadata,
+			"sent_at":  time.Now().Unix(),
+		},
+	}
+
+	// Override command if specified in metadata
+	if msg.Metadata != nil {
+		if overrideCmd, ok := msg.Metadata["command"]; ok {
+			cmd.Command = overrideCmd
+		}
+	}
+
+	// Serialize message to edge agent format
+	payload, err := json.Marshal(cmd)
 	if err != nil {
 		return fmt.Errorf("marshal message: %w", err)
 	}
@@ -165,11 +198,11 @@ func (m *MQTTChannel) Send(ctx context.Context, msg orchestrator.Response) error
 		return fmt.Errorf("publish: %w", err)
 	}
 
-	m.logger.Debug("message sent", "topic", topic, "size", len(payload))
+	m.logger.Debug("message sent", "topic", topic, "size", len(payload), "command", cmd.Command)
 	return nil
 }
 
-func (m *MQTTChannel) Receive() <-chan orchestrator.Message {
+func (m *MQTTChannel) Receive() <-chan types.Message {
 	return m.inbox
 }
 
@@ -202,8 +235,30 @@ func (m *MQTTChannel) subscribe() error {
 
 // handleMessage processes incoming messages from agents
 func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
+	m.wg.Add(1)
+	defer m.wg.Done()
+
 	m.logger.Debug("mqtt message received", "topic", mqttMsg.Topic())
 
+	// Try to parse as generic map first to check for tool results
+	var genericPayload map[string]interface{}
+	if err := json.Unmarshal(mqttMsg.Payload(), &genericPayload); err == nil {
+		// Check if this is a tool result (has "tool" and "status" fields)
+		if toolName, ok := genericPayload["tool"].(string); ok {
+			if status, ok := genericPayload["status"].(string); ok {
+				// This is a tool result, route to orchestrator
+				m.logger.Debug("tool result detected",
+					"tool", toolName,
+					"status", status,
+					"request_id", genericPayload["request_id"],
+				)
+				m.handleToolResult(genericPayload)
+				return // Don't forward to inbox as regular message
+			}
+		}
+	}
+
+	// Regular message handling
 	var payload struct {
 		AgentID  string            `json:"agent_id"`
 		Content  string            `json:"content"`
@@ -217,7 +272,7 @@ func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 		return
 	}
 
-	msg := orchestrator.Message{
+	msg := types.Message{
 		ID:        fmt.Sprintf("mqtt-%d", time.Now().UnixNano()),
 		Channel:   "mqtt",
 		From:      payload.AgentID,
@@ -245,6 +300,9 @@ func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 
 // handleStatus processes agent heartbeat/status updates
 func (m *MQTTChannel) handleStatus(client mqtt.Client, mqttMsg mqtt.Message) {
+	m.wg.Add(1)
+	defer m.wg.Done()
+
 	m.logger.Debug("agent status update", "topic", mqttMsg.Topic())
 
 	var status struct {
@@ -295,4 +353,38 @@ func (m *MQTTChannel) Broadcast(ctx context.Context, content string) error {
 
 	m.logger.Info("broadcast sent", "size", len(payload))
 	return nil
+}
+
+// SetResultCallback sets the callback for tool execution results
+func (m *MQTTChannel) SetResultCallback(cb func(requestID string, result map[string]interface{})) {
+	m.resultMu.Lock()
+	defer m.resultMu.Unlock()
+	m.resultCallback = cb
+	m.logger.Debug("result callback registered")
+}
+
+// handleToolResult processes a tool execution result from edge agents
+func (m *MQTTChannel) handleToolResult(payload map[string]interface{}) {
+	requestID, _ := payload["request_id"].(string)
+
+	m.resultMu.RLock()
+	callback := m.resultCallback
+	m.resultMu.RUnlock()
+
+	if callback == nil {
+		m.logger.Warn("no result callback registered, dropping tool result",
+			"request_id", requestID,
+			"tool", payload["tool"],
+		)
+		return
+	}
+
+	// Deliver result to orchestrator via callback
+	callback(requestID, payload)
+
+	m.logger.Debug("tool result delivered to orchestrator",
+		"request_id", requestID,
+		"tool", payload["tool"],
+		"status", payload["status"],
+	)
 }

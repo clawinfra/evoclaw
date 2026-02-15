@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/types"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 type TelegramChannel struct {
 	botToken string
 	logger   *slog.Logger
-	inbox    chan orchestrator.Message
+	inbox    chan types.Message
 	ctx      context.Context
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
@@ -46,7 +46,7 @@ func NewTelegramWithClient(botToken string, logger *slog.Logger, client HTTPClie
 	return &TelegramChannel{
 		botToken: botToken,
 		logger:   logger.With("channel", "telegram"),
-		inbox:    make(chan orchestrator.Message, 100),
+		inbox:    make(chan types.Message, 100),
 		client:   client,
 	}
 }
@@ -81,7 +81,7 @@ func (t *TelegramChannel) Stop() error {
 	return nil
 }
 
-func (t *TelegramChannel) Send(ctx context.Context, msg orchestrator.Response) error {
+func (t *TelegramChannel) Send(ctx context.Context, msg types.Response) error {
 	params := url.Values{}
 	params.Set("chat_id", msg.To)
 	params.Set("text", msg.Content)
@@ -102,7 +102,7 @@ func (t *TelegramChannel) Send(ctx context.Context, msg orchestrator.Response) e
 	if err != nil {
 		return fmt.Errorf("send message: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -113,7 +113,7 @@ func (t *TelegramChannel) Send(ctx context.Context, msg orchestrator.Response) e
 	return nil
 }
 
-func (t *TelegramChannel) Receive() <-chan orchestrator.Message {
+func (t *TelegramChannel) Receive() <-chan types.Message {
 	return t.inbox
 }
 
@@ -129,7 +129,7 @@ func (t *TelegramChannel) verifyToken() error {
 	if err != nil {
 		return fmt.Errorf("get bot info: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -199,7 +199,7 @@ func (t *TelegramChannel) pollOnce() error {
 	if err != nil {
 		return fmt.Errorf("get updates: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -231,7 +231,7 @@ func (t *TelegramChannel) pollOnce() error {
 			continue
 		}
 
-		msg := orchestrator.Message{
+		msg := types.Message{
 			ID:        strconv.FormatInt(int64(update.Message.MessageID), 10),
 			Channel:   "telegram",
 			From:      strconv.FormatInt(update.Message.From.ID, 10),
