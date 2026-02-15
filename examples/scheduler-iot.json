@@ -1,0 +1,92 @@
+{
+  "server": {
+    "port": 8420,
+    "dataDir": "./data",
+    "logLevel": "info"
+  },
+  "mqtt": {
+    "port": 1883,
+    "host": "0.0.0.0"
+  },
+  "scheduler": {
+    "enabled": true,
+    "jobs": [
+      {
+        "id": "temp-sensor-read",
+        "name": "Read Temperature Sensor",
+        "enabled": true,
+        "schedule": {
+          "kind": "interval",
+          "intervalMs": 300000
+        },
+        "action": {
+          "kind": "shell",
+          "command": "./sensors/read_temp.sh"
+        }
+      },
+      {
+        "id": "hourly-analysis",
+        "name": "Analyze Sensor Data",
+        "enabled": true,
+        "schedule": {
+          "kind": "interval",
+          "intervalMs": 3600000
+        },
+        "action": {
+          "kind": "agent",
+          "agentId": "iot-agent",
+          "message": "Read sensor data from /tmp/sensors/*.json and analyze temperature trends. Alert if temperature exceeds 30°C or drops below 10°C."
+        }
+      },
+      {
+        "id": "cloud-sync",
+        "name": "Cloud Sync",
+        "enabled": true,
+        "schedule": {
+          "kind": "cron",
+          "expr": "0 */6 * * *",
+          "timezone": "UTC"
+        },
+        "action": {
+          "kind": "mqtt",
+          "topic": "iot/sync",
+          "payload": {
+            "device": "pi-001",
+            "type": "full-sync"
+          }
+        }
+      },
+      {
+        "id": "daily-report",
+        "name": "Daily Report",
+        "enabled": true,
+        "schedule": {
+          "kind": "at",
+          "time": "09:00",
+          "timezone": "America/New_York"
+        },
+        "action": {
+          "kind": "http",
+          "method": "POST",
+          "url": "https://api.example.com/reports",
+          "headers": {
+            "Authorization": "Bearer YOUR_TOKEN"
+          },
+          "payload": {
+            "device": "pi-001",
+            "type": "daily-summary"
+          }
+        }
+      }
+    ]
+  },
+  "agents": [
+    {
+      "id": "iot-agent",
+      "name": "IoT Sensor Agent",
+      "systemPrompt": "You are an IoT sensor monitoring agent. Analyze temperature data and provide alerts when anomalies are detected.",
+      "model": "ollama/llama3.3:8b",
+      "enabled": true
+    }
+  ]
+}

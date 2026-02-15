@@ -106,7 +106,11 @@ func run() int {
 		case "memory":
 			// Memory system operations
 			return cli.MemoryCommand(os.Args[subCmdIdx+1:], configPath)
-			// Pass args after the subcommand
+		case "schedule":
+			// Scheduler operations
+			return cli.ScheduleCommand(os.Args[subCmdIdx+1:], configPath)
+		case "chain":
+			// Chain operations
 			return cli.ChainCommand(os.Args[subCmdIdx+1:], configPath)
 		case "init":
 			return cli.InitCommand(os.Args[subCmdIdx+1:])

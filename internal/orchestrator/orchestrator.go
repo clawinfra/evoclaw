@@ -16,6 +16,7 @@ import (
 	"github.com/clawinfra/evoclaw/internal/memory"
 	"github.com/clawinfra/evoclaw/internal/onchain"
 	"github.com/clawinfra/evoclaw/internal/router"
+	"github.com/clawinfra/evoclaw/internal/scheduler"
 	"github.com/clawinfra/evoclaw/internal/types"
 )
 
@@ -120,6 +121,8 @@ type Orchestrator struct {
 	cloudSync *cloudsync.Manager
 	// Tiered memory system
 	memory *memory.Manager
+	// Scheduler for periodic tasks
+	scheduler *scheduler.Scheduler
 	// Health registry for model selection
 	healthRegistry *router.HealthRegistry
 	// Tool management (NEW)
@@ -251,6 +254,13 @@ func (o *Orchestrator) Start() error {
 	if o.cfg.Memory.Enabled {
 		if err := o.initMemory(); err != nil {
 			o.logger.Warn("tiered memory failed to initialize (non-fatal)", "error", err)
+		}
+	}
+
+	// Initialize scheduler if enabled
+	if o.cfg.Scheduler.Enabled {
+		if err := o.initScheduler(); err != nil {
+			o.logger.Warn("scheduler failed to initialize (non-fatal)", "error", err)
 		}
 	}
 
@@ -455,6 +465,109 @@ func (o *Orchestrator) initMemory() error {
 	return nil
 }
 
+// initScheduler sets up the job scheduler
+func (o *Orchestrator) initScheduler() error {
+	// Create scheduler with orchestrator as executor
+	o.scheduler = scheduler.NewScheduler(o, o.logger)
+
+	// Load jobs from config
+	jobs := make([]*scheduler.Job, len(o.cfg.Scheduler.Jobs))
+	for i, jobCfg := range o.cfg.Scheduler.Jobs {
+		jobs[i] = &scheduler.Job{
+			ID:   jobCfg.ID,
+			Name: jobCfg.Name,
+			Schedule: scheduler.ScheduleConfig{
+				Kind:       jobCfg.Schedule.Kind,
+				IntervalMs: jobCfg.Schedule.IntervalMs,
+				Expr:       jobCfg.Schedule.Expr,
+				Time:       jobCfg.Schedule.Time,
+				Timezone:   jobCfg.Schedule.Timezone,
+			},
+			Action: scheduler.ActionConfig{
+				Kind:    jobCfg.Action.Kind,
+				Command: jobCfg.Action.Command,
+				Args:    jobCfg.Action.Args,
+				AgentID: jobCfg.Action.AgentID,
+				Message: jobCfg.Action.Message,
+				Topic:   jobCfg.Action.Topic,
+				Payload: jobCfg.Action.Payload,
+				URL:     jobCfg.Action.URL,
+				Method:  jobCfg.Action.Method,
+				Headers: jobCfg.Action.Headers,
+			},
+			Enabled: jobCfg.Enabled,
+		}
+	}
+
+	if err := o.scheduler.LoadJobs(jobs); err != nil {
+		return fmt.Errorf("load scheduler jobs: %w", err)
+	}
+
+	// Start scheduler
+	if err := o.scheduler.Start(o.ctx); err != nil {
+		return fmt.Errorf("start scheduler: %w", err)
+	}
+
+	o.logger.Info("scheduler initialized", "jobs", len(jobs))
+	return nil
+}
+
+// ExecuteAgent implements scheduler.Executor interface
+func (o *Orchestrator) ExecuteAgent(ctx context.Context, agentID, message string) error {
+	// Find agent
+	agent, exists := o.agents[agentID]
+	if !exists {
+		return fmt.Errorf("agent not found: %s", agentID)
+	}
+
+	// Create message
+	msg := Message{
+		ID:        fmt.Sprintf("scheduler-%d", time.Now().UnixNano()),
+		From:      "scheduler",
+		To:        agentID,
+		Content:   message,
+		Timestamp: time.Now(),
+	}
+
+	// Send to agent's inbox
+	select {
+	case agent.Inbox <- msg:
+		o.logger.Debug("scheduled message sent to agent", "agent", agentID)
+		return nil
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("timeout sending message to agent %s", agentID)
+	}
+}
+
+// PublishMQTT implements scheduler.Executor interface
+func (o *Orchestrator) PublishMQTT(ctx context.Context, topic string, payload map[string]any) error {
+	// Find MQTT channel
+	var mqttChannel Channel
+	for _, ch := range o.channels {
+		if ch.Name() == "mqtt" {
+			mqttChannel = ch
+			break
+		}
+	}
+
+	if mqttChannel == nil {
+		return fmt.Errorf("MQTT channel not available")
+	}
+
+	// Send via MQTT channel
+	resp := Response{
+		To:      topic,
+		Content: fmt.Sprintf("%v", payload), // TODO: Better serialization
+	}
+
+	return mqttChannel.Send(ctx, resp)
+}
+
+// GetScheduler returns the scheduler for external access
+func (o *Orchestrator) GetScheduler() *scheduler.Scheduler {
+	return o.scheduler
+}
+
 // initOnChain sets up BSC/opBNB chain adapter
 func (o *Orchestrator) initOnChain() error {
 	o.chainRegistry = onchain.NewChainRegistry(o.logger)
@@ -506,6 +619,11 @@ func (o *Orchestrator) Stop() error {
 	// Stop tiered memory (flushes consolidation)
 	if o.memory != nil {
 		o.memory.Stop()
+	}
+
+	// Stop scheduler
+	if o.scheduler != nil {
+		o.scheduler.Stop()
 	}
 
 	// Stop cloud sync (flushes offline queue)

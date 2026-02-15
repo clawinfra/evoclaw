@@ -36,6 +36,9 @@ type Config struct {
 	// Memory system configuration
 	Memory MemoryConfigSettings `json:"memory,omitempty"`
 
+	// Scheduler configuration
+	Scheduler SchedulerConfig `json:"scheduler,omitempty"`
+
 	// Agent definitions
 	Agents []AgentDef `json:"agents"`
 }
@@ -140,6 +143,44 @@ type DistillationConfig struct {
 type ScoringConfig struct {
 	HalfLifeDays        float64 `json:"halfLifeDays"`
 	ReinforcementBoost  float64 `json:"reinforcementBoost"`
+}
+
+// SchedulerConfig holds scheduler configuration
+type SchedulerConfig struct {
+	Enabled bool                `json:"enabled"`
+	Jobs    []SchedulerJobConfig `json:"jobs"`
+}
+
+// SchedulerJobConfig defines a scheduled job
+type SchedulerJobConfig struct {
+	ID       string                `json:"id"`
+	Name     string                `json:"name"`
+	Schedule ScheduleConfig        `json:"schedule"`
+	Action   ActionConfig          `json:"action"`
+	Enabled  bool                  `json:"enabled"`
+}
+
+// ScheduleConfig defines when a job runs
+type ScheduleConfig struct {
+	Kind       string `json:"kind"` // "interval", "cron", "at"
+	IntervalMs int64  `json:"intervalMs,omitempty"`
+	Expr       string `json:"expr,omitempty"` // cron expression
+	Time       string `json:"time,omitempty"` // "HH:MM" for daily
+	Timezone   string `json:"timezone,omitempty"`
+}
+
+// ActionConfig defines what a job does
+type ActionConfig struct {
+	Kind    string            `json:"kind"` // "shell", "agent", "mqtt", "http"
+	Command string            `json:"command,omitempty"`
+	Args    []string          `json:"args,omitempty"`
+	AgentID string            `json:"agentId,omitempty"`
+	Message string            `json:"message,omitempty"`
+	Topic   string            `json:"topic,omitempty"`
+	Payload map[string]any    `json:"payload,omitempty"`
+	URL     string            `json:"url,omitempty"`
+	Method  string            `json:"method,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
 }
 
 type TUIConfig struct {
