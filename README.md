@@ -18,6 +18,7 @@ EvoClaw is a lightweight, evolution-powered agent orchestration framework design
 - **⚙️ Gateway/Daemon Mode** — systemd/launchd integration, auto-restart, graceful shutdown
 - **📡 Multi-Channel** — Telegram, MQTT, WhatsApp (coming soon)
 - **🤖 Multi-Model** — Anthropic, OpenAI, Ollama, OpenRouter support
+- **🔀 Intelligent Model Fallback** — Circuit breaker pattern with automatic health tracking and degraded model routing
 - **💰 Cost Tracking** — Monitor API usage and optimize spending
 - **📊 HTTP API** — RESTful interface for monitoring and control
 - **💬 Chat Interfaces** — HTTP API, web terminal, TUI for agent messaging
@@ -236,11 +237,14 @@ See [`evoclaw.example.json`](evoclaw.example.json) for orchestrator config and [
 | `channels.telegram` | evoclaw.json | Telegram bot token |
 | `models.providers` | evoclaw.json | LLM API keys (Anthropic, OpenAI, Ollama) |
 | `models.routing` | evoclaw.json | Task complexity → model mapping |
+| `models.health` | evoclaw.json | Circuit breaker config (failure threshold, cooldown) |
 | `evolution` | evoclaw.json | Eval interval, mutation rate, min samples |
 | `agents[]` | evoclaw.json | Agent definitions (type, model, skills) |
 | `[mqtt]` | agent.toml | Broker connection for edge agent |
 | `[trading]` | agent.toml | Hyperliquid exchange config |
 | `[monitor]` | agent.toml | Price/funding rate alert thresholds |
+
+**See [docs/MODEL-HEALTH.md](docs/MODEL-HEALTH.md) for details on the health registry and circuit breaker pattern.**
 
 ## Development
 
@@ -310,10 +314,11 @@ evoclaw/
 - **Genome Layer 2** — Skill Selection & Composition: agents choose and combine skills dynamically
 - **Genome Layer 3** — Behavioral Evolution: agents evolve high-level behavioral strategies
 - **Agent Patterns** — WAL (Write-Ahead Log), VBR (Version-Based Recovery), ADL (Adaptive Decision Logic), VFM (Volatile Fitness Memory)
+- **Model Health Registry** — Circuit breaker pattern for intelligent model fallback (see [docs/MODEL-HEALTH.md](docs/MODEL-HEALTH.md))
 - **Security** — Signed constraints, JWT authentication, evolution firewall (see [docs/SECURITY.md](docs/SECURITY.md))
 - **Config Backup** — Automated cloud backup for hardware recovery (see [docs/CONFIG-BACKUP.md](docs/CONFIG-BACKUP.md))
 - **Messaging** — HTTP Chat API, Web Terminal, TUI for agent communication (see [docs/MESSAGING.md](docs/MESSAGING.md))
-- **Docs** — [INSTALLATION.md](docs/INSTALLATION.md), [EVOLUTION.md](docs/EVOLUTION.md), [SECURITY.md](docs/SECURITY.md), [CONFIG-BACKUP.md](docs/CONFIG-BACKUP.md), [MESSAGING.md](docs/MESSAGING.md)
+- **Docs** — [INSTALLATION.md](docs/INSTALLATION.md), [EVOLUTION.md](docs/EVOLUTION.md), [SECURITY.md](docs/SECURITY.md), [CONFIG-BACKUP.md](docs/CONFIG-BACKUP.md), [MESSAGING.md](docs/MESSAGING.md), [MODEL-HEALTH.md](docs/MODEL-HEALTH.md)
 
 ## Beta Known Limitations
 

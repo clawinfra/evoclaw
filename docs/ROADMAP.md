@@ -14,6 +14,7 @@
   - Agent registry + conversation memory
   - HTTP API (9 endpoints)
   - Evolution engine integration
+  - Health registry with circuit breaker pattern
 - ✅ Rust edge agent (2,040 lines, 3.2MB)
   - Hyperliquid trading API client
   - Price/funding monitor with alerts
