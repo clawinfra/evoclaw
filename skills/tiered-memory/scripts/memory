@@ -1,30 +1,31 @@
 #!/usr/bin/env bash
-# Tiered Memory CLI Wrapper - Auto-loads Turso credentials
-# Usage: memory [command] [args...]
+# Tiered Memory CLI Wrapper
+# Detects EvoClaw vs OpenClaw environment and routes appropriately
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-CONFIG_FILE="$SCRIPT_DIR/../config.json"
-CREDS_FILE="$WORKSPACE_ROOT/memory/encrypted/turso-credentials.json.enc"
 
-# Load Turso credentials if not already set and cold operations need them
-if [[ "${1:-}" == "cold" ]] || [[ "${1:-}" == "consolidate" ]] || [[ "${1:-}" == "sync-critical" ]]; then
-    if [[ -z "${TURSO_URL:-}" ]] && [[ -f "$CREDS_FILE" ]]; then
-        # Decrypt credentials
-        if command -v "$WORKSPACE_ROOT/memory/decrypt.sh" &> /dev/null; then
-            CREDS_JSON=$("$WORKSPACE_ROOT/memory/decrypt.sh" turso-credentials.json 2>/dev/null || echo "{}")
-            export TURSO_URL=$(echo "$CREDS_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("database_url", ""))' 2>/dev/null || echo "")
-            export TURSO_TOKEN=$(echo "$CREDS_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("auth_token", ""))' 2>/dev/null || echo "")
-        fi
+# Detect environment
+if command -v evoclaw &> /dev/null; then
+    # Running in EvoClaw environment - use built-in memory system
+    exec evoclaw memory "$@"
+else
+    # Running in OpenClaw environment - use Python CLI
+    PYTHON_CLI="$SCRIPT_DIR/memory_cli.py"
+    
+    if [[ ! -f "$PYTHON_CLI" ]]; then
+        echo "Error: memory_cli.py not found at $PYTHON_CLI" >&2
+        exit 1
     fi
     
-    # Auto-append Turso args if not already present
-    if [[ -n "${TURSO_URL:-}" ]] && [[ ! " $* " =~ " --db-url " ]]; then
-        set -- "$@" "--db-url" "$TURSO_URL" "--auth-token" "$TURSO_TOKEN"
+    # Load Turso credentials if available
+    CRED_FILE="$(cd "$SCRIPT_DIR/../../.." && pwd)/memory/turso-credentials.json"
+    
+    if [[ -f "$CRED_FILE" ]]; then
+        export TURSO_DB_URL=$(python3 -c "import json; print(json.load(open('$CRED_FILE'))['database_url'])")
+        export TURSO_AUTH_TOKEN=$(python3 -c "import json; print(json.load(open('$CRED_FILE'))['auth_token'])")
     fi
+    
+    exec python3 "$PYTHON_CLI" "$@"
 fi
-
-# Execute memory_cli.py with all arguments
-exec python3 "$SCRIPT_DIR/memory_cli.py" "$@"

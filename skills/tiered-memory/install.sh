@@ -47,10 +47,22 @@ echo "   ✅ Wrapper script exists: scripts/memory"
 
 # 5. Create cron jobs
 echo "⏰ Creating cron jobs..."
-# Note: This would need OpenClaw CLI or API access to create cron jobs
-# For now, we'll document that cron jobs should be created manually or via OpenClaw
+# Note: Consolidation setup depends on environment
+# - EvoClaw: Built-in consolidator runs automatically when memory.enabled=true
+# - OpenClaw: Needs manual cron jobs via OpenClaw cron tool
 
 cat > /tmp/cron-jobs.txt <<'EOF'
+## Environment Detection
+
+This skill works in BOTH EvoClaw and OpenClaw:
+
+### EvoClaw (Built-in Memory)
+- Consolidation runs automatically (no manual setup needed)
+- Enable via evoclaw.json: "memory": {"enabled": true, ...}
+- Manual triggers: evoclaw memory consolidate --mode quick|daily|monthly
+- Wrapper script detects EvoClaw and routes to built-in system
+
+### OpenClaw (Cron-based)
 Cron jobs should be created via OpenClaw cron tool:
 
 1. Quick consolidation (every 4 hours):

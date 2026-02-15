@@ -103,6 +103,9 @@ func run() int {
 	if subCmd != "" {
 		switch subCmd {
 		case "chain":
+		case "memory":
+			// Memory system operations
+			return cli.MemoryCommand(os.Args[subCmdIdx+1:], configPath)
 			// Pass args after the subcommand
 			return cli.ChainCommand(os.Args[subCmdIdx+1:], configPath)
 		case "init":

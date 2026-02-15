@@ -446,3 +446,111 @@ func (m *Manager) RebuildTree(ctx context.Context) error {
 
 	return m.rebuilder.RebuildTree(ctx)
 }
+
+// GetConsolidator returns the consolidator for manual trigger access
+func (m *Manager) GetConsolidator() *Consolidator {
+	return m.consolidator
+}
+
+// Store adds a memory entry (CLI interface)
+func (m *Manager) Store(ctx context.Context, entry *MemoryEntry) error {
+	// Add to warm tier
+	warmEntry := &WarmEntry{
+		ID:          entry.ID,
+		Text:        entry.Text,
+		Category:    entry.Category,
+		Source:      "cli",
+		Importance:  1.0,
+		Score:       10.0, // Fresh entry, high score
+		CreatedAt:   entry.CreatedAt,
+		LastAccessed: entry.CreatedAt,
+	}
+
+	if err := m.warm.Add(warmEntry); err != nil {
+		return fmt.Errorf("add to warm: %w", err)
+	}
+
+	// Update tree counts
+	if err := m.tree.IncrementCounts(entry.Category, 1, 0); err != nil {
+		m.logger.Warn("failed to update tree counts", "category", entry.Category, "error", err)
+	}
+
+	return nil
+}
+
+// Search retrieves memories matching query (CLI interface)
+func (m *Manager) Search(ctx context.Context, query string, maxResults int) ([]*MemoryEntry, error) {
+	// Use tree search if LLM available
+	if m.llmSearcher != nil {
+		path, err := m.llmSearcher.Search(ctx, query)
+		if err != nil {
+			m.logger.Warn("LLM search failed, falling back to rule-based", "error", err)
+		} else {
+			// Retrieve from category
+			warmResults := m.warm.GetByCategory(path.Category, maxResults)
+			entries := make([]*MemoryEntry, len(warmResults))
+			for i, w := range warmResults {
+				entries[i] = &MemoryEntry{
+					ID:        w.ID,
+					Text:      w.Text,
+					Category:  w.Category,
+					Score:     w.Score,
+					Tier:      "warm",
+					CreatedAt: w.CreatedAt,
+				}
+			}
+			return entries, nil
+		}
+	}
+
+	// Fallback: retrieve from warm
+	warmResults, err := m.Retrieve(ctx, query, maxResults)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]*MemoryEntry, len(warmResults))
+	for i, w := range warmResults {
+		entries[i] = &MemoryEntry{
+			ID:        w.ID,
+			Text:      w.Text,
+			Category:  w.Category,
+			Score:     w.Score,
+			Tier:      "warm",
+			CreatedAt: w.CreatedAt,
+		}
+	}
+
+	return entries, nil
+}
+
+// GetStatus returns memory system status (CLI interface)
+func (m *Manager) GetStatus(ctx context.Context) (map[string]interface{}, error) {
+	stats, err := m.GetStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"agent_id":     m.cfg.AgentID,
+		"agent_name":   m.cfg.AgentName,
+		"hot_size":     stats.Hot.TotalBytes,
+		"warm_count":   stats.Warm.EntryCount,
+		"warm_size":    stats.Warm.TotalBytes,
+		"cold_count":   stats.Cold.EntryCount,
+		"tree_nodes":   stats.Tree.NodeCount,
+		"tree_depth":   stats.Tree.MaxDepth,
+		"tree_size":    stats.Tree.SizeBytes,
+	}, nil
+}
+
+// MemoryEntry is a unified memory entry (for CLI compatibility)
+type MemoryEntry struct {
+	ID        string    `json:"id"`
+	Text      string    `json:"text"`
+	Category  string    `json:"category"`
+	Source    string    `json:"source,omitempty"`
+	Score     float64   `json:"score,omitempty"`
+	Tier      string    `json:"tier"`
+	CreatedAt time.Time `json:"created_at"`
+}
