@@ -568,8 +568,9 @@ impl EdgeTools {
     }
 
     // ========== GPIO Tools ==========
+    // Uses libgpiod (gpioget/gpioset) for modern Pi OS compatibility
 
-    /// Read GPIO pin state
+    /// Read GPIO pin state using gpioget (libgpiod)
     pub fn gpio_read(&self, pin: u8) -> ToolResult {
         if !self.allowed_gpio_pins.contains(&pin) {
             return ToolResult::err(format!(
@@ -578,31 +579,49 @@ impl EdgeTools {
             ));
         }
 
-        let gpio_path = format!("/sys/class/gpio/gpio{}/value", pin);
-        let export_path = "/sys/class/gpio/export";
-
-        // Check if GPIO is exported, if not export it
-        if !Path::new(&gpio_path).exists() {
-            if let Err(e) = fs::write(export_path, pin.to_string()) {
-                warn!(pin, error = %e, "Failed to export GPIO pin");
-            }
-            std::thread::sleep(std::time::Duration::from_millis(100));
-        }
-
-        match fs::read_to_string(&gpio_path) {
-            Ok(value) => {
-                let state = value.trim().parse::<u8>().unwrap_or(0);
-                ToolResult::ok(serde_json::json!({
+        // Try gpioget first (libgpiod - modern approach)
+        match Command::new("gpioget")
+            .args(["gpiochip0", &pin.to_string()])
+            .output()
+        {
+            Ok(output) if output.status.success() => {
+                let value_str = String::from_utf8_lossy(&output.stdout);
+                let state = value_str.trim().parse::<u8>().unwrap_or(0);
+                return ToolResult::ok(serde_json::json!({
                     "pin": pin,
                     "value": state,
-                    "state": if state == 1 { "HIGH" } else { "LOW" }
-                }))
+                    "state": if state == 1 { "HIGH" } else { "LOW" },
+                    "method": "libgpiod"
+                }));
             }
-            Err(e) => ToolResult::err(format!("Failed to read GPIO {}: {}", pin, e)),
+            _ => {
+                // Fallback to sysfs with offset handling
+                // Modern Pi kernels use offset 512 for BCM pins
+                let offsets = [0u32, 512];
+                for offset in offsets {
+                    let gpio_num = offset + pin as u32;
+                    let gpio_path = format!("/sys/class/gpio/gpio{}/value", gpio_num);
+                    
+                    if let Ok(value) = fs::read_to_string(&gpio_path) {
+                        let state = value.trim().parse::<u8>().unwrap_or(0);
+                        return ToolResult::ok(serde_json::json!({
+                            "pin": pin,
+                            "value": state,
+                            "state": if state == 1 { "HIGH" } else { "LOW" },
+                            "method": "sysfs",
+                            "gpio_num": gpio_num
+                        }));
+                    }
+                }
+                ToolResult::err(format!(
+                    "GPIO {} not readable. Install libgpiod: sudo apt install gpiod",
+                    pin
+                ))
+            }
         }
     }
 
-    /// Write to GPIO pin
+    /// Write to GPIO pin using gpioset (libgpiod)
     pub fn gpio_write(&self, pin: u8, value: u8) -> ToolResult {
         if !self.allowed_gpio_pins.contains(&pin) {
             return ToolResult::err(format!(
@@ -611,57 +630,108 @@ impl EdgeTools {
             ));
         }
 
-        let gpio_path = format!("/sys/class/gpio/gpio{}", pin);
-        let direction_path = format!("{}/direction", gpio_path);
-        let value_path = format!("{}/value", gpio_path);
-        let export_path = "/sys/class/gpio/export";
+        let gpio_value = if value > 0 { "1" } else { "0" };
 
-        // Export if needed
-        if !Path::new(&gpio_path).exists() {
-            if let Err(e) = fs::write(export_path, pin.to_string()) {
-                return ToolResult::err(format!("Failed to export GPIO {}: {}", pin, e));
+        // Use gpioset (libgpiod) - works without root on modern Pi OS
+        match Command::new("gpioset")
+            .args([
+                "--mode=signal",  // Hold the value until interrupted
+                "gpiochip0",
+                &format!("{}={}", pin, gpio_value),
+            ])
+            .spawn()
+        {
+            Ok(mut child) => {
+                // Give it a moment to set the value
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                
+                // Kill the process (we just wanted to set the value)
+                let _ = child.kill();
+                
+                ToolResult::ok(serde_json::json!({
+                    "pin": pin,
+                    "value": if value > 0 { 1 } else { 0 },
+                    "state": if value > 0 { "HIGH" } else { "LOW" },
+                    "method": "libgpiod"
+                }))
             }
-            std::thread::sleep(std::time::Duration::from_millis(100));
-        }
-
-        // Set direction to output
-        if let Err(e) = fs::write(&direction_path, "out") {
-            return ToolResult::err(format!("Failed to set GPIO {} direction: {}", pin, e));
-        }
-
-        // Write value
-        let write_value = if value > 0 { "1" } else { "0" };
-        match fs::write(&value_path, write_value) {
-            Ok(_) => ToolResult::ok(serde_json::json!({
-                "pin": pin,
-                "value": if value > 0 { 1 } else { 0 },
-                "state": if value > 0 { "HIGH" } else { "LOW" }
-            })),
-            Err(e) => ToolResult::err(format!("Failed to write GPIO {}: {}", pin, e)),
+            Err(e) => {
+                // If gpioset not available, provide helpful error
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    ToolResult::err(
+                        "gpioset not found. Install libgpiod: sudo apt install gpiod"
+                    )
+                } else {
+                    ToolResult::err(format!("Failed to set GPIO {}: {}", pin, e))
+                }
+            }
         }
     }
 
     /// List all GPIO pins and their states
     pub fn gpio_list(&self) -> ToolResult {
         let mut pins = Vec::new();
+        let mut method = "unknown";
 
+        // Try gpioinfo first for comprehensive info
+        if let Ok(output) = Command::new("gpioinfo").arg("gpiochip0").output() {
+            if output.status.success() {
+                method = "libgpiod";
+                let info = String::from_utf8_lossy(&output.stdout);
+                
+                for &pin in &self.allowed_gpio_pins {
+                    // Parse gpioinfo output for this pin
+                    let pin_pattern = format!("line {:>3}:", pin);
+                    let line_info = info.lines()
+                        .find(|l| l.contains(&pin_pattern))
+                        .map(|l| l.to_string());
+                    
+                    pins.push(serde_json::json!({
+                        "pin": pin,
+                        "info": line_info,
+                        "available": true
+                    }));
+                }
+                
+                return ToolResult::ok(serde_json::json!({
+                    "pins": pins,
+                    "allowed_pins": self.allowed_gpio_pins,
+                    "method": method
+                }));
+            }
+        }
+
+        // Fallback to sysfs check
+        method = "sysfs";
         for &pin in &self.allowed_gpio_pins {
-            let gpio_path = format!("/sys/class/gpio/gpio{}/value", pin);
-            let state = fs::read_to_string(&gpio_path)
-                .ok()
-                .and_then(|s| s.trim().parse::<u8>().ok());
+            // Check both with and without offset
+            let mut state: Option<u8> = None;
+            let mut gpio_num: Option<u32> = None;
+            
+            for offset in [0u32, 512] {
+                let num = offset + pin as u32;
+                let gpio_path = format!("/sys/class/gpio/gpio{}/value", num);
+                if let Ok(val) = fs::read_to_string(&gpio_path) {
+                    state = val.trim().parse().ok();
+                    gpio_num = Some(num);
+                    break;
+                }
+            }
 
             pins.push(serde_json::json!({
                 "pin": pin,
                 "exported": state.is_some(),
                 "value": state,
-                "state": state.map(|v| if v == 1 { "HIGH" } else { "LOW" })
+                "state": state.map(|v| if v == 1 { "HIGH" } else { "LOW" }),
+                "gpio_num": gpio_num
             }));
         }
 
         ToolResult::ok(serde_json::json!({
             "pins": pins,
-            "allowed_pins": self.allowed_gpio_pins
+            "allowed_pins": self.allowed_gpio_pins,
+            "method": method,
+            "note": "Install libgpiod for better GPIO support: sudo apt install gpiod"
         }))
     }
 
