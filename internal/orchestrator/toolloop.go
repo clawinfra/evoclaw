@@ -1,0 +1,299 @@
+package orchestrator
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"log/slog"
+)
+
+// ToolLoop manages the multi-turn tool execution loop
+type ToolLoop struct {
+	orchestrator *Orchestrator
+	toolManager  *ToolManager
+	logger       *slog.Logger
+
+	// Config
+	maxIterations  int
+	errorLimit     int
+	defaultTimeout time.Duration
+}
+
+// ToolCall represents a tool invocation from the LLM
+type ToolCall struct {
+	ID        string                 `json:"id"`
+	Name      string                 `json:"name"`
+	Arguments map[string]interface{} `json:"arguments"`
+}
+
+// ToolResult represents the result of a tool execution
+type ToolResult struct {
+	Tool      string `json:"tool"`
+	Status    string `json:"status"` // "success", "error"
+	Result    string `json:"result,omitempty"`
+	Error     string `json:"error,omitempty"`
+	ErrorType string `json:"error_type,omitempty"`
+	ElapsedMs int64  `json:"elapsed_ms"`
+	ExitCode  int    `json:"exit_code,omitempty"`
+}
+
+// ToolLoopMetrics tracks tool loop performance
+type ToolLoopMetrics struct {
+	TotalIterations int
+	ToolCalls       int
+	SuccessCount    int
+	ErrorCount      int
+	TimeoutCount    int
+	TotalDuration   time.Duration
+}
+
+// NewToolLoop creates a new tool loop
+func NewToolLoop(orch *Orchestrator, tm *ToolManager) *ToolLoop {
+	return &ToolLoop{
+		orchestrator:   orch,
+		toolManager:    tm,
+		logger:         orch.logger.With("component", "tool_loop"),
+		maxIterations:  10, // Configurable
+		errorLimit:     3,  // Configurable
+		defaultTimeout: 30 * time.Second,
+	}
+}
+
+// Execute runs the tool loop for a message
+func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Response, *ToolLoopMetrics, error) {
+	startTime := time.Now()
+	metrics := &ToolLoopMetrics{}
+
+	// Generate tool schemas
+	tools, err := tl.toolManager.GenerateSchemas()
+	if err != nil {
+		return nil, nil, fmt.Errorf("generate tool schemas: %w", err)
+	}
+
+	// Initialize conversation history
+	messages := []ChatMessage{
+		{Role: "user", Content: msg.Content},
+	}
+
+	consecutiveErrors := 0
+
+	// Tool loop
+	for iteration := 0; iteration < tl.maxIterations; iteration++ {
+		metrics.TotalIterations++
+
+		// Call LLM
+		llmResp, toolCalls, err := tl.callLLM(messages, tools, model)
+		if err != nil {
+			return nil, nil, fmt.Errorf("call LLM: %w", err)
+		}
+
+		// Add assistant response to history
+		assistantMsg := ChatMessage{
+			Role:    "assistant",
+			Content: llmResp.Content,
+		}
+
+		// Include tool calls if present
+		if len(toolCalls) > 0 {
+			assistantMsg.ToolCalls = toolCalls
+		}
+
+		messages = append(messages, assistantMsg)
+
+		// If no tool calls, we're done
+		if len(toolCalls) == 0 {
+			tl.logger.Info("tool loop complete", "iterations", iteration+1)
+			break
+		}
+
+		// Execute each tool call (Phase 1: single tool only)
+		for _, toolCall := range toolCalls {
+			metrics.ToolCalls++
+
+			toolResult, err := tl.executeToolCall(agent, toolCall)
+			if err != nil {
+				consecutiveErrors++
+				metrics.ErrorCount++
+
+				// Add error as tool result
+				errorMsg := fmt.Sprintf("Error executing %s: %v", toolCall.Name, err)
+				messages = append(messages, ChatMessage{
+					Role:       "tool",
+					ToolCallID: toolCall.ID,
+					Content:    errorMsg,
+				})
+
+				if consecutiveErrors >= tl.errorLimit {
+					return nil, nil, fmt.Errorf("too many consecutive errors (%d)", consecutiveErrors)
+				}
+				continue
+			}
+
+			consecutiveErrors = 0 // Reset error counter
+
+			if toolResult.Status == "success" {
+				metrics.SuccessCount++
+			} else {
+				metrics.ErrorCount++
+				if toolResult.ErrorType == "timeout" {
+					metrics.TimeoutCount++
+				}
+			}
+
+			// Add tool result to conversation
+			toolMsg := tl.formatToolResult(toolCall, toolResult)
+			messages = append(messages, toolMsg)
+		}
+	}
+
+	metrics.TotalDuration = time.Since(startTime)
+
+	// Final LLM call to generate response
+	finalResp, _, err := tl.callLLM(messages, tools, model)
+	if err != nil {
+		return nil, metrics, fmt.Errorf("final LLM call: %w", err)
+	}
+
+	return &Response{
+		AgentID:   agent.ID,
+		Content:   finalResp.Content,
+		Channel:   msg.Channel,
+		To:        msg.From,
+		ReplyTo:   msg.ID,
+		MessageID: msg.ID,
+		Model:     model,
+	}, metrics, nil
+}
+
+// callLLM calls the LLM with conversation history and tools
+func (tl *ToolLoop) callLLM(messages []ChatMessage, tools []ToolSchema, model string) (*ChatResponse, []ToolCall, error) {
+	// Find provider
+	provider := tl.orchestrator.findProvider(model)
+	if provider == nil {
+		return nil, nil, fmt.Errorf("no provider for model: %s", model)
+	}
+
+	// Prepare request with tools
+	req := ChatRequest{
+		Model:        model,
+		SystemPrompt: "", // Use agent's system prompt
+		Messages:     messages,
+		MaxTokens:    4096,
+		Temperature:  0.7,
+	}
+
+	// Call LLM
+	resp, err := provider.Chat(tl.orchestrator.ctx, req)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Parse tool calls from response
+	var toolCalls []ToolCall
+	if resp.ToolCalls != nil {
+		toolCalls = resp.ToolCalls
+	}
+
+	return resp, toolCalls, nil
+}
+
+// executeToolCall executes a single tool call
+func (tl *ToolLoop) executeToolCall(agent *AgentState, toolCall ToolCall) (*ToolResult, error) {
+	start := time.Now()
+
+	// Generate request ID
+	requestID := fmt.Sprintf("tool-%d", time.Now().UnixNano())
+
+	// Build command for edge agent
+	cmd := EdgeAgentCommand{
+		Command:   "tool",
+		RequestID: requestID,
+		Payload: map[string]interface{}{
+			"tool":       toolCall.Name,
+			"parameters": toolCall.Arguments,
+			"timeout_ms": tl.toolManager.GetToolTimeout(toolCall.Name).Milliseconds(),
+		},
+	}
+
+	// Serialize command
+	payload, err := json.Marshal(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("marshal tool command: %w", err)
+	}
+
+	// Get MQTT channel
+	mqttChan, ok := tl.orchestrator.channels["mqtt"]
+	if !ok {
+		return nil, fmt.Errorf("MQTT channel not available")
+	}
+
+	// Send command via MQTT
+	resp := Response{
+		AgentID: agent.ID,
+		Content: string(payload),
+		Channel: "mqtt",
+		To:      agent.ID,
+		Metadata: map[string]string{
+			"command":    "tool",
+			"request_id": requestID,
+		},
+	}
+
+	if err := mqttChan.Send(tl.orchestrator.ctx, resp); err != nil {
+		return nil, fmt.Errorf("send tool command: %w", err)
+	}
+
+	// Wait for result
+	timeout := tl.toolManager.GetToolTimeout(toolCall.Name)
+	result, err := tl.waitForToolResult(requestID, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	result.ElapsedMs = time.Since(start).Milliseconds()
+	return result, nil
+}
+
+// waitForToolResult waits for a tool result from the edge agent
+func (tl *ToolLoop) waitForToolResult(requestID string, timeout time.Duration) (*ToolResult, error) {
+	ctx, cancel := context.WithTimeout(tl.orchestrator.ctx, timeout)
+	defer cancel()
+
+	// Subscribe to result channel
+	resultChan := make(chan *ToolResult, 1)
+
+	// Register result handler
+	tl.orchestrator.RegisterResultHandler(requestID, func(result *ToolResult) {
+		resultChan <- result
+	})
+
+	select {
+	case result := <-resultChan:
+		return result, nil
+	case <-ctx.Done():
+		return nil, fmt.Errorf("timeout waiting for tool result")
+	}
+}
+
+// formatToolResult formats a tool result as a tool message for the LLM
+func (tl *ToolLoop) formatToolResult(toolCall ToolCall, result *ToolResult) ChatMessage {
+	content := result.Result
+	if result.Status == "error" {
+		content = fmt.Sprintf("Error: %s", result.Error)
+	}
+
+	return ChatMessage{
+		Role:       "tool",
+		ToolCallID: toolCall.ID,
+		Content:    content,
+	}
+}
+
+// EdgeAgentCommand represents a command sent to an edge agent
+type EdgeAgentCommand struct {
+	Command   string                 `json:"command"`
+	RequestID string                 `json:"request_id"`
+	Payload   map[string]interface{} `json:"payload"`
+}

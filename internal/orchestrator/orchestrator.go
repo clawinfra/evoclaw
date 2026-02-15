@@ -97,11 +97,14 @@ type ChatRequest struct {
 	Messages     []ChatMessage
 	MaxTokens    int
 	Temperature  float64
+	Tools        []ToolSchema `json:"tools,omitempty"` // NEW: Tools for function calling
 }
 
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string      `json:"role"`
+	Content    string      `json:"content"`
+	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"` // NEW: Tool calls from assistant
+	ToolCallID string      `json:"tool_call_id,omitempty"`  // NEW: Tool result message
 }
 
 type ChatResponse struct {
@@ -110,6 +113,7 @@ type ChatResponse struct {
 	TokensInput  int
 	TokensOutput int
 	FinishReason string
+	ToolCalls    []ToolCall `json:"tool_calls,omitempty"` // NEW: Tool calls in response
 }
 
 // Orchestrator is the core of EvoClaw
@@ -134,21 +138,27 @@ type Orchestrator struct {
 	memory *memory.Manager
 	// Health registry for model selection
 	healthRegistry *router.HealthRegistry
+	// Tool management (NEW)
+	toolManager     *ToolManager
+	toolLoop        *ToolLoop
+	resultRegistry  map[string]chan *ToolResult
+	resultMu        sync.RWMutex
 }
 
 // New creates a new Orchestrator
 func New(cfg *config.Config, logger *slog.Logger) *Orchestrator {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Orchestrator{
-		cfg:       cfg,
-		channels:  make(map[string]Channel),
-		providers: make(map[string]ModelProvider),
-		agents:    make(map[string]*AgentState),
-		inbox:     make(chan Message, 1000),
-		outbox:    make(chan Response, 1000),
-		logger:    logger,
-		ctx:       ctx,
-		cancel:    cancel,
+		cfg:            cfg,
+		channels:       make(map[string]Channel),
+		providers:      make(map[string]ModelProvider),
+		agents:         make(map[string]*AgentState),
+		inbox:          make(chan Message, 1000),
+		outbox:         make(chan Response, 1000),
+		logger:         logger,
+		ctx:            ctx,
+		cancel:         cancel,
+		resultRegistry:  make(map[string]chan *ToolResult),
 	}
 }
 
@@ -209,6 +219,13 @@ func (o *Orchestrator) Start() error {
 			},
 		}
 		o.logger.Info("agent initialized", "id", def.ID, "type", def.Type)
+
+		// Initialize tool manager with first agent's capabilities
+		if o.toolManager == nil && len(def.Capabilities) > 0 {
+			o.toolManager = NewToolManager("", def.Capabilities, logger)
+			o.toolLoop = NewToolLoop(o, o.toolManager)
+			o.logger.Info("tool manager initialized", "capabilities", def.Capabilities)
+		}
 	}
 
 	// Start message routing
@@ -672,51 +689,67 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 		agent.mu.Unlock()
 	}()
 
-	// Build chat request
-	req := ChatRequest{
-		Model:        model,
-		SystemPrompt: agent.Def.SystemPrompt,
-		Messages: []ChatMessage{
-			{Role: "user", Content: msg.Content},
-		},
-		MaxTokens:   4096,
-		Temperature: 0.7,
-	}
+	var resp *Response
+	var err error
+	var llmResp *ChatResponse
 
-	// Find provider for this model
-	provider := o.findProvider(model)
-	if provider == nil {
-		o.logger.Error("no provider for model", "model", model)
-		return
-	}
+	// Use tool loop if enabled and agent has capabilities
+	if o.toolLoop != nil && len(agent.Def.Capabilities) > 0 {
+		resp, metrics, err := o.toolLoop.Execute(agent, msg, model)
+		if err != nil {
+			o.logger.Error("tool loop error", "error", err)
+			agent.mu.Lock()
+			agent.ErrorCount++
+			agent.Metrics.FailedActions++
+			agent.mu.Unlock()
 
-	// Strip provider prefix from model name (e.g., "nvidia/meta/llama-3.3-70b" → "meta/llama-3.3-70b")
-	modelName := model
-	if idx := strings.Index(model, "/"); idx > 0 {
-		modelName = model[idx+1:]
-	}
-	req.Model = modelName
-
-	// Call LLM
-	resp, err := provider.Chat(o.ctx, req)
-	if err != nil {
-		o.logger.Error("LLM error", "model", model, "error", err)
-		agent.mu.Lock()
-		agent.ErrorCount++
-		agent.Metrics.FailedActions++
-		agent.mu.Unlock()
-
-		// Record failure in health registry
-		if o.healthRegistry != nil {
-			errType := router.ClassifyError(err)
-			o.healthRegistry.RecordFailure(model, errType)
-			o.logger.Debug("model failure recorded",
-				"model", model,
-				"error_type", errType,
-			)
+			if o.healthRegistry != nil {
+				errType := router.ClassifyError(err)
+				o.healthRegistry.RecordFailure(model, errType)
+			}
+			return
 		}
 
-		return
+		// Log metrics
+		o.logger.Debug("tool loop completed",
+			"iterations", metrics.TotalIterations,
+			"tool_calls", metrics.ToolCalls,
+			"errors", metrics.ErrorCount,
+		)
+
+		llmResp = &ChatResponse{Content: resp.Content}
+	} else {
+		// Legacy: direct LLM call without tools
+		llmResp, err = o.processDirect(agent, msg, model)
+		if err != nil {
+			o.logger.Error("LLM error", "model", model, "error", err)
+			agent.mu.Lock()
+			agent.ErrorCount++
+			agent.Metrics.FailedActions++
+			agent.mu.Unlock()
+
+			// Record failure in health registry
+			if o.healthRegistry != nil {
+				errType := router.ClassifyError(err)
+				o.healthRegistry.RecordFailure(model, errType)
+				o.logger.Debug("model failure recorded",
+					"model", model,
+					"error_type", errType,
+				)
+			}
+
+			return
+		}
+
+		resp = &Response{
+			AgentID:   agent.ID,
+			Content:   llmResp.Content,
+			Channel:   msg.Channel,
+			To:        msg.From,
+			ReplyTo:   msg.ID,
+			MessageID: msg.ID,
+			Model:     model,
+		}
 	}
 
 	// Record success in health registry
@@ -730,7 +763,7 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 	agent.mu.Lock()
 	agent.Metrics.TotalActions++
 	agent.Metrics.SuccessfulActions++
-	agent.Metrics.TokensUsed += int64(resp.TokensInput + resp.TokensOutput)
+	agent.Metrics.TokensUsed += int64(llmResp.TokensInput + llmResp.TokensOutput)
 	// Running average response time
 	n := float64(agent.Metrics.TotalActions)
 	agent.Metrics.AvgResponseMs = agent.Metrics.AvgResponseMs*(n-1)/n + float64(elapsed.Milliseconds())/n
@@ -757,21 +790,13 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 	}
 
 	// Send response back
-	o.outbox <- Response{
-		AgentID:   agent.ID,
-		Content:   resp.Content,
-		Channel:   msg.Channel,
-		To:        msg.From,
-		ReplyTo:   msg.ID,
-		MessageID: msg.ID,
-		Model:     model,
-	}
+	o.outbox <- *resp
 
 	o.logger.Info("agent responded",
 		"agent", agent.ID,
 		"model", model,
 		"elapsed", elapsed,
-		"tokens", resp.TokensInput+resp.TokensOutput,
+		"tokens", llmResp.TokensInput+llmResp.TokensOutput,
 	)
 
 	// Log action on-chain if enabled
@@ -852,7 +877,7 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 			conv := memory.RawConversation{
 				Messages: []memory.Message{
 					{Role: "user", Content: msg.Content},
-					{Role: "agent", Content: resp.Content},
+					{Role: "agent", Content: llmResp.Content},
 				},
 				Timestamp: time.Now(),
 			}

@@ -21,6 +21,7 @@ impl EdgeAgent {
         let result = match cmd.command.as_str() {
             "ping" => self.handle_ping(&cmd).await,
             "execute" => self.handle_execute(&cmd).await,
+            "tool" => self.handle_tool(&cmd).await, // NEW
             "update_strategy" => self.handle_update_strategy(&cmd).await,
             "update_genome" => self.handle_update_genome(&cmd).await,
             "get_metrics" => self.handle_get_metrics(&cmd).await,
@@ -461,6 +462,173 @@ impl EdgeAgent {
                 "autonomy": genome.behavior.autonomy
             }
         }))
+    }
+
+    // NEW: Handle tool execution command
+    async fn handle_tool(&mut self, cmd: &AgentCommand) -> CommandResult {
+        use std::process::Command;
+
+        let tool_name = cmd.payload.get("tool")
+            .and_then(|v| v.as_str())
+            .ok_or("missing tool name")?;
+
+        let parameters = cmd.payload.get("parameters")
+            .and_then(|v| v.as_object())
+            .ok_or("missing parameters")?
+            .clone();
+
+        let timeout_ms = cmd.payload.get("timeout_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(30000);
+
+        info!(
+            tool = %tool_name,
+            timeout_ms,
+            "executing tool"
+        );
+
+        let start = std::time::Instant::now();
+
+        // Get skill directory
+        let skill_dir = std::path::PathBuf::from("/home/pi/.evoclaw/skills/desktop-tools");
+        let bin_path = skill_dir.join("bin").join(format!("dt-{}", tool_name));
+
+        // Check if tool binary exists
+        if !bin_path.exists() {
+            return Ok(serde_json::json!({
+                "status": "error",
+                "tool": tool_name,
+                "error": format!("tool binary not found: {}", bin_path.display()),
+                "error_type": "not_found"
+            }));
+        }
+
+        // Build command arguments from parameters
+        let args = self.build_tool_args(tool_name, parameters)?;
+
+        info!(
+            tool = %tool_name,
+            path = %bin_path.display(),
+            args = ?args.join(" "),
+            "launching tool"
+        );
+
+        // Execute tool with timeout
+        let result = tokio::time::timeout(
+            std::time::Duration::from_millis(timeout_ms),
+            tokio::process::Command::new(&bin_path)
+                .args(&args)
+                .output()
+        ).await;
+
+        let elapsed = start.elapsed().as_millis();
+
+        match result {
+            Ok(Ok(output)) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                let exit_code = output.status.code().unwrap_or(-1);
+
+                if output.status.success() {
+                    Ok(serde_json::json!({
+                        "status": "success",
+                        "tool": tool_name,
+                        "result": stdout,
+                        "stderr": stderr,
+                        "exit_code": exit_code,
+                        "elapsed_ms": elapsed,
+                        "request_id": cmd.request_id
+                    }))
+                } else {
+                    Ok(serde_json::json!({
+                        "status": "error",
+                        "tool": tool_name,
+                        "error": format!("tool exited with code {}", exit_code),
+                        "error_type": "execution_failed",
+                        "stderr": stderr,
+                        "exit_code": exit_code,
+                        "elapsed_ms": elapsed,
+                        "request_id": cmd.request_id
+                    }))
+                }
+            }
+            Ok(Err(e)) => {
+                Ok(serde_json::json!({
+                    "status": "error",
+                    "tool": tool_name,
+                    "error": format!("failed to execute tool: {}", e),
+                    "error_type": "execution_failed",
+                    "elapsed_ms": elapsed,
+                    "request_id": cmd.request_id
+                }))
+            }
+            Err(_) => {
+                Ok(serde_json::json!({
+                    "status": "error",
+                    "tool": tool_name,
+                    "error": format!("tool timed out after {}ms", timeout_ms),
+                    "error_type": "timeout",
+                    "elapsed_ms": elapsed,
+                    "request_id": cmd.request_id
+                }))
+            }
+        }
+    }
+
+    // NEW: Build command-line arguments from tool parameters
+    fn build_tool_args(
+        &self,
+        tool_name: &str,
+        parameters: serde_json::Map<String, serde_json::Value>
+    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let mut args = Vec::new();
+
+        match tool_name {
+            "read" => {
+                if let Some(path) = parameters.get("path").and_then(|v| v.as_str()) {
+                    args.push("--path".to_string());
+                    args.push(path.to_string());
+                }
+                if let Some(offset) = parameters.get("offset").and_then(|v| v.as_i64()) {
+                    args.push("--offset".to_string());
+                    args.push(offset.to_string());
+                }
+                if let Some(limit) = parameters.get("limit").and_then(|v| v.as_i64()) {
+                    args.push("--limit".to_string());
+                    args.push(limit.to_string());
+                }
+            }
+            "bash" => {
+                if let Some(command) = parameters.get("command").and_then(|v| v.as_str()) {
+                    args.push("-c".to_string());
+                    args.push(command.to_string());
+                }
+            }
+            "write" => {
+                if let Some(path) = parameters.get("path").and_then(|v| v.as_str()) {
+                    args.push("--path".to_string());
+                    args.push(path.to_string());
+                }
+                if let Some(content) = parameters.get("content").and_then(|v| v.as_str()) {
+                    args.push(content.to_string());
+                }
+            }
+            _ => {
+                // Generic parameter handling
+                for (key, value) in parameters {
+                    args.push(format!("--{}", key));
+                    if let Some(s) = value.as_str() {
+                        args.push(s.to_string());
+                    } else if let Some(n) = value.as_i64() {
+                        args.push(n.to_string());
+                    } else if let Some(b) = value.as_bool() {
+                        args.push(b.to_string());
+                    }
+                }
+            }
+        }
+
+        Ok(args)
     }
 
     async fn handle_shutdown(&self, _cmd: &AgentCommand) -> CommandResult {
