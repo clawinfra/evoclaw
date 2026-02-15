@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/clawinfra/evoclaw/internal/channels"
 	"github.com/clawinfra/evoclaw/internal/cloudsync"
 	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/memory"
@@ -202,6 +203,13 @@ func (o *Orchestrator) Start() error {
 	// Start all channels
 	for name, ch := range o.channels {
 		o.logger.Info("starting channel", "name", name)
+
+		// Wire up MQTT result callback
+		if mqttCh, ok := ch.(*channels.MQTTChannel); ok {
+			mqttCh.SetResultCallback(o.DeliverToolResult)
+			o.logger.Info("mqtt result callback wired", "channel", name)
+		}
+
 		if err := ch.Start(o.ctx); err != nil {
 			return fmt.Errorf("start channel %s: %w", name, err)
 		}
@@ -1243,4 +1251,99 @@ func (o *Orchestrator) ListAgents() []AgentInfo {
 		a.mu.RUnlock()
 	}
 	return agents
+}
+
+// RegisterResultHandler registers a handler for a tool result
+func (o *Orchestrator) RegisterResultHandler(requestID string, handler func(*ToolResult)) {
+	o.resultMu.Lock()
+	defer o.resultMu.Unlock()
+
+	o.resultRegistry[requestID] = make(chan *ToolResult, 1)
+
+	go func() {
+		result := <-o.resultRegistry[requestID]
+		handler(result)
+		delete(o.resultRegistry, requestID)
+	}()
+
+	o.logger.Debug("result handler registered", "request_id", requestID)
+}
+
+// DeliverToolResult delivers a tool result to the waiting handler
+func (o *Orchestrator) DeliverToolResult(requestID string, result map[string]interface{}) {
+	o.resultMu.RLock()
+	ch, ok := o.resultRegistry[requestID]
+	o.resultMu.RUnlock()
+
+	if !ok {
+		o.logger.Warn("no handler registered for tool result",
+			"request_id", requestID,
+		)
+		return
+	}
+
+	// Convert map[string]interface{} to ToolResult
+	toolResult := &ToolResult{
+		Tool:   getString(result, "tool"),
+		Status: getString(result, "status"),
+		Result: getString(result, "result"),
+		Error:  getString(result, "error"),
+	}
+
+	if elapsedMs, ok := result["elapsed_ms"].(float64); ok {
+		toolResult.ElapsedMs = int64(elapsedMs)
+	}
+
+	if exitCode, ok := result["exit_code"].(float64); ok {
+		toolResult.ExitCode = int(exitCode)
+	}
+
+	select {
+	case ch <- toolResult:
+		o.logger.Debug("tool result delivered",
+			"request_id", requestID,
+			"tool", toolResult.Tool,
+			"status", toolResult.Status,
+		)
+	case <-time.After(5 * time.Second):
+		o.logger.Warn("timeout delivering tool result",
+			"request_id", requestID,
+		)
+		delete(o.resultRegistry, requestID)
+	}
+}
+
+// getString safely extracts a string from a map[string]interface{}
+func getString(m map[string]interface{}, key string) string {
+	if val, ok := m[key]; ok {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
+// processDirect processes a message without tools (legacy mode)
+func (o *Orchestrator) processDirect(agent *AgentState, msg Message, model string) (*ChatResponse, error) {
+	req := ChatRequest{
+		Model:        model,
+		SystemPrompt: agent.Def.SystemPrompt,
+		Messages: []ChatMessage{
+			{Role: "user", Content: msg.Content},
+		},
+		MaxTokens:   4096,
+		Temperature: 0.7,
+	}
+
+	provider := o.findProvider(model)
+	if provider == nil {
+		return nil, fmt.Errorf("no provider for model: %s", model)
+	}
+
+	resp, err := provider.Chat(o.ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
