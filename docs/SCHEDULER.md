@@ -263,13 +263,182 @@ Note: Runtime stats require API access
 
 ## API Endpoints
 
-*(To be implemented)*
+The scheduler exposes a REST API for runtime management (no restart required).
 
-- `GET /api/scheduler/status` - Scheduler stats
-- `GET /api/scheduler/jobs` - List all jobs
-- `GET /api/scheduler/jobs/:id` - Job detail with runtime stats
-- `POST /api/scheduler/jobs/:id/run` - Trigger job immediately
-- `PATCH /api/scheduler/jobs/:id` - Update job (enable/disable/modify)
+### GET /api/scheduler/status
+
+Get scheduler statistics:
+
+```bash
+curl http://localhost:8420/api/scheduler/status
+```
+
+Response:
+```json
+{
+  "total_jobs": 5,
+  "active_jobs": 4,
+  "running_jobs": 4,
+  "total_runs": 1234,
+  "total_errors": 12
+}
+```
+
+### GET /api/scheduler/jobs
+
+List all scheduled jobs:
+
+```bash
+curl http://localhost:8420/api/scheduler/jobs
+```
+
+Response:
+```json
+{
+  "jobs": [
+    {
+      "id": "sensor-read",
+      "name": "Read Temperature Sensor",
+      "enabled": true,
+      "schedule": {
+        "kind": "interval",
+        "intervalMs": 300000
+      },
+      "action": {
+        "kind": "shell",
+        "command": "./sensors/read_temp.sh"
+      },
+      "state": {
+        "lastRunAt": "2026-02-16T09:30:00Z",
+        "nextRunAt": "2026-02-16T09:35:00Z",
+        "runCount": 145,
+        "errorCount": 2,
+        "lastDuration": 450000000
+      }
+    }
+  ],
+  "count": 1
+}
+```
+
+### GET /api/scheduler/jobs/:id
+
+Get specific job with runtime stats:
+
+```bash
+curl http://localhost:8420/api/scheduler/jobs/sensor-read
+```
+
+Response:
+```json
+{
+  "id": "sensor-read",
+  "name": "Read Temperature Sensor",
+  "enabled": true,
+  "schedule": {
+    "kind": "interval",
+    "intervalMs": 300000
+  },
+  "action": {
+    "kind": "shell",
+    "command": "./sensors/read_temp.sh"
+  },
+  "state": {
+    "lastRunAt": "2026-02-16T09:30:00Z",
+    "nextRunAt": "2026-02-16T09:35:00Z",
+    "runCount": 145,
+    "errorCount": 2,
+    "lastError": "",
+    "lastDuration": 450000000
+  }
+}
+```
+
+### POST /api/scheduler/jobs/:id/run
+
+Trigger job immediately (bypass schedule):
+
+```bash
+curl -X POST http://localhost:8420/api/scheduler/jobs/sensor-read/run
+```
+
+Response:
+```json
+{
+  "message": "Job triggered",
+  "job_id": "sensor-read"
+}
+```
+
+### PATCH /api/scheduler/jobs/:id
+
+Update job (enable/disable):
+
+```bash
+curl -X PATCH http://localhost:8420/api/scheduler/jobs/sensor-read \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+```
+
+Response:
+```json
+{
+  "message": "Job updated",
+  "job": {
+    "id": "sensor-read",
+    "enabled": false,
+    ...
+  }
+}
+```
+
+### POST /api/scheduler/jobs
+
+Add new job at runtime:
+
+```bash
+curl -X POST http://localhost:8420/api/scheduler/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "new-job",
+    "name": "New Scheduled Job",
+    "enabled": true,
+    "schedule": {
+      "kind": "interval",
+      "intervalMs": 600000
+    },
+    "action": {
+      "kind": "shell",
+      "command": "./scripts/new_task.sh"
+    }
+  }'
+```
+
+Response:
+```json
+{
+  "message": "Job added",
+  "job": {...}
+}
+```
+
+### DELETE /api/scheduler/jobs/:id
+
+Remove job:
+
+```bash
+curl -X DELETE http://localhost:8420/api/scheduler/jobs/sensor-read
+```
+
+Response:
+```json
+{
+  "message": "Job removed",
+  "job_id": "sensor-read"
+}
+```
+
+**Note:** Runtime API changes are **not persisted** to `evoclaw.json`. For persistent changes, update config and restart EvoClaw.
 
 ## Implementation Details
 

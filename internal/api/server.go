@@ -98,6 +98,11 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/memory/tree", s.handleMemoryTree)
 	mux.HandleFunc("/api/memory/retrieve", s.handleMemoryRetrieve)
 	
+	// Scheduler API routes
+	mux.HandleFunc("/api/scheduler/status", s.handleSchedulerStatus)
+	mux.HandleFunc("/api/scheduler/jobs", s.handleSchedulerJobs)
+	mux.HandleFunc("/api/scheduler/jobs/", s.handleSchedulerJobRoutes)
+	
 	// Genome API routes
 	mux.HandleFunc("/api/agents/{id}/genome", s.handleGenomeRoutes)
 	mux.HandleFunc("/api/agents/{id}/genome/skills/{skill}", s.handleSkillRoutes)

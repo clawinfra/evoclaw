@@ -1,0 +1,97 @@
+{
+  "server": {
+    "port": 8420,
+    "dataDir": "./data",
+    "logLevel": "info"
+  },
+  "memory": {
+    "enabled": true,
+    "tree": {
+      "maxNodes": 500,
+      "maxDepth": 5,
+      "maxSizeBytes": 5120,
+      "rebuildIntervalDays": 30
+    },
+    "hot": {
+      "maxSizeBytes": 5120,
+      "maxLessons": 50,
+      "maxActiveProjects": 10
+    },
+    "warm": {
+      "maxSizeKb": 50,
+      "retentionDays": 30,
+      "evictionThreshold": 0.3,
+      "backend": "memory"
+    },
+    "cold": {
+      "backend": "turso",
+      "databaseUrl": "libsql://your-db.turso.io",
+      "authToken": "your-token",
+      "retentionYears": 10
+    },
+    "distillation": {
+      "aggression": 0.7,
+      "model": "local",
+      "maxDistilledBytes": 200
+    },
+    "scoring": {
+      "halfLifeDays": 7.0,
+      "reinforcementBoost": 2.0
+    }
+  },
+  "scheduler": {
+    "enabled": true,
+    "jobs": [
+      {
+        "id": "memory-warm-eviction",
+        "name": "Memory Warm Eviction",
+        "enabled": true,
+        "schedule": {
+          "kind": "interval",
+          "intervalMs": 3600000
+        },
+        "action": {
+          "kind": "shell",
+          "command": "evoclaw memory consolidate --mode quick"
+        }
+      },
+      {
+        "id": "memory-tree-prune",
+        "name": "Memory Tree Pruning",
+        "enabled": true,
+        "schedule": {
+          "kind": "cron",
+          "expr": "0 2 * * *",
+          "timezone": "UTC"
+        },
+        "action": {
+          "kind": "shell",
+          "command": "evoclaw memory consolidate --mode daily"
+        }
+      },
+      {
+        "id": "memory-full-consolidation",
+        "name": "Memory Full Consolidation",
+        "enabled": true,
+        "schedule": {
+          "kind": "cron",
+          "expr": "0 3 1 * *",
+          "timezone": "UTC"
+        },
+        "action": {
+          "kind": "shell",
+          "command": "evoclaw memory consolidate --mode monthly"
+        }
+      }
+    ]
+  },
+  "agents": [
+    {
+      "id": "agent-1",
+      "name": "EvoClaw Agent",
+      "systemPrompt": "You are a helpful AI agent with tiered memory.",
+      "model": "ollama/llama3.3:8b",
+      "enabled": true
+    }
+  ]
+}
