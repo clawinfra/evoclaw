@@ -88,17 +88,60 @@ go build -o evoclaw-tui ./cmd/evoclaw-tui
 
 For edge agents and programmatic access.
 
-**Send Command:**
+### Message Format for Edge Agents
+
+**Important:** Edge agents expect messages in this specific format:
+
+```json
+{
+  "command": "message",
+  "payload": {
+    "agent_id": "orchestrator",
+    "content": "Hello, edge agent!",
+    "reply_to": "orchestrator",
+    "metadata": {},
+    "sent_at": 1739635200
+  },
+  "request_id": "req-1739635200000000000"
+}
+```
+
+**Fields:**
+- `command` (string): Command type - "message", "ping", "status", etc.
+- `payload` (object): Command-specific data
+  - `agent_id` (string): Sender's agent ID
+  - `content` (string): Message content (for "message" command)
+  - `reply_to` (string): Reply-to identifier
+  - `metadata` (object): Optional metadata
+  - `sent_at` (int64): Unix timestamp
+- `request_id` (string): Unique request identifier
+
+### Send Command (Orchestrator → Edge Agent)
+
 ```bash
 mosquitto_pub -h localhost \
-  -t "evoclaw/agents/agent-id/command" \
-  -m '{"action":"query","message":"Status?"}'
+  -t "evoclaw/agents/agent-id/commands" \
+  -m '{
+    "command": "message",
+    "payload": {
+      "agent_id": "orchestrator",
+      "content": "Status report?",
+      "sent_at": 1739635200
+    },
+    "request_id": "req-1234567890"
+  }'
 ```
+
+**Topics:**
+- Commands (orchestrator → agent): `evoclaw/agents/{agent-id}/commands`
+- Reports (agent → orchestrator): `evoclaw/agents/{agent-id}/reports`
+- Status (agent heartbeats): `evoclaw/agents/{agent-id}/status`
+- Broadcast (orchestrator → all): `evoclaw/broadcast`
 
 **Subscribe to Responses:**
 ```bash
 mosquitto_sub -h localhost \
-  -t "evoclaw/agents/+/response" -v
+  -t "evoclaw/agents/+/reports" -v
 ```
 
 ## 5. Telegram Bot

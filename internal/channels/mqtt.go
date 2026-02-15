@@ -20,6 +20,13 @@ const (
 	statusTopic    = "evoclaw/agents/%s/status"   // agent heartbeats
 )
 
+// EdgeAgentCommand represents the message format expected by Rust edge agents
+type EdgeAgentCommand struct {
+	Command   string                 `json:"command"`   // "message", "ping", "status", etc.
+	Payload   map[string]interface{} `json:"payload"`   // Command-specific data
+	RequestID string                 `json:"request_id"` // Unique request identifier
+}
+
 // MQTTChannel implements the Channel interface for MQTT communication
 type MQTTChannel struct {
 	broker   string
@@ -144,14 +151,35 @@ func (m *MQTTChannel) Send(ctx context.Context, msg orchestrator.Response) error
 	// Determine the topic based on the recipient
 	topic := fmt.Sprintf(commandsTopic, msg.To)
 
-	// Serialize message
-	payload, err := json.Marshal(map[string]interface{}{
-		"agent_id": msg.AgentID,
-		"content":  msg.Content,
-		"reply_to": msg.ReplyTo,
-		"metadata": msg.Metadata,
-		"sent_at":  time.Now().Unix(),
-	})
+	// Convert orchestrator Response to edge agent command format
+	// Generate request_id from metadata or create a new one
+	requestID := fmt.Sprintf("req-%d", time.Now().UnixNano())
+	if msg.MessageID != "" {
+		requestID = msg.MessageID
+	}
+
+	// Build command for edge agent
+	cmd := EdgeAgentCommand{
+		Command:   "message", // Default command for natural language content
+		RequestID: requestID,
+		Payload: map[string]interface{}{
+			"agent_id": msg.AgentID,
+			"content":  msg.Content,
+			"reply_to": msg.ReplyTo,
+			"metadata": msg.Metadata,
+			"sent_at":  time.Now().Unix(),
+		},
+	}
+
+	// Override command if specified in metadata
+	if msg.Metadata != nil {
+		if overrideCmd, ok := msg.Metadata["command"]; ok {
+			cmd.Command = overrideCmd
+		}
+	}
+
+	// Serialize message to edge agent format
+	payload, err := json.Marshal(cmd)
 	if err != nil {
 		return fmt.Errorf("marshal message: %w", err)
 	}
@@ -165,7 +193,7 @@ func (m *MQTTChannel) Send(ctx context.Context, msg orchestrator.Response) error
 		return fmt.Errorf("publish: %w", err)
 	}
 
-	m.logger.Debug("message sent", "topic", topic, "size", len(payload))
+	m.logger.Debug("message sent", "topic", topic, "size", len(payload), "command", cmd.Command)
 	return nil
 }
 
