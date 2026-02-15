@@ -39,7 +39,7 @@
 
 ## Phase 1b: Terminal & Web Access 🖥️ (In Progress)
 
-**Terminal TUI + Web Terminal + BSC On-Chain + Tiered Memory**
+**Terminal TUI + Web Terminal + BSC On-Chain + Tiered Memory + Agentic Tool Loop**
 
 - ✅ Terminal TUI — 759 lines, Bubble Tea split-pane chat interface
   - Left pane: agent status, metrics, uptime
@@ -58,6 +58,26 @@
   - Cold (Turso): Unlimited archive in cloud
   - Tree Index: Hierarchical categorization
   - Full disaster recovery (<2 min) via `cold_restore_hot_state`
+- 🔜 Agentic Tool Loop — LLM-driven tool invocation on edge agents
+  - **Phase 1** (Current): Basic tool loop — single tool call per turn
+    - Tool schema generation from `skill.toml`
+    - Multi-turn loop with LLM (max 10 iterations)
+    - Tool execution via edge agents (MQTT)
+    - Error handling and timeouts
+    - Tool metrics tracking
+  - **Phase 2** (Next): Multi-tool and parallel execution
+    - Multiple tool calls in single LLM response
+    - Parallel execution of independent tools
+    - Tool dependency resolution
+  - **Phase 3** (Future): Tool result streaming
+    - Stream tool output as it arrives
+    - Support long-running tools
+    - Real-time progress updates
+  - **Phase 4** (Future): Cross-agent tool delegation
+    - Agent A asks Agent B to execute tool
+    - Tool discovery across agents
+    - Federation protocol
+  - See: [docs/AGENTIC-TOOL-LOOP.md](./AGENTIC-TOOL-LOOP.md)
 - 🔜 Web Terminal (ttyd/xterm.js)
   - Browser-based terminal — no SSH client needed
   - Expose TUI via web for demos and remote access
