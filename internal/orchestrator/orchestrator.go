@@ -3,7 +3,9 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -596,15 +598,32 @@ func (o *Orchestrator) handleMessage(msg Message) {
 	go o.processWithAgent(agent, msg, model)
 }
 
-// selectAgent picks the best agent for a message
+// selectAgent picks the best agent for a message using hash-based routing
+// for session affinity (same sender → same agent) and natural load balancing
 func (o *Orchestrator) selectAgent(msg Message) string {
-	// For now, simple routing: use the first agent
-	// TODO: Implement smart routing based on message content,
-	// agent capabilities, and load balancing
-	for id := range o.agents {
-		return id
+	if len(o.agents) == 0 {
+		return ""
 	}
-	return ""
+
+	// Get sorted agent IDs for deterministic selection
+	ids := make([]string, 0, len(o.agents))
+	for id := range o.agents {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	// Single agent: no hashing needed
+	if len(ids) == 1 {
+		return ids[0]
+	}
+
+	// Hash-based routing for session affinity
+	// Same sender will always route to the same agent
+	h := fnv.New32a()
+	h.Write([]byte(msg.From))
+	hash := h.Sum32()
+
+	return ids[hash%uint32(len(ids))]
 }
 
 // selectModel picks the right model based on task complexity and health
