@@ -3,10 +3,12 @@ use tracing::{error, info, warn};
 
 use crate::config::Config;
 use crate::evolution::EvolutionTracker;
+use crate::llm::LLMClient;
 use crate::metrics::Metrics;
 use crate::monitor::Monitor;
 use crate::mqtt::{parse_command, MqttClient};
 use crate::strategy::StrategyEngine;
+use crate::tools::EdgeTools;
 use crate::trading::{HyperliquidClient, PnLTracker};
 
 pub struct EdgeAgent {
@@ -18,6 +20,8 @@ pub struct EdgeAgent {
     pub monitor: Option<Monitor>,
     pub strategy_engine: StrategyEngine,
     pub evolution_tracker: EvolutionTracker,
+    pub llm_client: Option<LLMClient>,
+    pub tools: EdgeTools,
 }
 
 impl EdgeAgent {
@@ -45,6 +49,16 @@ impl EdgeAgent {
         // Initialize evolution tracker
         let evolution_tracker = EvolutionTracker::default();
 
+        // Initialize LLM client from environment variables
+        let llm_client = LLMClient::from_env();
+        if llm_client.is_some() {
+            info!("LLM client initialized from environment");
+        }
+
+        // Initialize edge device tools
+        let tools = EdgeTools::new();
+        info!(tool_count = tools.get_tool_definitions().len(), "edge tools initialized");
+
         let agent = Self {
             config,
             mqtt,
@@ -54,6 +68,8 @@ impl EdgeAgent {
             monitor,
             strategy_engine,
             evolution_tracker,
+            llm_client,
+            tools,
         };
 
         Ok((agent, eventloop))

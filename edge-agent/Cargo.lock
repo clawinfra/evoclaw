@@ -1152,6 +1152,7 @@ dependencies = [
  "alloy-signer-local",
  "alloy-sol-types",
  "async-trait",
+ "base64",
  "chrono",
  "clap",
  "ed25519-dalek",

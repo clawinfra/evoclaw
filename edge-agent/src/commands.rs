@@ -1,4 +1,5 @@
 use serde_json::Value;
+use std::collections::HashMap;
 use tracing::{info, warn};
 
 use crate::agent::EdgeAgent;
@@ -21,7 +22,10 @@ impl EdgeAgent {
         let result = match cmd.command.as_str() {
             "ping" => self.handle_ping(&cmd).await,
             "execute" => self.handle_execute(&cmd).await,
-            "tool" => self.handle_tool(&cmd).await, // NEW
+            "tool" => self.handle_tool(&cmd).await,
+            "sensor" => self.handle_sensor(&cmd).await,
+            "tools_list" => self.handle_tools_list(&cmd).await,
+            "prompt" => self.handle_prompt(&cmd).await,
             "update_strategy" => self.handle_update_strategy(&cmd).await,
             "update_genome" => self.handle_update_genome(&cmd).await,
             "get_metrics" => self.handle_get_metrics(&cmd).await,
@@ -464,176 +468,327 @@ impl EdgeAgent {
         }))
     }
 
-    // NEW: Handle tool execution command
+    // Handle tool execution - uses EdgeTools for built-in tools
     async fn handle_tool(&mut self, cmd: &AgentCommand) -> CommandResult {
-        use std::process::Command;
-
         let tool_name = cmd.payload.get("tool")
             .and_then(|v| v.as_str())
             .ok_or("missing tool name")?;
 
-        let parameters = cmd.payload.get("parameters")
+        // Convert parameters to HashMap
+        let parameters: HashMap<String, Value> = cmd.payload.get("parameters")
             .and_then(|v| v.as_object())
-            .ok_or("missing parameters")?
-            .clone();
-
-        let timeout_ms = cmd.payload.get("timeout_ms")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(30000);
+            .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default();
 
         info!(
             tool = %tool_name,
-            timeout_ms,
-            "executing tool"
+            params = ?parameters.keys().collect::<Vec<_>>(),
+            "executing tool via EdgeTools"
         );
 
         let start = std::time::Instant::now();
-
-        // Get skill directory
-        let skill_dir = std::path::PathBuf::from("/home/pi/.evoclaw/skills/desktop-tools");
-        let bin_path = skill_dir.join("bin").join(format!("dt-{}", tool_name));
-
-        // Check if tool binary exists
-        if !bin_path.exists() {
-            return Ok(serde_json::json!({
-                "status": "error",
-                "tool": tool_name,
-                "error": format!("tool binary not found: {}", bin_path.display()),
-                "error_type": "not_found"
-            }));
-        }
-
-        // Build command arguments from parameters
-        let args = self.build_tool_args(tool_name, parameters)?;
-
-        info!(
-            tool = %tool_name,
-            path = %bin_path.display(),
-            args = ?args.join(" "),
-            "launching tool"
-        );
-
-        // Execute tool with timeout
-        let result = tokio::time::timeout(
-            std::time::Duration::from_millis(timeout_ms),
-            tokio::process::Command::new(&bin_path)
-                .args(&args)
-                .output()
-        ).await;
-
+        let result = self.tools.execute(tool_name, &parameters);
         let elapsed = start.elapsed().as_millis();
 
-        match result {
-            Ok(Ok(output)) => {
-                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                let exit_code = output.status.code().unwrap_or(-1);
-
-                if output.status.success() {
-                    Ok(serde_json::json!({
-                        "status": "success",
-                        "tool": tool_name,
-                        "result": stdout,
-                        "stderr": stderr,
-                        "exit_code": exit_code,
-                        "elapsed_ms": elapsed,
-                        "request_id": cmd.request_id
-                    }))
-                } else {
-                    Ok(serde_json::json!({
-                        "status": "error",
-                        "tool": tool_name,
-                        "error": format!("tool exited with code {}", exit_code),
-                        "error_type": "execution_failed",
-                        "stderr": stderr,
-                        "exit_code": exit_code,
-                        "elapsed_ms": elapsed,
-                        "request_id": cmd.request_id
-                    }))
-                }
-            }
-            Ok(Err(e)) => {
-                Ok(serde_json::json!({
-                    "status": "error",
-                    "tool": tool_name,
-                    "error": format!("failed to execute tool: {}", e),
-                    "error_type": "execution_failed",
-                    "elapsed_ms": elapsed,
-                    "request_id": cmd.request_id
-                }))
-            }
-            Err(_) => {
-                Ok(serde_json::json!({
-                    "status": "error",
-                    "tool": tool_name,
-                    "error": format!("tool timed out after {}ms", timeout_ms),
-                    "error_type": "timeout",
-                    "elapsed_ms": elapsed,
-                    "request_id": cmd.request_id
-                }))
-            }
+        if result.success {
+            Ok(serde_json::json!({
+                "status": "success",
+                "tool": tool_name,
+                "result": result.output,
+                "elapsed_ms": elapsed,
+                "request_id": cmd.request_id
+            }))
+        } else {
+            Ok(serde_json::json!({
+                "status": "error",
+                "tool": tool_name,
+                "error": result.error.unwrap_or_else(|| "unknown error".to_string()),
+                "elapsed_ms": elapsed,
+                "request_id": cmd.request_id
+            }))
         }
     }
 
-    // NEW: Build command-line arguments from tool parameters
-    fn build_tool_args(
-        &self,
-        tool_name: &str,
-        parameters: serde_json::Map<String, serde_json::Value>
-    ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-        let mut args = Vec::new();
+    // Handle sensor command - quick access to common sensors
+    async fn handle_sensor(&mut self, cmd: &AgentCommand) -> CommandResult {
+        let sensor_type = cmd.payload.get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("all");
 
-        match tool_name {
-            "read" => {
-                if let Some(path) = parameters.get("path").and_then(|v| v.as_str()) {
-                    args.push("--path".to_string());
-                    args.push(path.to_string());
-                }
-                if let Some(offset) = parameters.get("offset").and_then(|v| v.as_i64()) {
-                    args.push("--offset".to_string());
-                    args.push(offset.to_string());
-                }
-                if let Some(limit) = parameters.get("limit").and_then(|v| v.as_i64()) {
-                    args.push("--limit".to_string());
-                    args.push(limit.to_string());
-                }
+        info!(sensor_type = %sensor_type, "reading sensor");
+
+        let empty_params = HashMap::new();
+
+        match sensor_type {
+            "temperature" | "temp" => {
+                let result = self.tools.execute("read_temperature", &empty_params);
+                Ok(serde_json::json!({
+                    "sensor": "temperature",
+                    "success": result.success,
+                    "data": result.output,
+                    "error": result.error,
+                    "request_id": cmd.request_id
+                }))
             }
-            "bash" => {
-                if let Some(command) = parameters.get("command").and_then(|v| v.as_str()) {
-                    args.push("-c".to_string());
-                    args.push(command.to_string());
-                }
+            "cpu" => {
+                let result = self.tools.execute("read_cpu_usage", &empty_params);
+                Ok(serde_json::json!({
+                    "sensor": "cpu",
+                    "success": result.success,
+                    "data": result.output,
+                    "error": result.error,
+                    "request_id": cmd.request_id
+                }))
             }
-            "write" => {
-                if let Some(path) = parameters.get("path").and_then(|v| v.as_str()) {
-                    args.push("--path".to_string());
-                    args.push(path.to_string());
-                }
-                if let Some(content) = parameters.get("content").and_then(|v| v.as_str()) {
-                    args.push(content.to_string());
-                }
+            "memory" | "mem" => {
+                let result = self.tools.execute("read_memory", &empty_params);
+                Ok(serde_json::json!({
+                    "sensor": "memory",
+                    "success": result.success,
+                    "data": result.output,
+                    "error": result.error,
+                    "request_id": cmd.request_id
+                }))
+            }
+            "disk" => {
+                let result = self.tools.execute("read_disk", &empty_params);
+                Ok(serde_json::json!({
+                    "sensor": "disk",
+                    "success": result.success,
+                    "data": result.output,
+                    "error": result.error,
+                    "request_id": cmd.request_id
+                }))
+            }
+            "system" | "info" => {
+                let result = self.tools.execute("system_info", &empty_params);
+                Ok(serde_json::json!({
+                    "sensor": "system",
+                    "success": result.success,
+                    "data": result.output,
+                    "error": result.error,
+                    "request_id": cmd.request_id
+                }))
+            }
+            "all" => {
+                // Get all sensor readings
+                let temp = self.tools.execute("read_temperature", &empty_params);
+                let cpu = self.tools.execute("read_cpu_usage", &empty_params);
+                let mem = self.tools.execute("read_memory", &empty_params);
+                let disk = self.tools.execute("read_disk", &empty_params);
+                let sys = self.tools.execute("system_info", &empty_params);
+
+                Ok(serde_json::json!({
+                    "sensor": "all",
+                    "data": {
+                        "temperature": temp.output,
+                        "cpu": cpu.output,
+                        "memory": mem.output,
+                        "disk": disk.output,
+                        "system": sys.output
+                    },
+                    "request_id": cmd.request_id
+                }))
             }
             _ => {
-                // Generic parameter handling
-                for (key, value) in parameters {
-                    args.push(format!("--{}", key));
-                    if let Some(s) = value.as_str() {
-                        args.push(s.to_string());
-                    } else if let Some(n) = value.as_i64() {
-                        args.push(n.to_string());
-                    } else if let Some(b) = value.as_bool() {
-                        args.push(b.to_string());
-                    }
-                }
+                Err(format!("unknown sensor type: {}. Available: temperature, cpu, memory, disk, system, all", sensor_type).into())
             }
         }
-
-        Ok(args)
     }
 
+    // List available tools
+    async fn handle_tools_list(&self, cmd: &AgentCommand) -> CommandResult {
+        let definitions = self.tools.get_tool_definitions();
+
+        Ok(serde_json::json!({
+            "tools": definitions.iter().map(|t| serde_json::json!({
+                "name": t.name,
+                "description": t.description,
+                "parameters": t.parameters
+            })).collect::<Vec<_>>(),
+            "count": definitions.len(),
+            "request_id": cmd.request_id
+        }))
+    }
     async fn handle_shutdown(&self, _cmd: &AgentCommand) -> CommandResult {
         warn!("shutdown command received");
         std::process::exit(0);
+    }
+
+    // Handle prompt command from orchestrator with tool execution support
+    // This runs the LLM locally on the edge agent and executes tool calls
+    async fn handle_prompt(&mut self, cmd: &AgentCommand) -> CommandResult {
+        let prompt = cmd.payload.get("prompt")
+            .and_then(|v| v.as_str())
+            .ok_or("missing prompt")?;
+
+        let system_prompt = cmd.payload.get("system_prompt")
+            .and_then(|v| v.as_str());
+
+        let enable_tools = cmd.payload.get("enable_tools")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+
+        let max_tokens = cmd.payload.get("max_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(4096) as u32;
+
+        info!(
+            prompt_length = prompt.len(),
+            has_system_prompt = system_prompt.is_some(),
+            enable_tools,
+            request_id = %cmd.request_id,
+            "processing prompt"
+        );
+
+        let llm_client = match &self.llm_client {
+            Some(client) => client,
+            None => {
+                return Ok(serde_json::json!({
+                    "status": "error",
+                    "error": "LLM client not configured. Set LLM_BASE_URL, LLM_API_KEY, and optionally LLM_MODEL environment variables.",
+                    "request_id": cmd.request_id
+                }));
+            }
+        };
+
+        let start = std::time::Instant::now();
+
+        // Build system prompt with tool definitions if tools are enabled
+        let full_system_prompt = if enable_tools {
+            let tool_defs = self.tools.get_tool_definitions();
+            let tools_json: Vec<serde_json::Value> = tool_defs.iter().map(|t| {
+                serde_json::json!({
+                    "name": t.name,
+                    "description": t.description,
+                    "parameters": t.parameters
+                })
+            }).collect();
+
+            let tools_section = format!(
+                "\n\nYou have access to the following tools on this Raspberry Pi:\n{}\n\nTo use a tool, respond with EXACTLY this format (one tool per line):\nTOOL_CALL: {{\"name\": \"tool_name\", \"arguments\": {{...}}}}\n\nAfter receiving tool results, provide your final response.",
+                serde_json::to_string_pretty(&tools_json).unwrap_or_default()
+            );
+
+            match system_prompt {
+                Some(sp) => format!("{}{}", sp, tools_section),
+                None => format!("You are a helpful edge agent running on a Raspberry Pi.{}", tools_section),
+            }
+        } else {
+            system_prompt.map(String::from).unwrap_or_else(|| "You are a helpful assistant.".to_string())
+        };
+
+        // First LLM call
+        match llm_client.complete(prompt, Some(&full_system_prompt), max_tokens).await {
+            Ok(response) => {
+                let mut final_content = response.content.clone();
+                let mut tool_results: Vec<serde_json::Value> = Vec::new();
+                let mut total_input_tokens = response.input_tokens;
+                let mut total_output_tokens = response.output_tokens;
+
+                // Check for tool calls in the response
+                if enable_tools && response.content.contains("TOOL_CALL:") {
+                    info!("LLM requested tool execution");
+
+                    // Extract and execute tool calls
+                    for line in response.content.lines() {
+                        if let Some(tool_json) = line.strip_prefix("TOOL_CALL:") {
+                            if let Ok(tool_call) = serde_json::from_str::<serde_json::Value>(tool_json.trim()) {
+                                let tool_name = tool_call.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                                let arguments = tool_call.get("arguments")
+                                    .and_then(|v| v.as_object())
+                                    .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect::<HashMap<String, Value>>())
+                                    .unwrap_or_default();
+
+                                info!(tool = %tool_name, "executing tool from LLM request");
+
+                                let result = self.tools.execute(tool_name, &arguments);
+                                tool_results.push(serde_json::json!({
+                                    "tool": tool_name,
+                                    "success": result.success,
+                                    "result": result.output,
+                                    "error": result.error
+                                }));
+                            }
+                        }
+                    }
+
+                    // If we executed tools, send results back to LLM for final response
+                    if !tool_results.is_empty() {
+                        let tool_results_str = serde_json::to_string_pretty(&tool_results)
+                            .unwrap_or_else(|_| "[]".to_string());
+
+                        let followup_prompt = format!(
+                            "Original question: {}\n\nTool execution results:\n{}\n\nBased on these results, provide your final answer.",
+                            prompt,
+                            tool_results_str
+                        );
+
+                        match llm_client.complete(&followup_prompt, Some(&full_system_prompt), max_tokens).await {
+                            Ok(followup_response) => {
+                                final_content = followup_response.content;
+                                total_input_tokens += followup_response.input_tokens;
+                                total_output_tokens += followup_response.output_tokens;
+                            }
+                            Err(e) => {
+                                warn!(error = %e, "failed to get followup response after tool execution");
+                                // Fall back to original response + tool results
+                                final_content = format!(
+                                    "{}\n\nTool Results:\n{}",
+                                    response.content,
+                                    tool_results_str
+                                );
+                            }
+                        }
+                    }
+                }
+
+                let elapsed = start.elapsed().as_millis();
+
+                info!(
+                    model = %response.model,
+                    input_tokens = total_input_tokens,
+                    output_tokens = total_output_tokens,
+                    tools_executed = tool_results.len(),
+                    elapsed_ms = elapsed,
+                    request_id = %cmd.request_id,
+                    "prompt completed"
+                );
+
+                Ok(serde_json::json!({
+                    "status": "success",
+                    "content": final_content,
+                    "model": response.model,
+                    "agent_id": self.config.agent_id,
+                    "request_id": cmd.request_id,
+                    "tools_executed": tool_results,
+                    "metadata": {
+                        "input_tokens": total_input_tokens,
+                        "output_tokens": total_output_tokens,
+                        "elapsed_ms": elapsed
+                    }
+                }))
+            }
+            Err(e) => {
+                let elapsed = start.elapsed().as_millis();
+                warn!(
+                    error = %e,
+                    elapsed_ms = elapsed,
+                    request_id = %cmd.request_id,
+                    "prompt failed"
+                );
+
+                Ok(serde_json::json!({
+                    "status": "error",
+                    "error": e.to_string(),
+                    "agent_id": self.config.agent_id,
+                    "request_id": cmd.request_id,
+                    "metadata": {
+                        "elapsed_ms": elapsed
+                    }
+                }))
+            }
+        }
     }
 }
 

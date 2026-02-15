@@ -3,10 +3,12 @@ mod commands;
 mod config;
 mod evolution;
 mod genome;
+mod llm;
 mod metrics;
 mod monitor;
 mod mqtt;
 mod strategy;
+mod tools;
 mod trading;
 
 use clap::Parser;
