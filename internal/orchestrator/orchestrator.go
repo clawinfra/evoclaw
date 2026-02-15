@@ -583,6 +583,12 @@ func (o *Orchestrator) handleMessage(msg Message) {
 		"length", len(msg.Content),
 	)
 
+	// Skip empty messages (e.g., heartbeats, status updates)
+	if strings.TrimSpace(msg.Content) == "" {
+		o.logger.Debug("skipping empty message", "from", msg.From, "channel", msg.Channel)
+		return
+	}
+
 	// Determine which agent should handle this
 	agentID := o.selectAgent(msg)
 	if agentID == "" {
