@@ -185,10 +185,10 @@ echo "✅ .deb package created: $OUTPUT_DIR/evoclaw_${VERSION}_${DEB_ARCH}.deb"
 # Build .rpm package
 # ─────────────────────────────────────────────────────────
 
-# Skip RPM for armv7 - rpmbuild on Ubuntu x86_64 doesn't have armv7hl arch definitions
-if [ "$ARCH" = "armv7" ]; then
-    echo "⚠️  Skipping .rpm package for armv7 (architecture not supported by Ubuntu rpmbuild)"
-    echo "Note: .deb package is available for armv7"
+# Skip RPM for ARM - rpmbuild on Ubuntu x86_64 doesn't have ARM arch definitions
+if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "armv7" ]; then
+    echo "⚠️  Skipping .rpm package for ${ARCH} (cross-compilation not supported by Ubuntu rpmbuild)"
+    echo "Note: .deb package is available for ${ARCH}"
 elif command -v rpmbuild &> /dev/null; then
     RPM_DIR="$BUILD_DIR/rpm"
     mkdir -p "$RPM_DIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
