@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/clawinfra/evoclaw/internal/config"
-	"github.com/clawinfra/evoclaw/internal/scheduler"
 )
 
 // ScheduleCommand handles 'evoclaw schedule' subcommands
