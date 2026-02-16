@@ -543,7 +543,7 @@ func (o *Orchestrator) initScheduler() error {
 // ExecuteAgent implements scheduler.Executor interface
 func (o *Orchestrator) ExecuteAgent(ctx context.Context, agentID, message string) error {
 	// Find agent
-	agent, exists := o.agents[agentID]
+	_, exists := o.agents[agentID]
 	if !exists {
 		return fmt.Errorf("agent not found: %s", agentID)
 	}
