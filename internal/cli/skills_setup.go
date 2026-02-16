@@ -40,7 +40,7 @@ func SetupCoreSkills(agentName, agentRole string) error {
 		destPath := filepath.Join(skillsDir, skill)
 
 		// Read embedded skill directory
-		entries, err := evoclaw.EmbeddedSkills.ReadDir(sourcePath)
+		_, err := evoclaw.EmbeddedSkills.ReadDir(sourcePath)
 		if err != nil {
 			fmt.Printf("   ⚠️  Skill %s not found in embedded files, skipping\\n", skill)
 			continue

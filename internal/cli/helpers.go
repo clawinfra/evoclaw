@@ -9,15 +9,9 @@ import (
 	"github.com/clawinfra/evoclaw/internal/config"
 )
 
-// loadConfigFromFile loads config from the standard location
-func loadConfigFromFile() (*config.Config, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("get home directory: %w", err)
-	}
-
-	configPath := filepath.Join(homeDir, ".evoclaw", "config.toml")
-	cfg, err := config.LoadConfig(configPath)
+// loadConfigFromFile loads config from the specified path
+func loadConfigFromFile(configPath string) (*config.Config, error) {
+	cfg, err := config.Load(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}

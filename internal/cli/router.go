@@ -2,7 +2,6 @@ package cli
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -211,8 +210,8 @@ func routerModels(args []string, configPath string) int {
 	// Check which models are available in evoclaw config
 	availableModels := make(map[string]bool)
 	for _, provider := range cfg.Models.Providers {
-		for modelID := range provider.Models {
-			availableModels[modelID] = true
+		for _, model := range provider.Models {
+			availableModels[model.ID] = true
 		}
 	}
 
