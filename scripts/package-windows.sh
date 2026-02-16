@@ -125,15 +125,18 @@ elif command -v candle &> /dev/null && command -v light &> /dev/null; then
     candle evoclaw.wxs
     light -ext WixUIExtension evoclaw.wixobj -out "../../$OUTPUT_DIR/EvoClaw-${VERSION}-${ARCH}.msi"
 else
-    echo "Error: Neither wixl (msitools) nor WiX Toolset found"
+    echo "⚠️  Warning: Neither wixl (msitools) nor WiX Toolset found"
     echo "Searched:"
     echo "  - command -v wixl: $(command -v wixl || echo 'not found')"
-    echo "  - /usr/bin/wixl: $([ -x /usr/bin/wixl ] && echo 'exists' || echo 'not found')"
+    echo "  - /usr/bin/wixl: $([ -x /usr/bin/wixl ] && echo 'not found')"
     echo "  - command -v candle: $(command -v candle || echo 'not found')"
-    echo "Install one of:"
-    echo "  Linux: apt-get install msitools"
-    echo "  Windows: Download WiX Toolset from https://wixtoolset.org/"
-    exit 1
+    echo ""
+    echo "MSI building requires wixl (msitools) or WiX Toolset."
+    echo "On Ubuntu: apt-get install msitools"
+    echo "Note: msitools may not be available on all Ubuntu versions."
+    echo ""
+    echo "Skipping MSI build. The binary can still be distributed as .exe"
+    exit 0
 fi
 
 echo "✅ MSI installer created: $OUTPUT_DIR/EvoClaw-${VERSION}-${ARCH}.msi"
