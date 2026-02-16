@@ -293,10 +293,11 @@ EOF
     # Build RPM
     rpmbuild --define "_topdir $RPM_DIR" -bb "$RPM_DIR/SPECS/evoclaw.spec"
     
-    # Copy to output
-    cp "$RPM_DIR/RPMS/${RPM_ARCH}/evoclaw-${RPM_VERSION}-${RPM_RELEASE}."*".${RPM_ARCH}.rpm" "$OUTPUT_DIR/"
+    # Copy to output (use wildcard to match with or without dist tag)
+    cp "$RPM_DIR/RPMS/${RPM_ARCH}/evoclaw-${RPM_VERSION}-${RPM_RELEASE}"*.rpm "$OUTPUT_DIR/"
     
-    echo "✅ .rpm package created: $OUTPUT_DIR/evoclaw-${RPM_VERSION}-${RPM_RELEASE}.*.${RPM_ARCH}.rpm"
+    RPM_FILE=$(basename "$RPM_DIR/RPMS/${RPM_ARCH}/evoclaw-${RPM_VERSION}-${RPM_RELEASE}"*.rpm)
+    echo "✅ .rpm package created: $OUTPUT_DIR/$RPM_FILE"
 else
     echo "⚠️  rpmbuild not found, skipping .rpm package"
     echo "Install with: apt-get install rpm (Debian/Ubuntu) or dnf install rpm-build (Fedora)"
