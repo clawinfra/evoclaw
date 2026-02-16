@@ -190,7 +190,9 @@ if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "armv7" ]; then
     echo "⚠️  Skipping .rpm package for ${ARCH} (cross-compilation not supported by Ubuntu rpmbuild)"
     echo "Note: .deb package is available for ${ARCH}"
 elif command -v rpmbuild &> /dev/null; then
-    RPM_DIR="$BUILD_DIR/rpm"
+    # Use absolute path for rpmbuild _topdir (required for proper path resolution)
+    mkdir -p "$BUILD_DIR/rpm"
+    RPM_DIR="$(cd "$BUILD_DIR/rpm" && pwd)"
     mkdir -p "$RPM_DIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
     
     # Create tarball (use sanitized version)
