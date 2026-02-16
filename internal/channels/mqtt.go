@@ -233,14 +233,51 @@ func (m *MQTTChannel) subscribe() error {
 	return nil
 }
 
+// AgentReport represents messages from edge agents (matching Rust struct)
+type AgentReport struct {
+	AgentID    string                 `json:"agent_id"`
+	AgentType  string                 `json:"agent_type"`
+	ReportType string                 `json:"report_type"` // "result", "error", "heartbeat", "metric"
+	Payload    map[string]interface{} `json:"payload"`
+	Timestamp  int64                  `json:"timestamp"`
+}
+
 // handleMessage processes incoming messages from agents
 func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 	m.wg.Add(1)
 	defer m.wg.Done()
 
-	m.logger.Debug("mqtt message received", "topic", mqttMsg.Topic())
+	m.logger.Info("incoming message", "channel", "mqtt", "from", extractAgentID(mqttMsg.Topic()), "length", len(mqttMsg.Payload()))
 
-	// Try to parse as generic map first to check for tool results
+	// Try to parse as AgentReport first (new edge agent format)
+	var report AgentReport
+	if err := json.Unmarshal(mqttMsg.Payload(), &report); err == nil {
+		// Handle different report types
+		switch report.ReportType {
+		case "result":
+			// This is a prompt completion result from edge agent
+			m.logger.Debug("result report detected",
+				"agent", report.AgentID,
+				"request_id", report.Payload["request_id"],
+			)
+			m.handleEdgeAgentResult(report)
+			return
+		case "error":
+			// Error report from edge agent
+			m.logger.Warn("edge agent error report",
+				"agent", report.AgentID,
+				"error", report.Payload["error"],
+			)
+			m.handleEdgeAgentResult(report)
+			return
+		case "heartbeat":
+			// Heartbeat - log and ignore
+			m.logger.Debug("heartbeat received", "agent", report.AgentID)
+			return
+		}
+	}
+
+	// Fallback: Try to parse as generic map for old tool result format
 	var genericPayload map[string]interface{}
 	if err := json.Unmarshal(mqttMsg.Payload(), &genericPayload); err == nil {
 		// Check if this is a tool result (has "tool" and "status" fields)
@@ -258,7 +295,7 @@ func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 		}
 	}
 
-	// Regular message handling
+	// Regular message handling (fallback for legacy format)
 	var payload struct {
 		AgentID  string            `json:"agent_id"`
 		Content  string            `json:"content"`
@@ -296,6 +333,56 @@ func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 	default:
 		m.logger.Warn("inbox full, dropping message", "from", msg.From)
 	}
+}
+
+// handleEdgeAgentResult processes result/error reports from edge agents
+func (m *MQTTChannel) handleEdgeAgentResult(report AgentReport) {
+	requestID, _ := report.Payload["request_id"].(string)
+
+	m.resultMu.RLock()
+	callback := m.resultCallback
+	m.resultMu.RUnlock()
+
+	if callback == nil {
+		m.logger.Warn("no result callback registered, dropping edge agent result",
+			"request_id", requestID,
+			"agent", report.AgentID,
+		)
+		return
+	}
+
+	// Deliver full payload to orchestrator via callback
+	callback(requestID, report.Payload)
+
+	m.logger.Info("edge agent result delivered to orchestrator",
+		"request_id", requestID,
+		"agent", report.AgentID,
+		"status", report.Payload["status"],
+	)
+}
+
+// extractAgentID extracts agent ID from topic like "evoclaw/agents/alex-eye/reports"
+func extractAgentID(topic string) string {
+	parts := []byte(topic)
+	// Find the third slash
+	slashCount := 0
+	start := 0
+	end := len(parts)
+	for i, b := range parts {
+		if b == '/' {
+			slashCount++
+			if slashCount == 2 {
+				start = i + 1
+			} else if slashCount == 3 {
+				end = i
+				break
+			}
+		}
+	}
+	if start > 0 && end > start {
+		return string(parts[start:end])
+	}
+	return "unknown"
 }
 
 // handleStatus processes agent heartbeat/status updates
