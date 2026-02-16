@@ -195,7 +195,12 @@ elif command -v rpmbuild &> /dev/null; then
     
     # Create tarball (use sanitized version)
     RPM_TARBALL_NAME="evoclaw-${RPM_VERSION}.tar.gz"
-    tar -czf "$RPM_DIR/SOURCES/${RPM_TARBALL_NAME}" -C "$BUILD_DIR" evoclaw
+    # Create temporary directory structure for tarball
+    mkdir -p "$RPM_DIR/SOURCES/evoclaw-${RPM_VERSION}"
+    cp "$BUILD_DIR/evoclaw" "$RPM_DIR/SOURCES/evoclaw-${RPM_VERSION}/"
+    tar -czf "$RPM_DIR/SOURCES/${RPM_TARBALL_NAME}" -C "$RPM_DIR/SOURCES" "evoclaw-${RPM_VERSION}"
+    # Cleanup temporary directory
+    rm -rf "$RPM_DIR/SOURCES/evoclaw-${RPM_VERSION}"
     
     # Create spec file
     cat > "$RPM_DIR/SPECS/evoclaw.spec" <<EOF
@@ -214,8 +219,7 @@ framework designed to run on resource-constrained edge devices.
 Every device becomes an agent. Every agent evolves.
 
 %prep
-%setup -q -c -T
-tar -xzf %{SOURCE0}
+%setup -q
 
 %install
 mkdir -p %{buildroot}/usr/bin
