@@ -26,28 +26,74 @@ EvoClaw is a lightweight, evolution-powered agent orchestration framework design
 
 ## Quick Start
 
-### macOS (Homebrew)
+### One-Liner Install (Linux/macOS)
 
-Easiest way to install on macOS:
+```bash
+curl -fsSL https://evoclaw.win/install.sh | sh
+```
+
+Automatically detects your OS and architecture, downloads the latest release, and sets up everything.
+
+### macOS (Homebrew)
 
 ```bash
 brew tap clawinfra/evoclaw
 brew install evoclaw
-
-# Initialize and start
 evoclaw init
 ```
 
-### Native Binary (Default)
+### macOS (.dmg Installer)
 
-Full OS access — bash, filesystem, network. Maximum power.
+1. Download `EvoClaw-{version}-{arch}.dmg` from [Releases](https://github.com/clawinfra/evoclaw/releases)
+2. Open the DMG and drag EvoClaw to Applications
+3. Right-click EvoClaw.app → **Open** (first time only, due to unsigned binary)
+4. Launch from Applications or Spotlight
+
+> **Note:** macOS will show "unidentified developer" warning on first run. This is normal for unsigned apps. See [MACOS-UNSIGNED.md](docs/MACOS-UNSIGNED.md) for workarounds.
+
+### Windows (.msi Installer)
+
+1. Download `EvoClaw-{version}-amd64.msi` from [Releases](https://github.com/clawinfra/evoclaw/releases)
+2. Double-click to install
+3. Run from Start Menu or PowerShell: `evoclaw init`
+
+### Linux (Debian/Ubuntu)
 
 ```bash
-# One-liner install (Linux/macOS)
-curl -fsSL https://evoclaw.win/install.sh | sh
+# Download .deb package
+wget https://github.com/clawinfra/evoclaw/releases/latest/download/evoclaw_{version}_amd64.deb
 
-# Or build from source
+# Install
+sudo dpkg -i evoclaw_{version}_amd64.deb
+
+# Start service
+sudo systemctl start evoclaw
+```
+
+### Linux (Fedora/RHEL)
+
+```bash
+# Download .rpm package
+wget https://github.com/clawinfra/evoclaw/releases/latest/download/evoclaw-{version}-1.x86_64.rpm
+
+# Install
+sudo rpm -i evoclaw-{version}-1.x86_64.rpm
+
+# Start service
+sudo systemctl start evoclaw
+```
+
+### Build from Source
+
+```bash
+# Clone repository
+git clone https://github.com/clawinfra/evoclaw
+cd evoclaw
+
+# Build orchestrator (Go)
 go build -ldflags="-s -w" -o evoclaw ./cmd/evoclaw
+
+# Build edge agent (Rust)
 cd edge-agent && cargo build --release
 
 # Run

@@ -43,6 +43,11 @@ Requires Apple Developer Program membership ($99/year):
    ```
 3. Scripts automatically sign and notarize
 
+**Running unsigned on macOS:**
+- Users see "unidentified developer" warning
+- Easy workarounds: right-click → Open, or use Homebrew (no warnings)
+- **See [MACOS-UNSIGNED.md](MACOS-UNSIGNED.md) for detailed guide**
+
 #### Windows
 
 Requires code signing certificate (from DigiCert, Sectigo, etc.):
@@ -53,6 +58,10 @@ Requires code signing certificate (from DigiCert, Sectigo, etc.):
    ```powershell
    signtool sign /f cert.pfx /p password /tr http://timestamp.digicert.com evoclaw.msi
    ```
+
+**Running unsigned on Windows:**
+- SmartScreen warning: "Windows protected your PC"
+- Users click "More info" → "Run anyway"
 
 **For initial release**: Ship unsigned (users will see warnings, but can still install)
 
