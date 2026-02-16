@@ -86,8 +86,8 @@ Examples:
 
 	// Install core skills
 	agentRole := "autonomous agent"
-	if len(cfg.Agents) > 0 && cfg.Agents[0].Description != "" {
-		agentRole = cfg.Agents[0].Description
+	if len(cfg.Agents) > 0 && cfg.Agents[0].Type != "" {
+		agentRole = cfg.Agents[0].Type
 	}
 
 	if err := SetupCoreSkills(*agentName, agentRole); err != nil {
