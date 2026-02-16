@@ -461,8 +461,9 @@ func (m *Manager) Store(ctx context.Context, entry *MemoryEntry) error {
 		EventType:   "manual",
 		Category:    entry.Category,
 		Content: &DistilledFact{
-			Summary: entry.Text,
-			Tags:    []string{},
+			Fact:   entry.Text,
+			Topics: []string{},
+			Date:   entry.CreatedAt,
 		},
 		Importance:   1.0,
 		AccessCount:  0,
@@ -505,7 +506,7 @@ func (m *Manager) Search(ctx context.Context, query string, maxResults int) ([]*
 				w := warmResults[i]
 				entries[i] = &MemoryEntry{
 					ID:        w.ID,
-					Text:      w.Content.Summary,
+					Text:      w.Content.Fact,
 					Category:  w.Category,
 					Score:     w.Importance * float64(w.AccessCount+1),
 					Tier:      "warm",
@@ -526,9 +527,9 @@ func (m *Manager) Search(ctx context.Context, query string, maxResults int) ([]*
 	for i, w := range warmResults {
 		entries[i] = &MemoryEntry{
 			ID:        w.ID,
-			Text:      w.Text,
+			Text:      w.Content.Fact,
 			Category:  w.Category,
-			Score:     w.Score,
+			Score:     w.Importance * float64(w.AccessCount+1),
 			Tier:      "warm",
 			CreatedAt: w.CreatedAt,
 		}
@@ -547,13 +548,13 @@ func (m *Manager) GetStatus(ctx context.Context) (map[string]interface{}, error)
 	return map[string]interface{}{
 		"agent_id":     m.cfg.AgentID,
 		"agent_name":   m.cfg.AgentName,
-		"hot_size":     stats.Hot.TotalBytes,
-		"warm_count":   stats.Warm.EntryCount,
-		"warm_size":    stats.Warm.TotalBytes,
-		"cold_count":   stats.Cold.EntryCount,
-		"tree_nodes":   stats.Tree.NodeCount,
-		"tree_depth":   stats.Tree.MaxDepth,
-		"tree_size":    stats.Tree.SizeBytes,
+		"hot_size":     stats.HotSizeBytes,
+		"warm_count":   stats.WarmCount,
+		"warm_size":    stats.WarmSizeBytes,
+		"cold_count":   stats.ColdCount,
+		"tree_nodes":   stats.TreeNodes,
+		"tree_depth":   stats.TreeDepth,
+		"tree_size":    stats.TreeSizeBytes,
 	}, nil
 }
 
