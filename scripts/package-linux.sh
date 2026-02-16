@@ -8,7 +8,24 @@ ARCH=${2:-amd64}  # amd64, arm64, or armv7
 BUILD_DIR="build/linux-${ARCH}"
 OUTPUT_DIR="dist"
 
+# Sanitize version for RPM (cannot contain hyphens in Version field)
+# Split version into Version and Release parts
+RPM_VERSION=$(echo "$VERSION" | cut -d'-' -f1)
+RPM_RELEASE="1"
+if [[ "$VERSION" == *"-"* ]]; then
+    RPM_SUFFIX=$(echo "$VERSION" | cut -d'-' -f2)
+    RPM_RELEASE_NUM=$(echo "$RPM_SUFFIX" | sed 's/[^0-9]//g')
+    if [[ -n "$RPM_RELEASE_NUM" ]]; then
+        RPM_RELEASE="0.${RPM_RELEASE_NUM}"
+    else
+        RPM_RELEASE="0.1"
+    fi
+fi
+
 echo "Building Linux packages for EvoClaw v${VERSION} (${ARCH})"
+echo "DEB: Version=${VERSION}"
+echo "RPM: Version=${RPM_VERSION} Release=${RPM_RELEASE}"
+echo "Debug: VERSION='${VERSION}' RPM_VERSION='${RPM_VERSION}' RPM_RELEASE='${RPM_RELEASE}'"
 
 # Create build directories
 mkdir -p "$BUILD_DIR" "$OUTPUT_DIR"
@@ -172,18 +189,19 @@ if command -v rpmbuild &> /dev/null; then
     RPM_DIR="$BUILD_DIR/rpm"
     mkdir -p "$RPM_DIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
     
-    # Create tarball
-    tar -czf "$RPM_DIR/SOURCES/evoclaw-${VERSION}.tar.gz" -C "$BUILD_DIR" evoclaw
+    # Create tarball (use sanitized version)
+    RPM_TARBALL_NAME="evoclaw-${RPM_VERSION}.tar.gz"
+    tar -czf "$RPM_DIR/SOURCES/${RPM_TARBALL_NAME}" -C "$BUILD_DIR" evoclaw
     
     # Create spec file
     cat > "$RPM_DIR/SPECS/evoclaw.spec" <<EOF
 Name:           evoclaw
-Version:        ${VERSION}
-Release:        1%{?dist}
+Version:        ${RPM_VERSION}
+Release:        ${RPM_RELEASE}%{?dist}
 Summary:        Self-Evolving AI Agent Framework
 License:        MIT
 URL:            https://github.com/clawinfra/evoclaw
-Source0:        %{name}-%{version}.tar.gz
+Source0:        %{name}-${RPM_VERSION}.tar.gz
 BuildArch:      ${RPM_ARCH}
 
 %description
@@ -253,18 +271,22 @@ if [ \$1 -eq 0 ]; then
 fi
 
 %changelog
-* $(date '+%a %b %d %Y') ClawInfra <hello@evoclaw.ai> - ${VERSION}-1
-- Release ${VERSION}
+* $(date '+%a %b %d %Y') ClawInfra <hello@evoclaw.ai> - ${RPM_VERSION}-${RPM_RELEASE}
+- Release ${RPM_VERSION}-${RPM_RELEASE}
 
 EOF
+    
+    # Debug: Show what was written to spec file
+    echo "Debug: Spec file Version line:"
+    grep -E "^(Name|Version|Release):" "$RPM_DIR/SPECS/evoclaw.spec" || true
     
     # Build RPM
     rpmbuild --define "_topdir $RPM_DIR" -bb "$RPM_DIR/SPECS/evoclaw.spec"
     
     # Copy to output
-    cp "$RPM_DIR/RPMS/${RPM_ARCH}/evoclaw-${VERSION}-1."*".${RPM_ARCH}.rpm" "$OUTPUT_DIR/"
+    cp "$RPM_DIR/RPMS/${RPM_ARCH}/evoclaw-${RPM_VERSION}-${RPM_RELEASE}."*".${RPM_ARCH}.rpm" "$OUTPUT_DIR/"
     
-    echo "✅ .rpm package created: $OUTPUT_DIR/evoclaw-${VERSION}-1.*.${RPM_ARCH}.rpm"
+    echo "✅ .rpm package created: $OUTPUT_DIR/evoclaw-${RPM_VERSION}-${RPM_RELEASE}.*.${RPM_ARCH}.rpm"
 else
     echo "⚠️  rpmbuild not found, skipping .rpm package"
     echo "Install with: apt-get install rpm (Debian/Ubuntu) or dnf install rpm-build (Fedora)"
@@ -273,4 +295,4 @@ fi
 echo ""
 echo "Linux packages created successfully!"
 echo "Install .deb: sudo dpkg -i $OUTPUT_DIR/evoclaw_${VERSION}_${DEB_ARCH}.deb"
-echo "Install .rpm: sudo rpm -i $OUTPUT_DIR/evoclaw-${VERSION}-1.*.${RPM_ARCH}.rpm"
+echo "Install .rpm: sudo rpm -i $OUTPUT_DIR/evoclaw-${RPM_VERSION}-${RPM_RELEASE}.*.${RPM_ARCH}.rpm"

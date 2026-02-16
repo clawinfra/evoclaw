@@ -104,19 +104,32 @@ if [ ! -f "$BUILD_DIR/evoclaw.ico" ]; then
 fi
 
 # Build MSI
+echo "Checking for MSI build tools..."
 if command -v wixl &> /dev/null; then
     # Linux (msitools)
+    echo "✓ Found wixl at: $(command -v wixl)"
     echo "Building with wixl (msitools)..."
     cd "$BUILD_DIR"
     wixl -v evoclaw.wxs -o "../../$OUTPUT_DIR/EvoClaw-${VERSION}-${ARCH}.msi"
+elif [ -x "/usr/bin/wixl" ]; then
+    # Direct path check (sometimes PATH isn't updated immediately after install)
+    echo "✓ Found wixl at: /usr/bin/wixl"
+    echo "Building with wixl (msitools)..."
+    cd "$BUILD_DIR"
+    /usr/bin/wixl -v evoclaw.wxs -o "../../$OUTPUT_DIR/EvoClaw-${VERSION}-${ARCH}.msi"
 elif command -v candle &> /dev/null && command -v light &> /dev/null; then
     # Windows (WiX Toolset)
+    echo "✓ Found WiX Toolset"
     echo "Building with WiX Toolset..."
     cd "$BUILD_DIR"
     candle evoclaw.wxs
     light -ext WixUIExtension evoclaw.wixobj -out "../../$OUTPUT_DIR/EvoClaw-${VERSION}-${ARCH}.msi"
 else
     echo "Error: Neither wixl (msitools) nor WiX Toolset found"
+    echo "Searched:"
+    echo "  - command -v wixl: $(command -v wixl || echo 'not found')"
+    echo "  - /usr/bin/wixl: $([ -x /usr/bin/wixl ] && echo 'exists' || echo 'not found')"
+    echo "  - command -v candle: $(command -v candle || echo 'not found')"
     echo "Install one of:"
     echo "  Linux: apt-get install msitools"
     echo "  Windows: Download WiX Toolset from https://wixtoolset.org/"
