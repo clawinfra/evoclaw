@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log/slog"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"github.com/clawinfra/evoclaw/internal/channels"
 	"github.com/clawinfra/evoclaw/internal/cloudsync"
 	"github.com/clawinfra/evoclaw/internal/config"
+	"github.com/clawinfra/evoclaw/internal/governance"
 	"github.com/clawinfra/evoclaw/internal/memory"
 	"github.com/clawinfra/evoclaw/internal/onchain"
 	"github.com/clawinfra/evoclaw/internal/router"
@@ -123,6 +125,8 @@ type Orchestrator struct {
 	memory *memory.Manager
 	// Scheduler for periodic tasks
 	scheduler *scheduler.Scheduler
+	// Self-governance protocols
+	governance *governance.Manager
 	// Health registry for model selection
 	healthRegistry *router.HealthRegistry
 	// Tool management (NEW)
@@ -255,6 +259,11 @@ func (o *Orchestrator) Start() error {
 		if err := o.initMemory(); err != nil {
 			o.logger.Warn("tiered memory failed to initialize (non-fatal)", "error", err)
 		}
+	}
+
+	// Initialize self-governance protocols
+	if err := o.initGovernance(); err != nil {
+		o.logger.Warn("governance failed to initialize (non-fatal)", "error", err)
 	}
 
 	// Initialize scheduler if enabled
@@ -465,6 +474,25 @@ func (o *Orchestrator) initMemory() error {
 	return nil
 }
 
+// initGovernance sets up self-governance protocols (WAL, VBR, ADL, VFM)
+func (o *Orchestrator) initGovernance() error {
+	govCfg := governance.DefaultConfig()
+	govCfg.Logger = o.logger
+
+	// Use data directory from server config
+	govCfg.BaseDir = filepath.Join(o.cfg.Server.DataDir, "governance")
+
+	mgr, err := governance.NewManager(govCfg)
+	if err != nil {
+		return fmt.Errorf("create governance manager: %w", err)
+	}
+
+	o.governance = mgr
+	o.logger.Info("governance protocols initialized", "base_dir", govCfg.BaseDir)
+
+	return nil
+}
+
 // initScheduler sets up the job scheduler
 func (o *Orchestrator) initScheduler() error {
 	// Create scheduler with orchestrator as executor
@@ -566,6 +594,11 @@ func (o *Orchestrator) PublishMQTT(ctx context.Context, topic string, payload ma
 // GetScheduler returns the scheduler for external access
 func (o *Orchestrator) GetScheduler() *scheduler.Scheduler {
 	return o.scheduler
+}
+
+// GetGovernance returns the governance manager for external access
+func (o *Orchestrator) GetGovernance() *governance.Manager {
+	return o.governance
 }
 
 // initOnChain sets up BSC/opBNB chain adapter
