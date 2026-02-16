@@ -8,7 +8,7 @@ import (
 // writeJSON writes a JSON response with the given status code
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteStatus(status)
+	w.WriteHeader(status)
 	
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		// Log error but don't send another response
