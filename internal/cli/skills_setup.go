@@ -1,19 +1,14 @@
 package cli
 
 import (
-	"embed"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/clawinfra/evoclaw"
 )
-
-//go:embed ../../skills
-var embeddedSkills embed.FS
-
-//go:embed ../../templates
-var embeddedTemplates embed.FS
 
 // SetupCoreSkills installs core skills to ~/.evoclaw/skills/
 func SetupCoreSkills(agentName, agentRole string) error {
@@ -44,7 +39,7 @@ func SetupCoreSkills(agentName, agentRole string) error {
 		destPath := filepath.Join(skillsDir, skill)
 
 		// Read embedded skill directory
-		entries, err := embeddedSkills.ReadDir(sourcePath)
+		entries, err := evoclaw.EmbeddedSkills.ReadDir(sourcePath)
 		if err != nil {
 			fmt.Printf("   ⚠️  Skill %s not found in embedded files, skipping\\n", skill)
 			continue
@@ -56,7 +51,7 @@ func SetupCoreSkills(agentName, agentRole string) error {
 		}
 
 		// Copy all files recursively
-		if err := copyEmbeddedDir(embeddedSkills, sourcePath, destPath); err != nil {
+		if err := copyEmbeddedDir(evoclaw.EmbeddedSkills, sourcePath, destPath); err != nil {
 			return fmt.Errorf("copy skill %s: %w", skill, err)
 		}
 
@@ -105,7 +100,7 @@ func GenerateAgentFiles(agentName, agentRole string) error {
 	fmt.Println("📝 Generating agent files...")
 
 	// Generate SOUL.md
-	soulTemplate, err := embeddedTemplates.ReadFile("templates/SOUL.md.template")
+	soulTemplate, err := evoclaw.EmbeddedTemplates.ReadFile("templates/SOUL.md.template")
 	if err != nil {
 		return fmt.Errorf("read SOUL.md template: %w", err)
 	}
@@ -121,7 +116,7 @@ func GenerateAgentFiles(agentName, agentRole string) error {
 	fmt.Printf("   ✅ SOUL.md created at %s\\n", soulPath)
 
 	// Generate AGENTS.md
-	agentsTemplate, err := embeddedTemplates.ReadFile("templates/AGENTS.md.template")
+	agentsTemplate, err := evoclaw.EmbeddedTemplates.ReadFile("templates/AGENTS.md.template")
 	if err != nil {
 		return fmt.Errorf("read AGENTS.md template: %w", err)
 	}
