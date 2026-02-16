@@ -180,6 +180,14 @@ func (m *MQTTChannel) Send(ctx context.Context, msg types.Response) error {
 	if msg.Metadata != nil {
 		if overrideCmd, ok := msg.Metadata["command"]; ok {
 			cmd.Command = overrideCmd
+			// For prompt command, move content to prompt field and add enable_tools
+			if overrideCmd == "prompt" {
+				cmd.Payload = map[string]interface{}{
+					"prompt":       msg.Content,
+					"system_prompt": "",
+					"enable_tools":  true,
+				}
+			}
 		}
 	}
 

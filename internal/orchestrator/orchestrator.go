@@ -1520,12 +1520,16 @@ func (o *Orchestrator) processWithEdgeAgent(agent *AgentState, msg Message, mode
 	}()
 	
 	// Send prompt to edge agent via MQTT
+	// The MQTT channel will detect command=prompt in metadata and use it
+	// But we need to ensure Content goes into the payload as "prompt" field
+	// Actually, we need to bypass the normal Send() and create the proper format directly
+	// For now, use the metadata approach but the MQTT Send needs updating
 	mqttMsg := Response{
 		AgentID:   agent.ID,
 		Channel:   "mqtt",
 		To:        agent.ID,
 		MessageID: requestID,
-		Content:   msg.Content,
+		Content:   msg.Content, // This will become "content" in payload, need to change to "prompt"
 		Metadata: map[string]string{
 			"command": "prompt",
 		},
