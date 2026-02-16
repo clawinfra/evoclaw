@@ -133,7 +133,7 @@ func (v *VBR) Check(taskID string, checkType VBRCheckType, target string) (bool,
 		return false, fmt.Errorf("unknown check type: %s", checkType)
 	}
 
-	v.logger.Debug("VBR check", "task", taskID, "type", checkType, "target", target, "passed", passed)
+	v.logger.Debug("VBR check", "task", taskID, "type", checkType, "target", target, "passed", passed, "notes", notes)
 	return passed, nil
 }
 

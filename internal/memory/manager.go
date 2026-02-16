@@ -457,13 +457,17 @@ func (m *Manager) Store(ctx context.Context, entry *MemoryEntry) error {
 	// Add to warm tier
 	warmEntry := &WarmEntry{
 		ID:          entry.ID,
-		Text:        entry.Text,
+		Timestamp:   entry.CreatedAt,
+		EventType:   "manual",
 		Category:    entry.Category,
-		Source:      "cli",
-		Importance:  1.0,
-		Score:       10.0, // Fresh entry, high score
-		CreatedAt:   entry.CreatedAt,
+		Content: &DistilledFact{
+			Summary: entry.Text,
+			Tags:    []string{},
+		},
+		Importance:   1.0,
+		AccessCount:  0,
 		LastAccessed: entry.CreatedAt,
+		CreatedAt:    entry.CreatedAt,
 	}
 
 	if err := m.warm.Add(warmEntry); err != nil {
@@ -482,19 +486,28 @@ func (m *Manager) Store(ctx context.Context, entry *MemoryEntry) error {
 func (m *Manager) Search(ctx context.Context, query string, maxResults int) ([]*MemoryEntry, error) {
 	// Use tree search if LLM available
 	if m.llmSearcher != nil {
-		path, err := m.llmSearcher.Search(ctx, query)
-		if err != nil {
-			m.logger.Warn("LLM search failed, falling back to rule-based", "error", err)
-		} else {
+		results := m.llmSearcher.Search(query, maxResults)
+		if len(results) > 0 && results[0].Score > 0 {
+			// Use top result category
+			category := results[0].Path
+			
 			// Retrieve from category
-			warmResults := m.warm.GetByCategory(path.Category, maxResults)
-			entries := make([]*MemoryEntry, len(warmResults))
-			for i, w := range warmResults {
+			warmResults := m.warm.GetByCategory(category)
+			
+			// Limit results
+			limit := maxResults
+			if len(warmResults) < limit {
+				limit = len(warmResults)
+			}
+			
+			entries := make([]*MemoryEntry, limit)
+			for i := 0; i < limit; i++ {
+				w := warmResults[i]
 				entries[i] = &MemoryEntry{
 					ID:        w.ID,
-					Text:      w.Text,
+					Text:      w.Content.Summary,
 					Category:  w.Category,
-					Score:     w.Score,
+					Score:     w.Importance * float64(w.AccessCount+1),
 					Tier:      "warm",
 					CreatedAt: w.CreatedAt,
 				}
