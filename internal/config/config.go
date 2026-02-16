@@ -39,6 +39,9 @@ type Config struct {
 	// Scheduler configuration
 	Scheduler SchedulerConfig `json:"scheduler,omitempty"`
 
+	// Auto-update configuration
+	Updates *UpdatesConfig `json:"updates,omitempty"`
+
 	// Agent definitions
 	Agents []AgentDef `json:"agents"`
 }
@@ -167,6 +170,14 @@ type ScheduleConfig struct {
 	Expr       string `json:"expr,omitempty"` // cron expression
 	Time       string `json:"time,omitempty"` // "HH:MM" for daily
 	Timezone   string `json:"timezone,omitempty"`
+}
+
+// UpdatesConfig holds auto-update settings
+type UpdatesConfig struct {
+	Enabled            bool `json:"enabled"`            // Check for updates
+	AutoInstall        bool `json:"autoInstall"`        // Automatically install updates
+	CheckInterval      int  `json:"checkInterval"`      // Check interval in seconds (default 86400 = 24h)
+	IncludePrereleases bool `json:"includePrereleases"` // Include beta/alpha releases
 }
 
 // ActionConfig defines what a job does
@@ -345,6 +356,12 @@ func DefaultConfig() *Config {
 				Complex:  "anthropic/claude-sonnet",
 				Critical: "anthropic/claude-opus",
 			},
+		},
+		Updates: &UpdatesConfig{
+			Enabled:            true,
+			AutoInstall:        false, // Notify but don't auto-install
+			CheckInterval:      86400, // 24 hours
+			IncludePrereleases: false,
 		},
 	}
 }

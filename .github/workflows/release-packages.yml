@@ -1,0 +1,178 @@
+name: Build Release Packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build'
+        required: true
+        default: '0.1.0'
+
+jobs:
+  # ─── Windows MSI ────────────────────────────────────────────
+  windows-msi:
+    name: Build Windows MSI (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install msitools
+        run: sudo apt-get update && sudo apt-get install -y msitools
+
+      - name: Build Windows binary
+        env:
+          GOOS: windows
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+          go build -ldflags="-s -w -X main.version=${VERSION}" \
+            -o "evoclaw-windows-${{ matrix.arch }}.exe" \
+            ./cmd/evoclaw
+
+      - name: Build MSI
+        run: |
+          VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+          bash scripts/package-windows.sh "$VERSION" "${{ matrix.arch }}"
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-msi-${{ matrix.arch }}
+          path: dist/*.msi
+
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.msi
+
+  # ─── macOS DMG ──────────────────────────────────────────────
+  macos-dmg:
+    name: Build macOS DMG (${{ matrix.arch }})
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Build macOS binary
+        env:
+          GOOS: darwin
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+          go build -ldflags="-s -w -X main.version=${VERSION}" \
+            -o "evoclaw-darwin-${{ matrix.arch }}" \
+            ./cmd/evoclaw
+
+      - name: Build DMG
+        run: |
+          VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+          bash scripts/package-macos.sh "$VERSION" "${{ matrix.arch }}"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg-${{ matrix.arch }}
+          path: dist/*.dmg
+
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.dmg
+
+  # ─── Linux Packages ─────────────────────────────────────────
+  linux-packages:
+    name: Build Linux Packages (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64, armv7]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Build Linux binary
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.arch == 'armv7' && 'arm' || matrix.arch }}
+          GOARM: ${{ matrix.arch == 'armv7' && '7' || '' }}
+        run: |
+          VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+          go build -ldflags="-s -w -X main.version=${VERSION}" \
+            -o "evoclaw-linux-${{ matrix.arch }}" \
+            ./cmd/evoclaw
+
+      - name: Build packages
+        run: |
+          VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+          bash scripts/package-linux.sh "$VERSION" "${{ matrix.arch }}"
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages-${{ matrix.arch }}
+          path: |
+            dist/*.deb
+            dist/*.rpm
+
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.deb
+            dist/*.rpm
+
+  # ─── Generate Checksums ─────────────────────────────────────
+  checksums:
+    name: Generate Checksums
+    needs: [windows-msi, macos-dmg, linux-packages]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          find . -type f \( -name "*.msi" -o -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" \) -exec sha256sum {} \; > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload checksums
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/SHA256SUMS
