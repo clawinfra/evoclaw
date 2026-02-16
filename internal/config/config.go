@@ -261,6 +261,7 @@ type AgentDef struct {
 	Capabilities []string        `json:"capabilities,omitempty"`
 	Genome       *Genome         `json:"genome,omitempty"`
 	Config       map[string]string `json:"config,omitempty"`
+	Remote       bool            `json:"remote,omitempty"` // true if agent runs remotely via MQTT
 	// Container isolation settings
 	Container ContainerConfig `json:"container"`
 }

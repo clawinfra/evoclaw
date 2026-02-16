@@ -37,6 +37,7 @@ type AgentState struct {
 	LastActive   time.Time
 	MessageCount int64
 	ErrorCount   int64
+	IsEdgeAgent  bool // true if agent connects via MQTT (runs remotely)
 	// Performance metrics for evolution
 	Metrics AgentMetrics
 	mu      sync.RWMutex
@@ -130,26 +131,28 @@ type Orchestrator struct {
 	// Health registry for model selection
 	healthRegistry *router.HealthRegistry
 	// Tool management (NEW)
-	toolManager     *ToolManager
-	toolLoop        *ToolLoop
-	resultRegistry  map[string]chan *ToolResult
-	resultMu        sync.RWMutex
+	toolManager       *ToolManager
+	toolLoop          *ToolLoop
+	resultRegistry    map[string]chan *ToolResult
+	edgeResultRegistry map[string]chan map[string]interface{} // For edge agent prompt results
+	resultMu          sync.RWMutex
 }
 
 // New creates a new Orchestrator
 func New(cfg *config.Config, logger *slog.Logger) *Orchestrator {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Orchestrator{
-		cfg:            cfg,
-		channels:       make(map[string]Channel),
-		providers:      make(map[string]ModelProvider),
-		agents:         make(map[string]*AgentState),
-		inbox:          make(chan Message, 1000),
-		outbox:         make(chan Response, 1000),
-		logger:         logger,
-		ctx:            ctx,
-		cancel:         cancel,
-		resultRegistry:  make(map[string]chan *ToolResult),
+		cfg:                cfg,
+		channels:           make(map[string]Channel),
+		providers:          make(map[string]ModelProvider),
+		agents:             make(map[string]*AgentState),
+		inbox:              make(chan Message, 1000),
+		outbox:             make(chan Response, 1000),
+		logger:             logger,
+		ctx:                ctx,
+		cancel:             cancel,
+		resultRegistry:     make(map[string]chan *ToolResult),
+		edgeResultRegistry: make(map[string]chan map[string]interface{}),
 	}
 }
 
@@ -208,15 +211,20 @@ func (o *Orchestrator) Start() error {
 	// Initialize agents from config
 	for _, def := range o.cfg.Agents {
 		o.agents[def.ID] = &AgentState{
-			ID:        def.ID,
-			Def:       def,
-			Status:    "idle",
-			StartedAt: time.Now(),
+			ID:          def.ID,
+			Def:         def,
+			Status:      "idle",
+			StartedAt:   time.Now(),
+			IsEdgeAgent: def.Remote, // Mark as edge agent if configured as remote
 			Metrics: AgentMetrics{
 				Custom: make(map[string]float64),
 			},
 		}
-		o.logger.Info("agent initialized", "id", def.ID, "type", def.Type)
+		if def.Remote {
+			o.logger.Info("agent initialized", "id", def.ID, "type", def.Type, "mode", "edge")
+		} else {
+			o.logger.Info("agent initialized", "id", def.ID, "type", def.Type, "mode", "local")
+		}
 
 		// Initialize tool manager with first agent's capabilities
 		if o.toolManager == nil && len(def.Capabilities) > 0 {
@@ -825,6 +833,7 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 	agent.Status = "running"
 	agent.LastActive = time.Now()
 	agent.MessageCount++
+	isEdge := agent.IsEdgeAgent
 	agent.mu.Unlock()
 
 	defer func() {
@@ -832,6 +841,12 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 		agent.Status = "idle"
 		agent.mu.Unlock()
 	}()
+
+	// If this is an edge agent, forward to MQTT instead of processing locally
+	if isEdge {
+		o.processWithEdgeAgent(agent, msg, model, start)
+		return
+	}
 
 	var resp *Response
 	var err error
@@ -1407,45 +1422,69 @@ func (o *Orchestrator) RegisterResultHandler(requestID string, handler func(*Too
 
 // DeliverToolResult delivers a tool result to the waiting handler
 func (o *Orchestrator) DeliverToolResult(requestID string, result map[string]interface{}) {
+	// Check if this is an edge agent prompt result first
 	o.resultMu.RLock()
-	ch, ok := o.resultRegistry[requestID]
-	o.resultMu.RUnlock()
+	edgeCh, isEdge := o.edgeResultRegistry[requestID]
+	if !isEdge {
+		// Fall back to tool result registry
+		toolCh, isTool := o.resultRegistry[requestID]
+		o.resultMu.RUnlock()
+		
+		if !isTool {
+			o.logger.Warn("no handler registered for result",
+				"request_id", requestID,
+			)
+			return
+		}
+		
+		// Deliver tool result
+		toolResult := &ToolResult{
+			Tool:   getString(result, "tool"),
+			Status: getString(result, "status"),
+			Result: getString(result, "result"),
+			Error:  getString(result, "error"),
+		}
 
-	if !ok {
-		o.logger.Warn("no handler registered for tool result",
-			"request_id", requestID,
-		)
+		if elapsedMs, ok := result["elapsed_ms"].(float64); ok {
+			toolResult.ElapsedMs = int64(elapsedMs)
+		}
+
+		if exitCode, ok := result["exit_code"].(float64); ok {
+			toolResult.ExitCode = int(exitCode)
+		}
+
+		select {
+		case toolCh <- toolResult:
+			o.logger.Debug("tool result delivered",
+				"request_id", requestID,
+				"tool", toolResult.Tool,
+				"status", toolResult.Status,
+			)
+		case <-time.After(5 * time.Second):
+			o.logger.Warn("timeout delivering tool result",
+				"request_id", requestID,
+			)
+			o.resultMu.Lock()
+			delete(o.resultRegistry, requestID)
+			o.resultMu.Unlock()
+		}
 		return
 	}
-
-	// Convert map[string]interface{} to ToolResult
-	toolResult := &ToolResult{
-		Tool:   getString(result, "tool"),
-		Status: getString(result, "status"),
-		Result: getString(result, "result"),
-		Error:  getString(result, "error"),
-	}
-
-	if elapsedMs, ok := result["elapsed_ms"].(float64); ok {
-		toolResult.ElapsedMs = int64(elapsedMs)
-	}
-
-	if exitCode, ok := result["exit_code"].(float64); ok {
-		toolResult.ExitCode = int(exitCode)
-	}
-
+	o.resultMu.RUnlock()
+	
+	// Deliver edge agent prompt result
 	select {
-	case ch <- toolResult:
-		o.logger.Debug("tool result delivered",
+	case edgeCh <- result:
+		o.logger.Info("edge agent result delivered to HTTP handler",
 			"request_id", requestID,
-			"tool", toolResult.Tool,
-			"status", toolResult.Status,
 		)
 	case <-time.After(5 * time.Second):
-		o.logger.Warn("timeout delivering tool result",
+		o.logger.Warn("timeout delivering edge agent result",
 			"request_id", requestID,
 		)
-		delete(o.resultRegistry, requestID)
+		o.resultMu.Lock()
+		delete(o.edgeResultRegistry, requestID)
+		o.resultMu.Unlock()
 	}
 }
 
@@ -1457,6 +1496,133 @@ func getString(m map[string]interface{}, key string) string {
 		}
 	}
 	return ""
+}
+
+// processWithEdgeAgent forwards a message to an MQTT edge agent and waits for response
+func (o *Orchestrator) processWithEdgeAgent(agent *AgentState, msg Message, model string, start time.Time) {
+	requestID := fmt.Sprintf("prompt-%d", time.Now().UnixNano())
+	
+	o.logger.Info("forwarding to edge agent", "agent", agent.ID)
+	
+	// Create response channel for this request
+	respChan := make(chan map[string]interface{}, 1)
+	
+	// Register result handler
+	o.resultMu.Lock()
+	o.edgeResultRegistry[requestID] = respChan
+	o.resultMu.Unlock()
+	
+	// Clean up handler on exit
+	defer func() {
+		o.resultMu.Lock()
+		delete(o.edgeResultRegistry, requestID)
+		o.resultMu.Unlock()
+	}()
+	
+	// Send prompt to edge agent via MQTT
+	mqttMsg := Response{
+		AgentID:   agent.ID,
+		Channel:   "mqtt",
+		To:        agent.ID,
+		MessageID: requestID,
+		Content:   msg.Content,
+		Metadata: map[string]string{
+			"command": "prompt",
+		},
+	}
+	
+	o.mu.RLock()
+	mqttChan, ok := o.channels["mqtt"]
+	o.mu.RUnlock()
+	
+	if !ok {
+		o.logger.Error("mqtt channel not found")
+		agent.mu.Lock()
+		agent.ErrorCount++
+		agent.Metrics.FailedActions++
+		agent.mu.Unlock()
+		return
+	}
+	
+	if err := mqttChan.Send(o.ctx, mqttMsg); err != nil {
+		o.logger.Error("failed to send to edge agent", "error", err)
+		agent.mu.Lock()
+		agent.ErrorCount++
+		agent.Metrics.FailedActions++
+		agent.mu.Unlock()
+		return
+	}
+	
+	o.logger.Info("prompt sent to edge agent", "channel", "mqtt", "agent", agent.ID, "request_id", requestID, "prompt_length", len(msg.Content))
+	
+	// Wait for response with timeout
+	timeout := time.After(60 * time.Second)
+	select {
+	case result := <-respChan:
+		// Extract response content from edge agent result
+		content, _ := result["content"].(string)
+		status, _ := result["status"].(string)
+		
+		if status == "error" {
+			errorMsg, _ := result["error"].(string)
+			o.logger.Error("edge agent error", "agent", agent.ID, "error", errorMsg)
+			agent.mu.Lock()
+			agent.ErrorCount++
+			agent.Metrics.FailedActions++
+			agent.mu.Unlock()
+			return
+		}
+		
+		elapsed := time.Since(start)
+		
+		// Extract metadata if available
+		var inputTokens, outputTokens int64
+		if metadata, ok := result["metadata"].(map[string]interface{}); ok {
+			if it, ok := metadata["input_tokens"].(float64); ok {
+				inputTokens = int64(it)
+			}
+			if ot, ok := metadata["output_tokens"].(float64); ok {
+				outputTokens = int64(ot)
+			}
+		}
+		
+		// Update metrics
+		agent.mu.Lock()
+		agent.Metrics.TotalActions++
+		agent.Metrics.SuccessfulActions++
+		agent.Metrics.TokensUsed += inputTokens + outputTokens
+		n := float64(agent.Metrics.TotalActions)
+		agent.Metrics.AvgResponseMs = agent.Metrics.AvgResponseMs*(n-1)/n + float64(elapsed.Milliseconds())/n
+		agent.mu.Unlock()
+		
+		// Send response back to user
+		resp := &Response{
+			AgentID:   agent.ID,
+			Content:   content,
+			Channel:   msg.Channel,
+			To:        msg.From,
+			ReplyTo:   msg.ID,
+			MessageID: msg.ID,
+			Model:     model,
+		}
+		
+		select {
+		case o.outbox <- *resp:
+			o.logger.Info("edge agent response delivered", "agent", agent.ID, "elapsed", elapsed)
+		case <-time.After(5 * time.Second):
+			o.logger.Warn("timeout sending edge agent response to outbox")
+		}
+		
+	case <-timeout:
+		o.logger.Error("edge agent error", "agent", agent.ID, "error", "timeout waiting for response from "+agent.ID)
+		agent.mu.Lock()
+		agent.ErrorCount++
+		agent.Metrics.FailedActions++
+		agent.mu.Unlock()
+		
+	case <-o.ctx.Done():
+		return
+	}
 }
 
 // processDirect processes a message without tools (legacy mode)
