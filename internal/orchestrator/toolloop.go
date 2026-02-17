@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"log/slog"
@@ -175,9 +176,15 @@ func (tl *ToolLoop) callLLM(messages []ChatMessage, tools []ToolSchema, model st
 		return nil, nil, fmt.Errorf("no provider for model: %s", model)
 	}
 
+	// Extract just the model ID (after the /) for the API request
+	modelID := model
+	if idx := strings.Index(model, "/"); idx > 0 {
+		modelID = model[idx+1:]
+	}
+
 	// Prepare request with tools
 	req := ChatRequest{
-		Model:        model,
+		Model:        modelID,
 		SystemPrompt: "", // Use agent's system prompt
 		Messages:     messages,
 		MaxTokens:    4096,

@@ -131,11 +131,13 @@ type Orchestrator struct {
 	// Health registry for model selection
 	healthRegistry *router.HealthRegistry
 	// Tool management (NEW)
-	toolManager       *ToolManager
-	toolLoop          *ToolLoop
-	resultRegistry    map[string]chan *ToolResult
+	toolManager        *ToolManager
+	toolLoop           *ToolLoop
+	resultRegistry     map[string]chan *ToolResult
 	edgeResultRegistry map[string]chan map[string]interface{} // For edge agent prompt results
-	resultMu          sync.RWMutex
+	resultMu           sync.RWMutex
+	// MQTT channel for edge agent dispatch
+	mqttChannel *channels.MQTTChannel
 }
 
 // New creates a new Orchestrator
@@ -197,9 +199,10 @@ func (o *Orchestrator) Start() error {
 	for name, ch := range o.channels {
 		o.logger.Info("starting channel", "name", name)
 
-		// Wire up MQTT result callback
+		// Wire up MQTT result callback and store reference
 		if mqttCh, ok := ch.(*channels.MQTTChannel); ok {
 			mqttCh.SetResultCallback(o.DeliverToolResult)
+			o.mqttChannel = mqttCh // Store reference for edge dispatch
 			o.logger.Info("mqtt result callback wired", "channel", name)
 		}
 
@@ -459,8 +462,13 @@ func (o *Orchestrator) initMemory() error {
 		if provider == nil {
 			return "", fmt.Errorf("no LLM provider available for model %s", llmModel)
 		}
+		// Extract just the model ID (after the /) for the API request
+		modelID := llmModel
+		if idx := strings.Index(llmModel, "/"); idx > 0 {
+			modelID = llmModel[idx+1:]
+		}
 		resp, err := provider.Chat(ctx, ChatRequest{
-			Model:        llmModel,
+			Model:        modelID,
 			SystemPrompt: systemPrompt,
 			Messages:     []ChatMessage{{Role: "user", Content: userPrompt}},
 			MaxTokens:    512,
@@ -851,6 +859,58 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 	var resp *Response
 	var err error
 	var llmResp *ChatResponse
+
+	// Check if this is an edge agent (connected via MQTT)
+	if o.mqttChannel != nil && o.mqttChannel.IsEdgeAgentOnline(agent.ID) {
+		// Forward prompt to edge agent instead of processing locally
+		o.logger.Info("forwarding to edge agent", "agent", agent.ID)
+		edgeResp, edgeErr := o.mqttChannel.SendPromptAndWait(
+			o.ctx,
+			agent.ID,
+			msg.Content,
+			agent.Def.SystemPrompt,
+			60*time.Second, // 60s timeout for edge agent response
+		)
+
+		if edgeErr != nil {
+			o.logger.Error("edge agent error", "agent", agent.ID, "error", edgeErr)
+			agent.mu.Lock()
+			agent.ErrorCount++
+			agent.Metrics.FailedActions++
+			agent.mu.Unlock()
+			return
+		}
+
+		// Build response from edge agent
+		resp = &Response{
+			AgentID:   agent.ID,
+			Content:   edgeResp.Content,
+			Channel:   msg.Channel,
+			To:        msg.From,
+			ReplyTo:   msg.ID,
+			MessageID: msg.ID,
+			Model:     edgeResp.Model,
+		}
+
+		elapsed := time.Since(start)
+		o.logger.Info("edge agent responded",
+			"agent", agent.ID,
+			"model", edgeResp.Model,
+			"elapsed", elapsed,
+			"content_length", len(edgeResp.Content),
+		)
+
+		// Send response back through channel
+		o.outbox <- *resp
+
+		// Update metrics
+		agent.mu.Lock()
+		agent.Metrics.TotalActions++
+		agent.Metrics.SuccessfulActions++
+		agent.Metrics.AvgResponseMs = (agent.Metrics.AvgResponseMs + float64(elapsed.Milliseconds())) / 2
+		agent.mu.Unlock()
+		return
+	}
 
 	// Use tool loop if enabled and agent has capabilities
 	if o.toolLoop != nil && len(agent.Def.Capabilities) > 0 {
@@ -1631,8 +1691,14 @@ func (o *Orchestrator) processWithEdgeAgent(agent *AgentState, msg Message, mode
 
 // processDirect processes a message without tools (legacy mode)
 func (o *Orchestrator) processDirect(agent *AgentState, msg Message, model string) (*ChatResponse, error) {
+	// Extract just the model ID (after the /) for the API request
+	modelID := model
+	if idx := strings.Index(model, "/"); idx > 0 {
+		modelID = model[idx+1:]
+	}
+
 	req := ChatRequest{
-		Model:        model,
+		Model:        modelID,
 		SystemPrompt: agent.Def.SystemPrompt,
 		Messages: []ChatMessage{
 			{Role: "user", Content: msg.Content},

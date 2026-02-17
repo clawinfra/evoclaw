@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +28,34 @@ type EdgeAgentCommand struct {
 	RequestID string                 `json:"request_id"` // Unique request identifier
 }
 
+// EdgeAgentInfo tracks the status of an edge agent connected via MQTT
+type EdgeAgentInfo struct {
+	AgentID   string
+	Status    string    // "online", "idle", "busy", "error"
+	LastSeen  time.Time
+	Uptime    float64
+	CPU       float64
+	MemoryMB  float64
+}
+
+// PendingRequest tracks a request waiting for response
+type PendingRequest struct {
+	RequestID string
+	Response  chan *EdgeAgentResponse
+	CreatedAt time.Time
+}
+
+// EdgeAgentResponse represents a response from an edge agent
+type EdgeAgentResponse struct {
+	AgentID   string                 `json:"agent_id"`
+	RequestID string                 `json:"request_id"`
+	Content   string                 `json:"content"`
+	Model     string                 `json:"model,omitempty"`
+	Status    string                 `json:"status"` // "success", "error"
+	Error     string                 `json:"error,omitempty"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+}
+
 // MQTTChannel implements the Channel interface for MQTT communication
 type MQTTChannel struct {
 	broker   string
@@ -45,6 +74,12 @@ type MQTTChannel struct {
 	// Result callback for tool execution results
 	resultCallback func(requestID string, result map[string]interface{})
 	resultMu       sync.RWMutex
+	// Edge agent tracking
+	edgeAgents   map[string]*EdgeAgentInfo
+	edgeAgentsMu sync.RWMutex
+	// Pending requests waiting for responses
+	pendingRequests   map[string]*PendingRequest
+	pendingRequestsMu sync.RWMutex
 }
 
 // NewMQTT creates a new MQTT channel adapter
@@ -60,7 +95,9 @@ func NewMQTT(broker string, port int, username, password string, logger *slog.Lo
 		clientFactory: func(opts *mqtt.ClientOptions) MQTTClient {
 			return &DefaultMQTTClient{client: mqtt.NewClient(opts)}
 		},
-		resultCallback: nil, // Will be set by orchestrator
+		resultCallback:  nil, // Will be set by orchestrator
+		edgeAgents:      make(map[string]*EdgeAgentInfo),
+		pendingRequests: make(map[string]*PendingRequest),
 	}
 }
 
@@ -75,7 +112,9 @@ func NewMQTTWithClient(broker string, port int, username, password string, logge
 		logger:          logger.With("channel", "mqtt"),
 		inbox:           make(chan types.Message, 100),
 		clientFactory:   clientFactory,
-		resultCallback: nil, // Will be set by orchestrator
+		resultCallback:  nil, // Will be set by orchestrator
+		edgeAgents:      make(map[string]*EdgeAgentInfo),
+		pendingRequests: make(map[string]*PendingRequest),
 	}
 }
 
@@ -257,6 +296,13 @@ func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 
 	m.logger.Info("incoming message", "channel", "mqtt", "from", extractAgentID(mqttMsg.Topic()), "length", len(mqttMsg.Payload()))
 
+	// Extract agent ID from topic for heartbeat tracking
+	topic := mqttMsg.Topic()
+	var agentIDFromTopic string
+	if parts := strings.Split(topic, "/"); len(parts) >= 3 {
+		agentIDFromTopic = parts[2]
+	}
+
 	// Try to parse as AgentReport first (new edge agent format)
 	var report AgentReport
 	if err := json.Unmarshal(mqttMsg.Payload(), &report); err == nil {
@@ -279,8 +325,25 @@ func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 			m.handleEdgeAgentResult(report)
 			return
 		case "heartbeat":
-			// Heartbeat - log and ignore
+			// Heartbeat - update tracking state and return
 			m.logger.Debug("heartbeat received", "agent", report.AgentID)
+			agentID := report.AgentID
+			if agentID == "" {
+				agentID = agentIDFromTopic
+			}
+			if agentID != "" {
+				m.edgeAgentsMu.Lock()
+				if existing, ok := m.edgeAgents[agentID]; ok {
+					existing.LastSeen = time.Now()
+				} else {
+					m.edgeAgents[agentID] = &EdgeAgentInfo{
+						AgentID:  agentID,
+						Status:   "online",
+						LastSeen: time.Now(),
+					}
+				}
+				m.edgeAgentsMu.Unlock()
+			}
 			return
 		}
 	}
@@ -288,6 +351,14 @@ func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 	// Fallback: Try to parse as generic map for old tool result format
 	var genericPayload map[string]interface{}
 	if err := json.Unmarshal(mqttMsg.Payload(), &genericPayload); err == nil {
+		// Check if this is a response to a pending prompt request
+		if requestID, ok := genericPayload["request_id"].(string); ok {
+			if m.handleEdgeAgentResponse(genericPayload) {
+				m.logger.Debug("message routed to pending request", "request_id", requestID)
+				return // Message handled, don't forward to inbox
+			}
+		}
+
 		// Check if this is a tool result (has "tool" and "status" fields)
 		if toolName, ok := genericPayload["tool"].(string); ok {
 			if status, ok := genericPayload["status"].(string); ok {
@@ -414,14 +485,23 @@ func (m *MQTTChannel) handleStatus(client mqtt.Client, mqttMsg mqtt.Message) {
 		return
 	}
 
-	m.logger.Debug("agent status",
+	// Update edge agent registry
+	m.edgeAgentsMu.Lock()
+	m.edgeAgents[status.AgentID] = &EdgeAgentInfo{
+		AgentID:  status.AgentID,
+		Status:   status.Status,
+		LastSeen: time.Now(),
+		Uptime:   status.Uptime,
+		CPU:      status.CPU,
+		MemoryMB: status.Memory,
+	}
+	m.edgeAgentsMu.Unlock()
+
+	m.logger.Debug("agent status updated",
 		"agent", status.AgentID,
 		"status", status.Status,
 		"uptime", status.Uptime,
 	)
-
-	// TODO: Update agent registry with heartbeat info
-	// This would integrate with internal/agents/registry.go
 }
 
 // Broadcast sends a message to all agents
@@ -482,4 +562,182 @@ func (m *MQTTChannel) handleToolResult(payload map[string]interface{}) {
 		"tool", payload["tool"],
 		"status", payload["status"],
 	)
+}
+
+// IsEdgeAgentOnline checks if an agent is connected via MQTT and recently active
+func (m *MQTTChannel) IsEdgeAgentOnline(agentID string) bool {
+	m.edgeAgentsMu.RLock()
+	defer m.edgeAgentsMu.RUnlock()
+
+	info, exists := m.edgeAgents[agentID]
+	if !exists {
+		return false
+	}
+
+	// Consider online if seen within last 2 minutes
+	return time.Since(info.LastSeen) < 2*time.Minute
+}
+
+// GetEdgeAgentInfo returns info about an edge agent
+func (m *MQTTChannel) GetEdgeAgentInfo(agentID string) *EdgeAgentInfo {
+	m.edgeAgentsMu.RLock()
+	defer m.edgeAgentsMu.RUnlock()
+
+	if info, exists := m.edgeAgents[agentID]; exists {
+		// Return a copy
+		infoCopy := *info
+		return &infoCopy
+	}
+	return nil
+}
+
+// GetOnlineEdgeAgents returns list of currently online edge agents
+func (m *MQTTChannel) GetOnlineEdgeAgents() []string {
+	m.edgeAgentsMu.RLock()
+	defer m.edgeAgentsMu.RUnlock()
+
+	var online []string
+	for id, info := range m.edgeAgents {
+		if time.Since(info.LastSeen) < 2*time.Minute {
+			online = append(online, id)
+		}
+	}
+	return online
+}
+
+// SendPromptAndWait sends a prompt to an edge agent and waits for the response
+// This is used to forward LLM prompts to edge agents that run their own tool loops
+func (m *MQTTChannel) SendPromptAndWait(ctx context.Context, agentID, prompt, systemPrompt string, timeout time.Duration) (*EdgeAgentResponse, error) {
+	if !m.client.IsConnected() {
+		return nil, fmt.Errorf("mqtt not connected")
+	}
+
+	// Check if agent is online
+	if !m.IsEdgeAgentOnline(agentID) {
+		return nil, fmt.Errorf("edge agent %s is not online", agentID)
+	}
+
+	// Generate unique request ID
+	requestID := fmt.Sprintf("prompt-%d", time.Now().UnixNano())
+
+	// Create response channel
+	respChan := make(chan *EdgeAgentResponse, 1)
+
+	// Register pending request
+	m.pendingRequestsMu.Lock()
+	m.pendingRequests[requestID] = &PendingRequest{
+		RequestID: requestID,
+		Response:  respChan,
+		CreatedAt: time.Now(),
+	}
+	m.pendingRequestsMu.Unlock()
+
+	// Cleanup on exit
+	defer func() {
+		m.pendingRequestsMu.Lock()
+		delete(m.pendingRequests, requestID)
+		m.pendingRequestsMu.Unlock()
+	}()
+
+	// Build command for edge agent
+	cmd := EdgeAgentCommand{
+		Command:   "prompt",
+		RequestID: requestID,
+		Payload: map[string]interface{}{
+			"prompt":        prompt,
+			"system_prompt": systemPrompt,
+			"sent_at":       time.Now().Unix(),
+		},
+	}
+
+	// Serialize and publish
+	topic := fmt.Sprintf(commandsTopic, agentID)
+	payload, err := json.Marshal(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("marshal command: %w", err)
+	}
+
+	token := m.client.Publish(topic, 1, false, payload)
+	if !token.WaitTimeout(5 * time.Second) {
+		return nil, fmt.Errorf("publish timeout")
+	}
+	if err := token.Error(); err != nil {
+		return nil, fmt.Errorf("publish: %w", err)
+	}
+
+	m.logger.Info("prompt sent to edge agent",
+		"agent", agentID,
+		"request_id", requestID,
+		"prompt_length", len(prompt),
+	)
+
+	// Wait for response with timeout
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	select {
+	case resp := <-respChan:
+		return resp, nil
+	case <-timeoutCtx.Done():
+		return nil, fmt.Errorf("timeout waiting for response from %s", agentID)
+	}
+}
+
+// handleEdgeAgentResponse routes LLM responses to pending requests
+func (m *MQTTChannel) handleEdgeAgentResponse(payload map[string]interface{}) bool {
+	requestID, ok := payload["request_id"].(string)
+	if !ok || requestID == "" {
+		return false
+	}
+
+	m.pendingRequestsMu.RLock()
+	pending, exists := m.pendingRequests[requestID]
+	m.pendingRequestsMu.RUnlock()
+
+	if !exists {
+		return false
+	}
+
+	// Build response
+	resp := &EdgeAgentResponse{
+		RequestID: requestID,
+	}
+
+	if agentID, ok := payload["agent_id"].(string); ok {
+		resp.AgentID = agentID
+	}
+	if content, ok := payload["content"].(string); ok {
+		resp.Content = content
+	}
+	if model, ok := payload["model"].(string); ok {
+		resp.Model = model
+	}
+	if status, ok := payload["status"].(string); ok {
+		resp.Status = status
+	} else {
+		resp.Status = "success" // Default to success if not specified
+	}
+	if errMsg, ok := payload["error"].(string); ok {
+		resp.Error = errMsg
+		resp.Status = "error"
+	}
+	if metadata, ok := payload["metadata"].(map[string]interface{}); ok {
+		resp.Metadata = metadata
+	}
+
+	// Send to waiting goroutine
+	select {
+	case pending.Response <- resp:
+		m.logger.Debug("response delivered to pending request",
+			"request_id", requestID,
+			"agent", resp.AgentID,
+			"status", resp.Status,
+		)
+		return true
+	default:
+		m.logger.Warn("pending request channel full or closed",
+			"request_id", requestID,
+		)
+		return false
+	}
 }
