@@ -91,7 +91,7 @@ impl LLMClient {
         let base_url = std::env::var("LLM_BASE_URL").ok()?;
         let api_key = std::env::var("LLM_API_KEY").ok()?;
         let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| "glm-4.7".to_string());
-        
+
         Some(Self::new(&base_url, &api_key, &model))
     }
 
@@ -136,7 +136,8 @@ impl LLMClient {
         if !status.is_success() {
             // Try to parse error
             if let Ok(err) = serde_json::from_str::<ErrorResponse>(&body) {
-                let msg = err.msg
+                let msg = err
+                    .msg
                     .or_else(|| err.error.and_then(|e| e.message))
                     .unwrap_or_else(|| "unknown error".to_string());
                 return Err(format!("LLM API error {}: {}", status, msg).into());
@@ -187,11 +188,7 @@ mod tests {
 
     #[test]
     fn test_llm_client_new() {
-        let client = LLMClient::new(
-            "https://api.example.com",
-            "test-key",
-            "test-model",
-        );
+        let client = LLMClient::new("https://api.example.com", "test-key", "test-model");
         assert_eq!(client.base_url, "https://api.example.com");
         assert_eq!(client.api_key, "test-key");
         assert_eq!(client.model, "test-model");

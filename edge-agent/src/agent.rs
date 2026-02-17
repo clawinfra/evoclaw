@@ -57,7 +57,10 @@ impl EdgeAgent {
 
         // Initialize edge device tools
         let tools = EdgeTools::new();
-        info!(tool_count = tools.get_tool_definitions().len(), "edge tools initialized");
+        info!(
+            tool_count = tools.get_tool_definitions().len(),
+            "edge tools initialized"
+        );
 
         let agent = Self {
             config,

@@ -470,12 +470,16 @@ impl EdgeAgent {
 
     // Handle tool execution - uses EdgeTools for built-in tools
     async fn handle_tool(&mut self, cmd: &AgentCommand) -> CommandResult {
-        let tool_name = cmd.payload.get("tool")
+        let tool_name = cmd
+            .payload
+            .get("tool")
             .and_then(|v| v.as_str())
             .ok_or("missing tool name")?;
 
         // Convert parameters to HashMap
-        let parameters: HashMap<String, Value> = cmd.payload.get("parameters")
+        let parameters: HashMap<String, Value> = cmd
+            .payload
+            .get("parameters")
             .and_then(|v| v.as_object())
             .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
             .unwrap_or_default();
@@ -511,7 +515,9 @@ impl EdgeAgent {
 
     // Handle sensor command - quick access to common sensors
     async fn handle_sensor(&mut self, cmd: &AgentCommand) -> CommandResult {
-        let sensor_type = cmd.payload.get("type")
+        let sensor_type = cmd
+            .payload
+            .get("type")
             .and_then(|v| v.as_str())
             .unwrap_or("all");
 
@@ -590,9 +596,11 @@ impl EdgeAgent {
                     "request_id": cmd.request_id
                 }))
             }
-            _ => {
-                Err(format!("unknown sensor type: {}. Available: temperature, cpu, memory, disk, system, all", sensor_type).into())
-            }
+            _ => Err(format!(
+                "unknown sensor type: {}. Available: temperature, cpu, memory, disk, system, all",
+                sensor_type
+            )
+            .into()),
         }
     }
 
@@ -618,18 +626,23 @@ impl EdgeAgent {
     // Handle prompt command from orchestrator with tool execution support
     // This runs the LLM locally on the edge agent and executes tool calls
     async fn handle_prompt(&mut self, cmd: &AgentCommand) -> CommandResult {
-        let prompt = cmd.payload.get("prompt")
+        let prompt = cmd
+            .payload
+            .get("prompt")
             .and_then(|v| v.as_str())
             .ok_or("missing prompt")?;
 
-        let system_prompt = cmd.payload.get("system_prompt")
-            .and_then(|v| v.as_str());
+        let system_prompt = cmd.payload.get("system_prompt").and_then(|v| v.as_str());
 
-        let enable_tools = cmd.payload.get("enable_tools")
+        let enable_tools = cmd
+            .payload
+            .get("enable_tools")
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
 
-        let max_tokens = cmd.payload.get("max_tokens")
+        let max_tokens = cmd
+            .payload
+            .get("max_tokens")
             .and_then(|v| v.as_u64())
             .unwrap_or(4096) as u32;
 
@@ -657,13 +670,16 @@ impl EdgeAgent {
         // Build system prompt with tool definitions if tools are enabled
         let full_system_prompt = if enable_tools {
             let tool_defs = self.tools.get_tool_definitions();
-            let tools_json: Vec<serde_json::Value> = tool_defs.iter().map(|t| {
-                serde_json::json!({
-                    "name": t.name,
-                    "description": t.description,
-                    "parameters": t.parameters
+            let tools_json: Vec<serde_json::Value> = tool_defs
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": t.parameters
+                    })
                 })
-            }).collect();
+                .collect();
 
             let tools_section = format!(
                 "\n\nYou have access to the following tools on this Raspberry Pi:\n{}\n\nTo use a tool, respond with EXACTLY this format (one tool per line):\nTOOL_CALL: {{\"name\": \"tool_name\", \"arguments\": {{...}}}}\n\nAfter receiving tool results, provide your final response.",
@@ -672,14 +688,22 @@ impl EdgeAgent {
 
             match system_prompt {
                 Some(sp) => format!("{}{}", sp, tools_section),
-                None => format!("You are a helpful edge agent running on a Raspberry Pi.{}", tools_section),
+                None => format!(
+                    "You are a helpful edge agent running on a Raspberry Pi.{}",
+                    tools_section
+                ),
             }
         } else {
-            system_prompt.map(String::from).unwrap_or_else(|| "You are a helpful assistant.".to_string())
+            system_prompt
+                .map(String::from)
+                .unwrap_or_else(|| "You are a helpful assistant.".to_string())
         };
 
         // First LLM call
-        match llm_client.complete(prompt, Some(&full_system_prompt), max_tokens).await {
+        match llm_client
+            .complete(prompt, Some(&full_system_prompt), max_tokens)
+            .await
+        {
             Ok(response) => {
                 let mut final_content = response.content.clone();
                 let mut tool_results: Vec<serde_json::Value> = Vec::new();
@@ -693,11 +717,19 @@ impl EdgeAgent {
                     // Extract and execute tool calls
                     for line in response.content.lines() {
                         if let Some(tool_json) = line.strip_prefix("TOOL_CALL:") {
-                            if let Ok(tool_call) = serde_json::from_str::<serde_json::Value>(tool_json.trim()) {
-                                let tool_name = tool_call.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                                let arguments = tool_call.get("arguments")
+                            if let Ok(tool_call) =
+                                serde_json::from_str::<serde_json::Value>(tool_json.trim())
+                            {
+                                let tool_name =
+                                    tool_call.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                                let arguments = tool_call
+                                    .get("arguments")
                                     .and_then(|v| v.as_object())
-                                    .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect::<HashMap<String, Value>>())
+                                    .map(|obj| {
+                                        obj.iter()
+                                            .map(|(k, v)| (k.clone(), v.clone()))
+                                            .collect::<HashMap<String, Value>>()
+                                    })
                                     .unwrap_or_default();
 
                                 info!(tool = %tool_name, "executing tool from LLM request");
@@ -724,7 +756,10 @@ impl EdgeAgent {
                             tool_results_str
                         );
 
-                        match llm_client.complete(&followup_prompt, Some(&full_system_prompt), max_tokens).await {
+                        match llm_client
+                            .complete(&followup_prompt, Some(&full_system_prompt), max_tokens)
+                            .await
+                        {
                             Ok(followup_response) => {
                                 final_content = followup_response.content;
                                 total_input_tokens += followup_response.input_tokens;
@@ -735,8 +770,7 @@ impl EdgeAgent {
                                 // Fall back to original response + tool results
                                 final_content = format!(
                                     "{}\n\nTool Results:\n{}",
-                                    response.content,
-                                    tool_results_str
+                                    response.content, tool_results_str
                                 );
                             }
                         }

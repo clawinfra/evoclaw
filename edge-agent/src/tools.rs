@@ -80,8 +80,8 @@ impl EdgeTools {
                 "pwd".to_string(),
                 "ip".to_string(),
                 "ping".to_string(),
-                "vcgencmd".to_string(), // Pi-specific
-                "raspistill".to_string(), // Pi camera
+                "vcgencmd".to_string(),        // Pi-specific
+                "raspistill".to_string(),      // Pi camera
                 "libcamera-still".to_string(), // Pi camera (newer)
             ],
             allowed_gpio_pins: vec![2, 3, 4, 17, 27, 22, 10, 9, 11, 5, 6, 13, 19, 26],
@@ -111,7 +111,8 @@ impl EdgeTools {
             },
             ToolDefinition {
                 name: "read_memory".to_string(),
-                description: "Get memory usage information (total, used, free, available)".to_string(),
+                description: "Get memory usage information (total, used, free, available)"
+                    .to_string(),
                 parameters: serde_json::json!({
                     "type": "object",
                     "properties": {},
@@ -129,7 +130,8 @@ impl EdgeTools {
             },
             ToolDefinition {
                 name: "system_info".to_string(),
-                description: "Get comprehensive system information (hostname, uptime, kernel, etc)".to_string(),
+                description: "Get comprehensive system information (hostname, uptime, kernel, etc)"
+                    .to_string(),
                 parameters: serde_json::json!({
                     "type": "object",
                     "properties": {},
@@ -201,7 +203,8 @@ impl EdgeTools {
             },
             ToolDefinition {
                 name: "network_info".to_string(),
-                description: "Get network interface information and connectivity status".to_string(),
+                description: "Get network interface information and connectivity status"
+                    .to_string(),
                 parameters: serde_json::json!({
                     "type": "object",
                     "properties": {},
@@ -499,7 +502,8 @@ impl EdgeTools {
                         let total: u64 = parts[1].parse().unwrap_or(0);
                         let used: u64 = parts[2].parse().unwrap_or(0);
                         let available: u64 = parts[3].parse().unwrap_or(0);
-                        let usage_percent = parts[4].trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
+                        let usage_percent =
+                            parts[4].trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
 
                         return ToolResult::ok(serde_json::json!({
                             "filesystem": parts[0],
@@ -600,7 +604,7 @@ impl EdgeTools {
                 for offset in offsets {
                     let gpio_num = offset + pin as u32;
                     let gpio_path = format!("/sys/class/gpio/gpio{}/value", gpio_num);
-                    
+
                     if let Ok(value) = fs::read_to_string(&gpio_path) {
                         let state = value.trim().parse::<u8>().unwrap_or(0);
                         return ToolResult::ok(serde_json::json!({
@@ -634,7 +638,7 @@ impl EdgeTools {
         // Use gpioset (libgpiod) - works without root on modern Pi OS
         match Command::new("gpioset")
             .args([
-                "--mode=signal",  // Hold the value until interrupted
+                "--mode=signal", // Hold the value until interrupted
                 "gpiochip0",
                 &format!("{}={}", pin, gpio_value),
             ])
@@ -643,10 +647,10 @@ impl EdgeTools {
             Ok(mut child) => {
                 // Give it a moment to set the value
                 std::thread::sleep(std::time::Duration::from_millis(50));
-                
+
                 // Kill the process (we just wanted to set the value)
                 let _ = child.kill();
-                
+
                 ToolResult::ok(serde_json::json!({
                     "pin": pin,
                     "value": if value > 0 { 1 } else { 0 },
@@ -657,9 +661,7 @@ impl EdgeTools {
             Err(e) => {
                 // If gpioset not available, provide helpful error
                 if e.kind() == std::io::ErrorKind::NotFound {
-                    ToolResult::err(
-                        "gpioset not found. Install libgpiod: sudo apt install gpiod"
-                    )
+                    ToolResult::err("gpioset not found. Install libgpiod: sudo apt install gpiod")
                 } else {
                     ToolResult::err(format!("Failed to set GPIO {}: {}", pin, e))
                 }
@@ -677,21 +679,22 @@ impl EdgeTools {
             if output.status.success() {
                 method = "libgpiod";
                 let info = String::from_utf8_lossy(&output.stdout);
-                
+
                 for &pin in &self.allowed_gpio_pins {
                     // Parse gpioinfo output for this pin
                     let pin_pattern = format!("line {:>3}:", pin);
-                    let line_info = info.lines()
+                    let line_info = info
+                        .lines()
                         .find(|l| l.contains(&pin_pattern))
                         .map(|l| l.to_string());
-                    
+
                     pins.push(serde_json::json!({
                         "pin": pin,
                         "info": line_info,
                         "available": true
                     }));
                 }
-                
+
                 return ToolResult::ok(serde_json::json!({
                     "pins": pins,
                     "allowed_pins": self.allowed_gpio_pins,
@@ -706,7 +709,7 @@ impl EdgeTools {
             // Check both with and without offset
             let mut state: Option<u8> = None;
             let mut gpio_num: Option<u32> = None;
-            
+
             for offset in [0u32, 512] {
                 let num = offset + pin as u32;
                 let gpio_path = format!("/sys/class/gpio/gpio{}/value", num);
@@ -891,7 +894,9 @@ impl EdgeTools {
             "/etc/os-release",
         ];
 
-        let path_allowed = allowed_prefixes.iter().any(|prefix| path.starts_with(prefix));
+        let path_allowed = allowed_prefixes
+            .iter()
+            .any(|prefix| path.starts_with(prefix));
         if !path_allowed {
             return ToolResult::err(format!(
                 "Path not allowed. Must start with one of: {:?}",
@@ -983,11 +988,7 @@ impl EdgeTools {
         };
 
         match Command::new("ps")
-            .args([
-                "aux",
-                "--sort",
-                &format!("-{}", sort_key),
-            ])
+            .args(["aux", "--sort", &format!("-{}", sort_key)])
             .output()
         {
             Ok(output) => {
