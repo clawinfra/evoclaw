@@ -1,7 +1,7 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tracing::{info, warn};
+use tracing::info;
 
 /// LLM client for calling language models via Anthropic-compatible API
 pub struct LLMClient {
@@ -27,9 +27,11 @@ struct ChatMessage {
 
 #[derive(Debug, Clone, Deserialize)]
 struct ChatResponse {
+    #[allow(dead_code)]
     id: Option<String>,
     content: Vec<ContentBlock>,
     model: Option<String>,
+    #[allow(dead_code)]
     stop_reason: Option<String>,
     usage: Option<Usage>,
 }
@@ -56,6 +58,7 @@ struct ErrorResponse {
 #[derive(Debug, Clone, Deserialize)]
 struct ErrorDetail {
     #[serde(rename = "type")]
+    #[allow(dead_code)]
     error_type: Option<String>,
     message: Option<String>,
 }

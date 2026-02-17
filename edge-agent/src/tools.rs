@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
 use std::process::Command;
 use tracing::{info, warn};
 
@@ -587,12 +586,12 @@ impl EdgeTools {
             Ok(output) if output.status.success() => {
                 let value_str = String::from_utf8_lossy(&output.stdout);
                 let state = value_str.trim().parse::<u8>().unwrap_or(0);
-                return ToolResult::ok(serde_json::json!({
+                ToolResult::ok(serde_json::json!({
                     "pin": pin,
                     "value": state,
                     "state": if state == 1 { "HIGH" } else { "LOW" },
                     "method": "libgpiod"
-                }));
+                }))
             }
             _ => {
                 // Fallback to sysfs with offset handling
@@ -671,7 +670,7 @@ impl EdgeTools {
     /// List all GPIO pins and their states
     pub fn gpio_list(&self) -> ToolResult {
         let mut pins = Vec::new();
-        let mut method = "unknown";
+        let method;
 
         // Try gpioinfo first for comprehensive info
         if let Ok(output) = Command::new("gpioinfo").arg("gpiochip0").output() {
