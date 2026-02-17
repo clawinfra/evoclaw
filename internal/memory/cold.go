@@ -51,8 +51,11 @@ func NewColdMemory(client *cloudsync.Client, agentID string, logger *slog.Logger
 
 // InitSchema creates the cold_memory table if it doesn't exist
 func (c *ColdMemory) InitSchema(ctx context.Context) error {
-	schema := `
-CREATE TABLE IF NOT EXISTS cold_memory (
+	// Turso HTTP pipeline API requires one statement per execute request.
+	// Bundling multiple statements causes SQL_MANY_STATEMENTS error.
+	// Use BatchExecute to run each DDL statement individually in order.
+	statements := []cloudsync.Statement{
+		{SQL: `CREATE TABLE IF NOT EXISTS cold_memory (
 	id TEXT PRIMARY KEY,
 	agent_id TEXT NOT NULL,
 	timestamp INTEGER NOT NULL,
@@ -64,15 +67,14 @@ CREATE TABLE IF NOT EXISTS cold_memory (
 	access_count INTEGER DEFAULT 0,
 	last_accessed INTEGER,
 	created_at INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_cold_category ON cold_memory(agent_id, category);
-CREATE INDEX IF NOT EXISTS idx_cold_timestamp ON cold_memory(agent_id, timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_cold_importance ON cold_memory(agent_id, importance DESC);
-`
+)`},
+		{SQL: `CREATE INDEX IF NOT EXISTS idx_cold_category ON cold_memory(agent_id, category)`},
+		{SQL: `CREATE INDEX IF NOT EXISTS idx_cold_timestamp ON cold_memory(agent_id, timestamp DESC)`},
+		{SQL: `CREATE INDEX IF NOT EXISTS idx_cold_importance ON cold_memory(agent_id, importance DESC)`},
+	}
 
 	c.logger.Info("initializing cold_memory schema")
-	return c.client.Execute(ctx, schema)
+	return c.client.BatchExecute(ctx, statements)
 }
 
 // Add archives a warm entry to cold storage

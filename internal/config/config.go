@@ -256,7 +256,7 @@ type AgentDef struct {
 	Name         string          `json:"name"`
 	Type         string          `json:"type"` // "orchestrator", "trader", "monitor", "governance"
 	Model        string          `json:"model"`
-	SystemPrompt string          `json:"systemPrompt,omitempty"`
+	SystemPrompt string          `json:"systemPrompt"`
 	Skills       []string        `json:"skills"`
 	Capabilities []string        `json:"capabilities,omitempty"`
 	Genome       *Genome         `json:"genome,omitempty"`

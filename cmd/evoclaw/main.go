@@ -345,11 +345,18 @@ func parseLogLevel(level string) slog.Level {
 	}
 }
 
-// initializeAgents creates agents from config if they don't exist
+// initializeAgents creates agents from config if they don't exist,
+// or updates them if the config has changed (e.g. new systemPrompt).
 func initializeAgents(registry *agents.Registry, cfg *config.Config, logger *slog.Logger) error {
 	for _, agentDef := range cfg.Agents {
 		if _, err := registry.Get(agentDef.ID); err == nil {
-			logger.Info("agent already loaded", "id", agentDef.ID)
+			// Agent exists — update it from config so runtime changes
+			// (model, systemPrompt, capabilities, etc.) are always applied.
+			if err := registry.Update(agentDef.ID, agentDef); err != nil {
+				logger.Warn("failed to update agent from config", "id", agentDef.ID, "error", err)
+			} else {
+				logger.Info("agent synced from config", "id", agentDef.ID)
+			}
 			continue
 		}
 
