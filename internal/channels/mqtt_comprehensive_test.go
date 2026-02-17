@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/types"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -212,7 +212,7 @@ func TestMQTTSend_Success(t *testing.T) {
 
 	mqttChan.client = mockClient
 
-	msg := orchestrator.Response{
+	msg := types.Response{
 		AgentID: "agent-1",
 		Content: "Test message",
 		To:      "device-123",
@@ -233,20 +233,20 @@ func TestMQTTSend_Success(t *testing.T) {
 		t.Errorf("unexpected topic: %s", publishedTopic)
 	}
 
-	// Verify payload
-	var payload map[string]interface{}
-	if err := json.Unmarshal(publishedPayload, &payload); err != nil {
+	// Verify payload — Send wraps in EdgeAgentCommand
+	var cmd EdgeAgentCommand
+	if err := json.Unmarshal(publishedPayload, &cmd); err != nil {
 		t.Fatalf("failed to unmarshal payload: %v", err)
 	}
 
-	if payload["agent_id"] != "agent-1" {
-		t.Errorf("expected agent_id 'agent-1', got %v", payload["agent_id"])
+	if cmd.Payload["agent_id"] != "agent-1" {
+		t.Errorf("expected agent_id 'agent-1', got %v", cmd.Payload["agent_id"])
 	}
-	if payload["content"] != "Test message" {
-		t.Errorf("expected content 'Test message', got %v", payload["content"])
+	if cmd.Payload["content"] != "Test message" {
+		t.Errorf("expected content 'Test message', got %v", cmd.Payload["content"])
 	}
-	if payload["reply_to"] != "msg-456" {
-		t.Errorf("expected reply_to 'msg-456', got %v", payload["reply_to"])
+	if cmd.Payload["reply_to"] != "msg-456" {
+		t.Errorf("expected reply_to 'msg-456', got %v", cmd.Payload["reply_to"])
 	}
 }
 
@@ -268,7 +268,7 @@ func TestMQTTSend_NotConnected(t *testing.T) {
 
 	mqttChan.client = mockClient
 
-	msg := orchestrator.Response{
+	msg := types.Response{
 		Content: "Test",
 		To:      "device-1",
 		Channel: "mqtt",
@@ -301,7 +301,7 @@ func TestMQTTSend_PublishTimeout(t *testing.T) {
 
 	mqttChan.client = mockClient
 
-	msg := orchestrator.Response{
+	msg := types.Response{
 		Content: "Test",
 		To:      "device-1",
 		Channel: "mqtt",
@@ -328,7 +328,7 @@ func TestMQTTHandleMessage(t *testing.T) {
 	)
 
 	mqttChan.ctx = context.Background()
-	mqttChan.inbox = make(chan orchestrator.Message, 10)
+	mqttChan.inbox = make(chan types.Message, 10)
 
 	// Simulate message payload
 	payload := map[string]interface{}{
@@ -380,7 +380,7 @@ func TestMQTTHandleMessage_InvalidJSON(t *testing.T) {
 	)
 
 	mqttChan.ctx = context.Background()
-	mqttChan.inbox = make(chan orchestrator.Message, 10)
+	mqttChan.inbox = make(chan types.Message, 10)
 
 	mockMsg := &MockMQTTMessage{
 		topic:   "evoclaw/agents/agent-1/reports",

@@ -1441,23 +1441,23 @@ type AgentInfo struct {
 	Metrics      AgentMetrics
 }
 
-// ListAgents returns all registered agents (safe copies without mutex)
-func (o *Orchestrator) ListAgents() []AgentInfo {
+// ListAgents returns all registered agents as types.AgentInfo (safe copies without mutex)
+func (o *Orchestrator) ListAgents() []types.AgentInfo {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	agents := make([]AgentInfo, 0, len(o.agents))
+	agents := make([]types.AgentInfo, 0, len(o.agents))
 	for _, a := range o.agents {
 		a.mu.RLock()
-		agents = append(agents, AgentInfo{
+		agents = append(agents, types.AgentInfo{
 			ID:           a.ID,
-			Def:          a.Def,
+			Name:         a.Def.Name,
+			Model:        a.Def.Model,
 			Status:       a.Status,
 			StartedAt:    a.StartedAt,
 			LastActive:   a.LastActive,
 			MessageCount: a.MessageCount,
 			ErrorCount:   a.ErrorCount,
-			Metrics:      a.Metrics,
 		})
 		a.mu.RUnlock()
 	}

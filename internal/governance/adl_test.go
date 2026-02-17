@@ -1,6 +1,7 @@
 package governance
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,7 +9,7 @@ import (
 
 func TestNewADL(t *testing.T) {
 	tmpDir := t.TempDir()
-	logger := nil
+	var logger *slog.Logger
 
 	adl, err := NewADL(tmpDir, logger)
 	if err != nil {

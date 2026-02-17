@@ -326,7 +326,7 @@ func TestClassifyError(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := ClassifyError(os.ErrInvalid) // Placeholder error
+		_ = ClassifyError(os.ErrInvalid) // Placeholder error
 		// Test the pattern matching directly
 		if tt.errMsg == "" {
 			continue

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/types"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -127,7 +127,7 @@ func TestTelegramSend_Success(t *testing.T) {
 
 	tg := NewTelegramWithClient("test-token", testLogger(), mockClient)
 
-	msg := orchestrator.Response{
+	msg := types.Response{
 		Content: "Hello, world!",
 		To:      "12345",
 		Channel: "telegram",
@@ -158,7 +158,7 @@ func TestTelegramSend_WithReplyTo(t *testing.T) {
 
 	tg := NewTelegramWithClient("test-token", testLogger(), mockClient)
 
-	msg := orchestrator.Response{
+	msg := types.Response{
 		Content: "Reply message",
 		To:      "12345",
 		ReplyTo: "777",
@@ -183,7 +183,7 @@ func TestTelegramSend_APIError(t *testing.T) {
 
 	tg := NewTelegramWithClient("test-token", testLogger(), mockClient)
 
-	msg := orchestrator.Response{
+	msg := types.Response{
 		Content: "Test",
 		To:      "invalid",
 		Channel: "telegram",
@@ -507,7 +507,7 @@ func TestTelegramSend_RequestCreationError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	msg := orchestrator.Response{
+	msg := types.Response{
 		Content: "Test",
 		To:      "12345",
 		Channel: "telegram",
@@ -632,7 +632,7 @@ func TestMQTTSend_WithMetadata(t *testing.T) {
 
 	mqttChan.client = mockClient
 
-	msg := orchestrator.Response{
+	msg := types.Response{
 		AgentID: "agent-1",
 		Content: "Test message",
 		To:      "device-123",
@@ -652,13 +652,20 @@ func TestMQTTSend_WithMetadata(t *testing.T) {
 		t.Fatal("expected Publish to be called")
 	}
 
-	// Verify metadata in payload
-	var payload map[string]interface{}
-	if err := json.Unmarshal(publishedPayload, &payload); err != nil {
+	// Verify metadata in payload — Send wraps in EdgeAgentCommand
+	var cmd EdgeAgentCommand
+	if err := json.Unmarshal(publishedPayload, &cmd); err != nil {
 		t.Fatalf("failed to unmarshal payload: %v", err)
 	}
 
-	metadata := payload["metadata"].(map[string]interface{})
+	if cmd.Payload == nil {
+		t.Fatal("expected non-nil payload")
+	}
+	metaRaw, ok := cmd.Payload["metadata"]
+	if !ok {
+		t.Fatal("expected metadata in payload")
+	}
+	metadata := metaRaw.(map[string]interface{})
 	if metadata["key1"] != "value1" {
 		t.Errorf("expected metadata key1='value1', got %v", metadata["key1"])
 	}

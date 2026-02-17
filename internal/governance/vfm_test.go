@@ -1,6 +1,7 @@
 package governance
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,7 +9,7 @@ import (
 
 func TestNewVFM(t *testing.T) {
 	tmpDir := t.TempDir()
-	logger := nil
+	var logger *slog.Logger
 
 	vfm, err := NewVFM(tmpDir, logger)
 	if err != nil {
@@ -109,8 +110,8 @@ func TestVFMStats(t *testing.T) {
 	}
 
 	expectedAvgValue := (1.0 + 0.5 + 0.9) / 3.0
-	if stats.AverageValue != expectedAvgValue {
-		t.Errorf("expected %.2f average value, got %.2f", expectedAvgValue, stats.AverageValue)
+	if diff := stats.AverageValue - expectedAvgValue; diff > 0.001 || diff < -0.001 {
+		t.Errorf("expected ~%.2f average value, got %.2f", expectedAvgValue, stats.AverageValue)
 	}
 }
 

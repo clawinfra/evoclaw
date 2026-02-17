@@ -39,7 +39,7 @@ func GovernanceCommand(args []string, configPath string) int {
 }
 
 func printGovernanceHelp() {
-	fmt.Println(`Usage: evoclaw governance <subcommand> [options]
+	fmt.Print(`Usage: evoclaw governance <subcommand> [options]
 
 Self-governance protocols for agent reliability and consistency.
 

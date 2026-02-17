@@ -1,6 +1,7 @@
 package governance
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,7 +10,7 @@ import (
 
 func TestNewWAL(t *testing.T) {
 	tmpDir := t.TempDir()
-	logger := nil // Use default
+	var logger *slog.Logger
 
 	wal, err := NewWAL(tmpDir, logger)
 	if err != nil {

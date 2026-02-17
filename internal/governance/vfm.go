@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -24,14 +25,36 @@ type VFMEntry struct {
 
 // VFMStats represents cost statistics for an agent.
 type VFMStats struct {
-	TotalCostUSD     float64            `json:"total_cost_usd"`
-	TotalInputTokens int64              `json:"total_input_tokens"`
-	TotalOutputTokens int64             `json:"total_output_tokens"`
-	RequestCount     int64              `json:"request_count"`
-	CostByModel      map[string]float64 `json:"cost_by_model"`
-	CostByTaskType   map[string]float64 `json:"cost_by_task_type"`
-	AvgCostPerRequest float64           `json:"avg_cost_per_request"`
-	Period           string             `json:"period"` // e.g., "2026-02" for monthly
+	TotalCostUSD      float64            `json:"total_cost_usd"`
+	TotalInputTokens  int64              `json:"total_input_tokens"`
+	TotalOutputTokens int64              `json:"total_output_tokens"`
+	RequestCount      int64              `json:"request_count"`
+	TotalTasks        int64              `json:"total_tasks"`  // alias for RequestCount
+	TotalTokens       int64              `json:"total_tokens"` // TotalInputTokens + TotalOutputTokens
+	CostByModel       map[string]float64 `json:"cost_by_model"`
+	CostByTaskType    map[string]float64 `json:"cost_by_task_type"`
+	AvgCostPerRequest float64            `json:"avg_cost_per_request"`
+	TotalValue        float64            `json:"total_value"`
+	AverageValue      float64            `json:"average_value"`
+	VFMScore          float64            `json:"vfm_score"` // value per cost unit
+	Period            string             `json:"period"`     // e.g., "2026-02" for monthly
+}
+
+// ModelUsage tracks per-model usage statistics.
+type ModelUsage struct {
+	Model     string  `json:"model"`
+	TaskCount int64   `json:"task_count"`
+	Tokens    int64   `json:"tokens"`
+	CostUSD   float64 `json:"cost_usd"`
+}
+
+// VFMSuggestion recommends model changes for cost optimization.
+type VFMSuggestion struct {
+	TaskType       string  `json:"task_type"`
+	CurrentModel   string  `json:"current_model"`
+	SuggestedModel string  `json:"suggested_model"`
+	Reason         string  `json:"reason"`
+	EstSavings     float64 `json:"est_savings"`
 }
 
 // VFMBudget represents spending limits.
@@ -54,11 +77,15 @@ type VFM struct {
 
 // NewVFM creates a new VFM instance.
 func NewVFM(baseDir string, logger *slog.Logger) (*VFM, error) {
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
+	vfmDir := filepath.Join(baseDir, "vfm")
+	if err := os.MkdirAll(vfmDir, 0755); err != nil {
 		return nil, fmt.Errorf("create VFM directory: %w", err)
 	}
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &VFM{
-		baseDir:    baseDir,
+		baseDir:    vfmDir,
 		logger:     logger.With("component", "vfm"),
 		budgets:    make(map[string]*VFMBudget),
 		dailyStats: make(map[string]*VFMStats),
@@ -93,12 +120,17 @@ func (v *VFM) SetBudget(agentID string, budget *VFMBudget) error {
 	return nil
 }
 
-// TrackCost records a cost entry.
-func (v *VFM) TrackCost(agentID, model string, inputTokens, outputTokens int, costUSD float64) error {
-	return v.TrackCostWithMeta(agentID, model, inputTokens, outputTokens, costUSD, "", "")
+// TrackCost records a cost entry with task type.
+func (v *VFM) TrackCost(agentID, taskType, model string, tokens int, costUSD float64) error {
+	return v.TrackCostWithMeta(agentID, model, tokens, 0, costUSD, taskType, "")
 }
 
-// TrackCostWithMeta records a cost entry with task metadata.
+// TrackCostWithValue records a cost entry with task type and quality score.
+func (v *VFM) TrackCostWithValue(agentID, taskType, model string, tokens int, costUSD, qualityScore float64) error {
+	return v.TrackCostWithMeta(agentID, model, tokens, 0, costUSD, taskType, fmt.Sprintf("%.2f", qualityScore))
+}
+
+// TrackCostWithMeta records a cost entry with full metadata.
 func (v *VFM) TrackCostWithMeta(agentID, model string, inputTokens, outputTokens int, costUSD float64, taskType, value string) error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
@@ -144,6 +176,7 @@ func (v *VFM) TrackCostWithMeta(agentID, model string, inputTokens, outputTokens
 	stats.TotalInputTokens += int64(inputTokens)
 	stats.TotalOutputTokens += int64(outputTokens)
 	stats.RequestCount++
+	stats.TotalTasks++
 	stats.CostByModel[model] += costUSD
 	if taskType != "" {
 		stats.CostByTaskType[taskType] += costUSD
@@ -197,15 +230,28 @@ func (v *VFM) GetStats(agentID string) (*VFMStats, error) {
 		stats.TotalInputTokens += int64(entry.InputTokens)
 		stats.TotalOutputTokens += int64(entry.OutputTokens)
 		stats.RequestCount++
+		stats.TotalTasks++
 		stats.CostByModel[entry.Model] += entry.CostUSD
 		if entry.TaskType != "" {
 			stats.CostByTaskType[entry.TaskType] += entry.CostUSD
+		}
+		if entry.Value != "" {
+			if v, err := strconv.ParseFloat(entry.Value, 64); err == nil {
+				stats.TotalValue += v
+			}
 		}
 	}
 
 	if stats.RequestCount > 0 {
 		stats.AvgCostPerRequest = stats.TotalCostUSD / float64(stats.RequestCount)
 	}
+	if stats.TotalTasks > 0 {
+		stats.AverageValue = stats.TotalValue / float64(stats.TotalTasks)
+	}
+	if stats.TotalCostUSD > 0 {
+		stats.VFMScore = stats.TotalValue / (stats.TotalCostUSD / 10.0)
+	}
+	stats.TotalTokens = stats.TotalInputTokens + stats.TotalOutputTokens
 
 	return stats, nil
 }
@@ -262,4 +308,71 @@ func (v *VFM) CheckBudget(agentID string) (bool, float64, error) {
 	remaining := budget.DailyLimitUSD - daily.TotalCostUSD
 
 	return withinBudget, remaining, nil
+}
+
+// GetModelUsage returns per-model usage statistics for an agent.
+func (v *VFM) GetModelUsage(agentID string) ([]ModelUsage, error) {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+
+	f, err := os.Open(v.logPath(agentID))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("open cost log: %w", err)
+	}
+	defer f.Close()
+
+	byModel := make(map[string]*ModelUsage)
+	decoder := json.NewDecoder(f)
+	for {
+		var entry VFMEntry
+		if err := decoder.Decode(&entry); err != nil {
+			break
+		}
+		mu, ok := byModel[entry.Model]
+		if !ok {
+			mu = &ModelUsage{Model: entry.Model}
+			byModel[entry.Model] = mu
+		}
+		mu.TaskCount++
+		mu.Tokens += int64(entry.InputTokens) + int64(entry.OutputTokens)
+		mu.CostUSD += entry.CostUSD
+	}
+
+	result := make([]ModelUsage, 0, len(byModel))
+	for _, mu := range byModel {
+		result = append(result, *mu)
+	}
+	return result, nil
+}
+
+// premiumModels lists expensive models that could be replaced for routine tasks.
+var premiumModels = map[string]string{
+	"claude-opus-4":   "claude-sonnet",
+	"claude-opus-4-5": "claude-sonnet",
+	"claude-opus-4-6": "claude-sonnet",
+	"gpt-4":           "gpt-3.5-turbo",
+}
+
+// Suggest returns cost-optimization suggestions based on usage patterns.
+func (v *VFM) Suggest(agentID string) ([]VFMSuggestion, error) {
+	usage, err := v.GetModelUsage(agentID)
+	if err != nil {
+		return nil, err
+	}
+
+	var suggestions []VFMSuggestion
+	for _, mu := range usage {
+		if cheaper, ok := premiumModels[mu.Model]; ok && mu.TaskCount >= 3 {
+			suggestions = append(suggestions, VFMSuggestion{
+				CurrentModel:   mu.Model,
+				SuggestedModel: cheaper,
+				Reason:         fmt.Sprintf("%s used %d times for routine tasks — consider %s for cost savings", mu.Model, mu.TaskCount, cheaper),
+				EstSavings:     mu.CostUSD * 0.7,
+			})
+		}
+	}
+	return suggestions, nil
 }

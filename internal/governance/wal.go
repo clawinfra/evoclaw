@@ -26,11 +26,13 @@ type WALEntry struct {
 
 // WALStatus represents the current state of an agent's WAL.
 type WALStatus struct {
-	TotalEntries int               `json:"total_entries"`
-	Applied      int               `json:"applied"`
-	Unapplied    int               `json:"unapplied"`
-	BufferSize   int               `json:"buffer_size"`
-	ActionTypes  map[string]int    `json:"action_types"`
+	TotalEntries     int               `json:"total_entries"`
+	Applied          int               `json:"applied"`
+	Unapplied        int               `json:"unapplied"`
+	UnappliedEntries int               `json:"unapplied_entries"` // alias for Unapplied
+	BufferSize       int               `json:"buffer_size"`
+	ActionTypes      map[string]int    `json:"action_types"`
+	LastEntry        time.Time         `json:"last_entry"`
 }
 
 // WAL implements a write-ahead log for agent state persistence.
@@ -43,11 +45,15 @@ type WAL struct {
 
 // NewWAL creates a new WAL instance.
 func NewWAL(baseDir string, logger *slog.Logger) (*WAL, error) {
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
+	walDir := filepath.Join(baseDir, "wal")
+	if err := os.MkdirAll(walDir, 0755); err != nil {
 		return nil, fmt.Errorf("create WAL directory: %w", err)
 	}
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &WAL{
-		baseDir: baseDir,
+		baseDir: walDir,
 		logger:  logger.With("component", "wal"),
 		buffers: make(map[string][]WALEntry),
 	}, nil
@@ -215,7 +221,11 @@ func (w *WAL) Status(agentID string) (*WALStatus, error) {
 			status.Unapplied++
 		}
 		status.ActionTypes[e.ActionType]++
+		if e.Timestamp.After(status.LastEntry) {
+			status.LastEntry = e.Timestamp
+		}
 	}
+	status.UnappliedEntries = status.Unapplied
 
 	return status, nil
 }

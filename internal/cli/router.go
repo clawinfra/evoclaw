@@ -34,7 +34,7 @@ func RouterCommand(args []string, configPath string) int {
 }
 
 func printRouterHelp() {
-	fmt.Println(`Usage: evoclaw router <subcommand> [options]
+	fmt.Print(`Usage: evoclaw router <subcommand> [options]
 
 Intelligent model routing for cost-optimized task delegation.
 Classifies tasks by complexity and recommends appropriate models.

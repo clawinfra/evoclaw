@@ -92,7 +92,7 @@ func TestManagerVerifyTaskCompletion(t *testing.T) {
 		t.Errorf("expected 1 VBR check, got %d", stats.TotalChecks)
 	}
 
-	if !stats.PassedChecks == 1 {
+	if stats.PassedChecks != 1 {
 		t.Error("expected VBR check to be logged as passed")
 	}
 }
@@ -104,7 +104,7 @@ func TestManagerCheckPersonaDrift(t *testing.T) {
 
 	// Check text with anti-patterns
 	text := "I'd be happy to help! Would you like me to?"
-	score, drifted, err := mgr.CheckPersonaDrift(agentID, text, 0.5)
+	score, _, err := mgr.CheckPersonaDrift(agentID, text, 0.5)
 	if err != nil {
 		t.Fatalf("CheckPersonaDrift failed: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestManagerReportSummary(t *testing.T) {
 	}
 
 	// Check summary contains expected parts
-	if containsString(summary, agentID) {
+	if !containsString(summary, agentID) {
 		t.Error("expected summary to contain agent ID")
 	}
 }

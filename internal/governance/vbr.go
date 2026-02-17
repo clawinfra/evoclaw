@@ -33,10 +33,13 @@ type VBRResult struct {
 
 // VBRStats represents verification statistics for an agent.
 type VBRStats struct {
-	Total    int     `json:"total"`
-	Passed   int     `json:"passed"`
-	Failed   int     `json:"failed"`
-	PassRate float64 `json:"pass_rate"`
+	Total        int     `json:"total"`
+	Passed       int     `json:"passed"`
+	Failed       int     `json:"failed"`
+	PassRate     float64 `json:"pass_rate"`
+	TotalChecks  int     `json:"total_checks"`  // alias for Total
+	PassedChecks int     `json:"passed_checks"` // alias for Passed
+	FailedChecks int     `json:"failed_checks"` // alias for Failed
 }
 
 // VBR implements Verify Before Reporting protocol.
@@ -49,11 +52,15 @@ type VBR struct {
 
 // NewVBR creates a new VBR instance.
 func NewVBR(baseDir string, logger *slog.Logger) (*VBR, error) {
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
+	vbrDir := filepath.Join(baseDir, "vbr")
+	if err := os.MkdirAll(vbrDir, 0755); err != nil {
 		return nil, fmt.Errorf("create VBR directory: %w", err)
 	}
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &VBR{
-		baseDir: baseDir,
+		baseDir: vbrDir,
 		logger:  logger.With("component", "vbr"),
 		cache:   make(map[string]time.Time),
 	}, nil
@@ -200,6 +207,9 @@ func (v *VBR) Stats(agentID string) (*VBRStats, error) {
 	if stats.Total > 0 {
 		stats.PassRate = float64(stats.Passed) / float64(stats.Total)
 	}
+	stats.TotalChecks = stats.Total
+	stats.PassedChecks = stats.Passed
+	stats.FailedChecks = stats.Failed
 
 	return stats, nil
 }

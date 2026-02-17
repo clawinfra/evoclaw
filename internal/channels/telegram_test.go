@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/types"
 )
 
 func testLogger() *slog.Logger {
@@ -31,7 +31,7 @@ func TestTelegramSendWithoutStart(t *testing.T) {
 	tg := NewTelegram("test-token", testLogger())
 	
 	// Sending without Start should work (it will just fail to connect to Telegram)
-	msg := orchestrator.Response{
+	msg := types.Response{
 		Content: "Hello, world!",
 		To:      "12345",
 		Channel: "telegram",

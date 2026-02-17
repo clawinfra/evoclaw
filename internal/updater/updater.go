@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,7 +16,6 @@ import (
 	"time"
 
 	"github.com/clawinfra/evoclaw/internal/config"
-	"github.com/clawinfra/evoclaw/internal/logger"
 )
 
 const (
@@ -41,13 +41,13 @@ type Asset struct {
 
 type Updater struct {
 	cfg           *config.Config
-	log           *logger.Logger
+	log           *slog.Logger
 	currentVer    string
 	autoUpdate    bool
 	checkInterval time.Duration
 }
 
-func New(cfg *config.Config, log *logger.Logger, currentVer string) *Updater {
+func New(cfg *config.Config, log *slog.Logger, currentVer string) *Updater {
 	autoUpdate := true
 	checkInterval := 24 * time.Hour
 	

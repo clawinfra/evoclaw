@@ -39,7 +39,7 @@ func MemoryCommand(args []string, configPath string) int {
 }
 
 func printMemoryHelp() {
-	fmt.Println(`Usage: evoclaw memory <subcommand> [options]
+	fmt.Print(`Usage: evoclaw memory <subcommand> [options]
 
 Manage the built-in tiered memory system (hot/warm/cold tiers).
 This provides CLI access to EvoClaw's native memory consolidation,

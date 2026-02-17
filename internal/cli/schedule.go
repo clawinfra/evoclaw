@@ -41,7 +41,7 @@ func ScheduleCommand(args []string, configPath string) int {
 }
 
 func printScheduleHelp() {
-	fmt.Println(`Usage: evoclaw schedule <subcommand> [options]
+	fmt.Print(`Usage: evoclaw schedule <subcommand> [options]
 
 Manage scheduled jobs for periodic tasks.
 

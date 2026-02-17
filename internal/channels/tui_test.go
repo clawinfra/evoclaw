@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/types"
 )
 
 func TestNewTUI(t *testing.T) {
@@ -42,7 +42,7 @@ func TestTUISendWithoutProgram(t *testing.T) {
 	logger := slog.Default()
 	ch := NewTUI(logger, nil)
 	// Send without a running program should not panic, just buffer
-	err := ch.Send(context.Background(), orchestrator.Response{
+	err := ch.Send(context.Background(), types.Response{
 		AgentID: "agent-1",
 		Content: "Hello!",
 	})
@@ -126,13 +126,13 @@ func TestFormatDuration(t *testing.T) {
 
 func TestTUIRenderSidebar(t *testing.T) {
 	logger := slog.Default()
-	agents := []orchestrator.AgentInfo{
+	agents := []types.AgentInfo{
 		{
 			ID:           "agent-1",
 			Status:       "running",
 			MessageCount: 42,
 			StartedAt:    time.Now().Add(-1 * time.Hour),
-			Metrics: orchestrator.AgentMetrics{
+			Metrics: types.AgentMetrics{
 				AvgResponseMs: 150.0,
 				TokensUsed:    5000,
 				CostUSD:       0.05,
@@ -151,7 +151,7 @@ func TestTUIRenderSidebar(t *testing.T) {
 			StartedAt:    time.Now(),
 		},
 	}
-	ch := NewTUI(logger, func() []orchestrator.AgentInfo { return agents })
+	ch := NewTUI(logger, func() []types.AgentInfo { return agents })
 	m := newTUIModel(ch)
 	m.height = 40
 	m.width = 80
@@ -163,7 +163,7 @@ func TestTUIRenderSidebar(t *testing.T) {
 
 func TestTUIRenderSidebarNoAgents(t *testing.T) {
 	logger := slog.Default()
-	ch := NewTUI(logger, func() []orchestrator.AgentInfo { return nil })
+	ch := NewTUI(logger, func() []types.AgentInfo { return nil })
 	m := newTUIModel(ch)
 	m.height = 40
 	sidebar := m.renderSidebar()
@@ -207,18 +207,18 @@ func TestTUIRenderChat(t *testing.T) {
 
 func TestTUIRenderSidebarLargeTokens(t *testing.T) {
 	logger := slog.Default()
-	agents := []orchestrator.AgentInfo{
+	agents := []types.AgentInfo{
 		{
 			ID:           "agent-1",
 			Status:       "running",
 			MessageCount: 1,
 			StartedAt:    time.Now(),
-			Metrics: orchestrator.AgentMetrics{
+			Metrics: types.AgentMetrics{
 				TokensUsed: 500, // < 1000, should show raw number
 			},
 		},
 	}
-	ch := NewTUI(logger, func() []orchestrator.AgentInfo { return agents })
+	ch := NewTUI(logger, func() []types.AgentInfo { return agents })
 	m := newTUIModel(ch)
 	m.height = 40
 	sidebar := m.renderSidebar()

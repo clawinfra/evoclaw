@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/types"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -59,7 +59,7 @@ func TestMQTT_SendPublishError(t *testing.T) {
 
 	mqttChan.client = mockClient
 
-	msg := orchestrator.Response{
+	msg := types.Response{
 		AgentID: "agent-1",
 		Content: "test",
 		To:      "target-agent",
@@ -90,7 +90,7 @@ func TestMQTT_SendNotConnected(t *testing.T) {
 
 	mqttChan.client = mockClient
 
-	msg := orchestrator.Response{
+	msg := types.Response{
 		AgentID: "agent-1",
 		Content: "test",
 		To:      "target-agent",

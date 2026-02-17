@@ -13,6 +13,42 @@ import (
 	"time"
 )
 
+// SignalType categorises an ADL behaviour signal.
+type SignalType string
+
+const (
+	SignalAntiSycophancy SignalType = "anti_sycophancy" // "Great question!", "I'd be happy to…"
+	SignalAntiPassivity  SignalType = "anti_passivity"  // "Would you like me to…", "Should I…"
+	SignalPersonaDirect  SignalType = "persona_direct"  // "Done.", "Fixed."
+	SignalPersonaAction  SignalType = "persona_action"  // "Spawning…", "Executing…"
+)
+
+// ADLSignal is a single detected behaviour signal.
+type ADLSignal struct {
+	Type     SignalType `json:"type"`
+	Excerpt  string     `json:"excerpt"`
+	Positive bool       `json:"positive"` // true = good persona alignment
+}
+
+// ADLStats summarises logged signals for an agent.
+type ADLStats struct {
+	TotalSignals   int     `json:"total_signals"`
+	AntiPatterns   int     `json:"anti_patterns"`
+	PersonaSignals int     `json:"persona_signals"`
+	// DivergenceScore is (AntiPatterns - PersonaSignals) / TotalSignals in [-1, 1].
+	// Negative means persona-aligned; positive means drifting toward anti-patterns.
+	DivergenceScore float64 `json:"divergence_score"`
+}
+
+// adlLogEntry is persisted to disk per agent.
+type adlLogEntry struct {
+	AgentID  string    `json:"agent_id"`
+	Signal   SignalType `json:"signal"`
+	Excerpt  string    `json:"excerpt"`
+	Positive bool      `json:"positive"`
+	At       time.Time `json:"at"`
+}
+
 // ADLBaseline represents the baseline persona from SOUL.md.
 type ADLBaseline struct {
 	Hash       string    `json:"hash"`        // SHA256 of SOUL.md content
@@ -39,11 +75,15 @@ type ADL struct {
 
 // NewADL creates a new ADL instance.
 func NewADL(baseDir string, logger *slog.Logger) (*ADL, error) {
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
+	adlDir := filepath.Join(baseDir, "adl")
+	if err := os.MkdirAll(adlDir, 0755); err != nil {
 		return nil, fmt.Errorf("create ADL directory: %w", err)
 	}
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &ADL{
-		baseDir:   baseDir,
+		baseDir:   adlDir,
 		logger:    logger.With("component", "adl"),
 		baselines: make(map[string]*ADLBaseline),
 	}, nil
@@ -98,7 +138,19 @@ func (a *ADL) CheckDrift(agentID, currentBehavior string) (float64, error) {
 		// Try to load from disk
 		data, err := os.ReadFile(a.baselinePath(agentID))
 		if err != nil {
-			return 0, fmt.Errorf("no baseline for agent %s: load SOUL.md first", agentID)
+			// No baseline — fall back to signal-based analysis only
+			signals, _ := a.Analyze(currentBehavior)
+			antiPatterns := 0
+			for _, s := range signals {
+				if !s.Positive {
+					antiPatterns++
+				}
+			}
+			total := len(signals)
+			if total == 0 {
+				return 0, nil
+			}
+			return float64(antiPatterns) / float64(total), nil
 		}
 		baseline = &ADLBaseline{}
 		if err := json.Unmarshal(data, baseline); err != nil {
@@ -220,6 +272,118 @@ func calculateKeywordAlignment(behavior string, keywords []string) float64 {
 	}
 
 	return float64(matches) / float64(len(keywords))
+}
+
+// Analyze detects ADL signals in text without requiring a baseline.
+func (a *ADL) Analyze(text string) ([]ADLSignal, error) {
+	lower := strings.ToLower(text)
+	var signals []ADLSignal
+
+	antiPatterns := map[SignalType][]string{
+		SignalAntiSycophancy: {"great question", "i'd be happy", "certainly!", "of course!", "absolutely!"},
+		SignalAntiPassivity:  {"would you like me to", "should i", "do you want me to", "shall i"},
+	}
+	personaPatterns := map[SignalType][]string{
+		SignalPersonaDirect: {"done.", "done!", "fixed.", "fixed!", "shipped."},
+		SignalPersonaAction: {"spawning", "executing", "deploying", "building", "i'd argue"},
+	}
+
+	for sigType, patterns := range antiPatterns {
+		for _, p := range patterns {
+			if strings.Contains(lower, p) {
+				signals = append(signals, ADLSignal{Type: sigType, Excerpt: p, Positive: false})
+				break
+			}
+		}
+	}
+	for sigType, patterns := range personaPatterns {
+		for _, p := range patterns {
+			if strings.Contains(lower, p) {
+				signals = append(signals, ADLSignal{Type: sigType, Excerpt: p, Positive: true})
+				break
+			}
+		}
+	}
+	return signals, nil
+}
+
+// Log persists a single ADL signal for an agent.
+func (a *ADL) Log(agentID string, signal SignalType, excerpt string, positive bool) error {
+	entry := adlLogEntry{
+		AgentID:  agentID,
+		Signal:   signal,
+		Excerpt:  excerpt,
+		Positive: positive,
+		At:       time.Now(),
+	}
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return fmt.Errorf("marshal log entry: %w", err)
+	}
+
+	logPath := filepath.Join(a.baseDir, agentID+"_signals.jsonl")
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("open signal log: %w", err)
+	}
+	defer f.Close()
+
+	_, err = fmt.Fprintln(f, string(data))
+	return err
+}
+
+// Stats returns aggregated signal statistics for an agent.
+func (a *ADL) Stats(agentID string) (*ADLStats, error) {
+	logPath := filepath.Join(a.baseDir, agentID+"_signals.jsonl")
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &ADLStats{}, nil
+		}
+		return nil, fmt.Errorf("read signal log: %w", err)
+	}
+
+	stats := &ADLStats{}
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if line == "" {
+			continue
+		}
+		var entry adlLogEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			continue
+		}
+		stats.TotalSignals++
+		if entry.Positive {
+			stats.PersonaSignals++
+		} else {
+			stats.AntiPatterns++
+		}
+	}
+	if stats.TotalSignals > 0 {
+		stats.DivergenceScore = float64(stats.AntiPatterns-stats.PersonaSignals) / float64(stats.TotalSignals)
+	}
+	return stats, nil
+}
+
+// Reset clears all logged signals for an agent.
+func (a *ADL) Reset(agentID string) error {
+	logPath := filepath.Join(a.baseDir, agentID+"_signals.jsonl")
+	if err := os.Remove(logPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("reset signal log: %w", err)
+	}
+	return nil
+}
+
+// Check returns true if the agent's divergence score exceeds the given threshold.
+func (a *ADL) Check(agentID string, threshold float64) (bool, error) {
+	stats, err := a.Stats(agentID)
+	if err != nil {
+		return false, err
+	}
+	if stats.TotalSignals == 0 {
+		return false, nil
+	}
+	return stats.DivergenceScore > threshold, nil
 }
 
 // checkBoundaryViolations looks for boundary violations in behavior.

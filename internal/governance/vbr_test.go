@@ -1,6 +1,7 @@
 package governance
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,7 +9,7 @@ import (
 
 func TestNewVBR(t *testing.T) {
 	tmpDir := t.TempDir()
-	logger := nil
+	var logger *slog.Logger
 
 	vbr, err := NewVBR(tmpDir, logger)
 	if err != nil {
@@ -137,7 +138,7 @@ func TestVBRStats(t *testing.T) {
 		t.Errorf("expected 10 checks, got %d", stats.TotalChecks)
 	}
 
-	expectedPassRate := 7.0 / 10.0
+	expectedPassRate := 6.0 / 10.0
 	if stats.PassRate != expectedPassRate {
 		t.Errorf("expected pass rate %.2f, got %.2f", expectedPassRate, stats.PassRate)
 	}

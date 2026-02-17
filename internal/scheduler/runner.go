@@ -28,11 +28,14 @@ type Executor interface {
 }
 
 // NewJobRunner creates a new job runner
-func NewJobRunner(job *Job, executor Executor, logger *slog.Logger) *JobRunner {
+func NewJobRunner(job *Job, executor Executor, log *slog.Logger) *JobRunner {
+	if log == nil {
+		log = slog.Default()
+	}
 	return &JobRunner{
 		job:      job,
 		executor: executor,
-		logger:   logger.With("job", job.ID),
+		logger:   log.With("job", job.ID),
 		stopCh:   make(chan struct{}),
 		doneCh:   make(chan struct{}),
 	}
