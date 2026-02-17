@@ -127,11 +127,12 @@ func (hr *HealthRegistry) RecordSuccess(modelID string) {
 	h.TotalRequests++
 
 	// Recover from degraded state
-	if h.State == StateDegraded {
+	switch h.State {
+	case StateDegraded:
 		h.State = StateHealthy
 		h.DegradedAt = nil
 		hr.logger.Info("model recovered", "model", modelID)
-	} else if h.State == StateUnknown {
+	case StateUnknown:
 		h.State = StateHealthy
 	}
 

@@ -86,7 +86,7 @@ func (w *WAL) Append(agentID, actionType, content string) error {
 	if err != nil {
 		return fmt.Errorf("open WAL file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	data, err := json.Marshal(entry)
 	if err != nil {
@@ -134,7 +134,7 @@ func (w *WAL) FlushBuffer(agentID string) error {
 	if err != nil {
 		return fmt.Errorf("open WAL file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	for _, entry := range buffer {
 		data, err := json.Marshal(entry)
@@ -258,7 +258,7 @@ func (w *WAL) readAllEntries(agentID string) ([]WALEntry, error) {
 		}
 		return nil, fmt.Errorf("open WAL file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var entries []WALEntry
 	scanner := bufio.NewScanner(f)
@@ -278,7 +278,7 @@ func (w *WAL) writeAllEntries(agentID string, entries []WALEntry) error {
 	if err != nil {
 		return fmt.Errorf("create WAL file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	for _, entry := range entries {
 		data, err := json.Marshal(entry)

@@ -326,7 +326,7 @@ func (a *ADL) Log(agentID string, signal SignalType, excerpt string, positive bo
 	if err != nil {
 		return fmt.Errorf("open signal log: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	_, err = fmt.Fprintln(f, string(data))
 	return err

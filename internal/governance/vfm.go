@@ -150,7 +150,7 @@ func (v *VFM) TrackCostWithMeta(agentID, model string, inputTokens, outputTokens
 	if err != nil {
 		return fmt.Errorf("open cost log: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	data, err := json.Marshal(entry)
 	if err != nil {
@@ -213,7 +213,7 @@ func (v *VFM) GetStats(agentID string) (*VFMStats, error) {
 		}
 		return nil, fmt.Errorf("open cost log: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	stats := &VFMStats{
 		CostByModel:    make(map[string]float64),
@@ -322,7 +322,7 @@ func (v *VFM) GetModelUsage(agentID string) ([]ModelUsage, error) {
 		}
 		return nil, fmt.Errorf("open cost log: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	byModel := make(map[string]*ModelUsage)
 	decoder := json.NewDecoder(f)

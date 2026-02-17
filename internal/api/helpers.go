@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
@@ -9,15 +10,14 @@ import (
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	
+
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		// Log error but don't send another response
-		// (headers already sent)
+		slog.Error("failed to write JSON response", "error", err)
 	}
 }
 
-// writeError writes a JSON error response
-func writeError(w http.ResponseWriter, status int, message string) {
+// WriteError writes a JSON error response (exported for use in handlers).
+func WriteError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{
 		"error": message,
 	})

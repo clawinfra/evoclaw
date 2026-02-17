@@ -166,6 +166,6 @@ func (j *Job) NextRun(from time.Time) (time.Time, error) {
 func (j *Job) Clone() *Job {
 	data, _ := json.Marshal(j)
 	var clone Job
-	json.Unmarshal(data, &clone)
+	_ = json.Unmarshal(data, &clone)
 	return &clone
 }

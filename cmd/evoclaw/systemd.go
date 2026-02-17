@@ -121,7 +121,7 @@ func installSystemd() error {
 	if err != nil {
 		return fmt.Errorf("create unit file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if err := tmpl.Execute(f, cfg); err != nil {
 		return fmt.Errorf("write unit file: %w", err)

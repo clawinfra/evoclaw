@@ -160,7 +160,7 @@ func (v *VBR) Log(agentID, taskID string, passed bool, notes string) error {
 	if err != nil {
 		return fmt.Errorf("open VBR log: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	data, err := json.Marshal(result)
 	if err != nil {
@@ -187,7 +187,7 @@ func (v *VBR) Stats(agentID string) (*VBRStats, error) {
 		}
 		return nil, fmt.Errorf("open VBR log: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	stats := &VBRStats{}
 	decoder := json.NewDecoder(f)

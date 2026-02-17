@@ -34,7 +34,7 @@ func ScheduleCommand(args []string, configPath string) int {
 		printScheduleHelp()
 		return 0
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown schedule subcommand: %s\n", subCmd)
+		_, _ = fmt.Fprintf(os.Stderr, "Unknown schedule subcommand: %s\n", subCmd)
 		printScheduleHelp()
 		return 1
 	}
@@ -96,7 +96,7 @@ Action Kinds:
 func scheduleList(args []string, configPath string) int {
 	cfg, err := loadConfigFromFile(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		return 1
 	}
 
@@ -112,8 +112,8 @@ func scheduleList(args []string, configPath string) int {
 
 	// Print jobs in table format
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tSCHEDULE\tACTION\tENABLED\tRUNS\tERRORS")
-	fmt.Fprintln(w, "--\t----\t--------\t------\t-------\t----\t------")
+	_, _ = fmt.Fprintln(w, "ID\tNAME\tSCHEDULE\tACTION\tENABLED\tRUNS\tERRORS")
+	_, _ = fmt.Fprintln(w, "--\t----\t--------\t------\t-------\t----\t------")
 
 	for _, job := range cfg.Scheduler.Jobs {
 		scheduleDesc := formatSchedule(job.Schedule)
@@ -123,7 +123,7 @@ func scheduleList(args []string, configPath string) int {
 			enabled = "no"
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t-\t-\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t-\t-\n",
 			job.ID,
 			job.Name,
 			scheduleDesc,
@@ -131,7 +131,7 @@ func scheduleList(args []string, configPath string) int {
 			enabled)
 	}
 
-	w.Flush()
+	_ = w.Flush()
 	return 0
 }
 
@@ -139,32 +139,32 @@ func scheduleAdd(args []string, configPath string) int {
 	fs := flag.NewFlagSet("add", flag.ExitOnError)
 	jobFile := fs.String("config", "", "Job configuration file (JSON)")
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
 		return 1
 	}
 
 	if *jobFile == "" {
-		fmt.Fprintln(os.Stderr, "Error: --config required")
+		_, _ = fmt.Fprintln(os.Stderr, "Error: --config required")
 		return 1
 	}
 
 	// Load job config
 	data, err := os.ReadFile(*jobFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading job file: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error reading job file: %v\n", err)
 		return 1
 	}
 
 	var job config.SchedulerJobConfig
 	if err := json.Unmarshal(data, &job); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing job JSON: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error parsing job JSON: %v\n", err)
 		return 1
 	}
 
 	// Load evoclaw config
 	cfg, err := loadConfigFromFile(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		return 1
 	}
 
@@ -174,7 +174,7 @@ func scheduleAdd(args []string, configPath string) int {
 	// Check for duplicate ID
 	for _, existing := range cfg.Scheduler.Jobs {
 		if existing.ID == job.ID {
-			fmt.Fprintf(os.Stderr, "Error: Job with ID '%s' already exists\n", job.ID)
+			_, _ = fmt.Fprintf(os.Stderr, "Error: Job with ID '%s' already exists\n", job.ID)
 			return 1
 		}
 	}
@@ -184,7 +184,7 @@ func scheduleAdd(args []string, configPath string) int {
 
 	// Save config
 	if err := cfg.Save(configPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 		return 1
 	}
 
@@ -195,8 +195,8 @@ func scheduleAdd(args []string, configPath string) int {
 
 func scheduleRemove(args []string, configPath string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Error: job ID required")
-		fmt.Fprintln(os.Stderr, "Usage: evoclaw schedule remove <job-id>")
+		_, _ = fmt.Fprintln(os.Stderr, "Error: job ID required")
+		_, _ = fmt.Fprintln(os.Stderr, "Usage: evoclaw schedule remove <job-id>")
 		return 1
 	}
 
@@ -204,7 +204,7 @@ func scheduleRemove(args []string, configPath string) int {
 
 	cfg, err := loadConfigFromFile(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		return 1
 	}
 
@@ -220,7 +220,7 @@ func scheduleRemove(args []string, configPath string) int {
 	}
 
 	if !found {
-		fmt.Fprintf(os.Stderr, "Error: Job '%s' not found\n", jobID)
+		_, _ = fmt.Fprintf(os.Stderr, "Error: Job '%s' not found\n", jobID)
 		return 1
 	}
 
@@ -228,7 +228,7 @@ func scheduleRemove(args []string, configPath string) int {
 
 	// Save config
 	if err := cfg.Save(configPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 		return 1
 	}
 
@@ -238,15 +238,15 @@ func scheduleRemove(args []string, configPath string) int {
 }
 
 func scheduleRun(args []string, configPath string) int {
-	fmt.Fprintln(os.Stderr, "Error: schedule run requires runtime access")
-	fmt.Fprintln(os.Stderr, "This command will be implemented via API in a future release")
+	_, _ = fmt.Fprintln(os.Stderr, "Error: schedule run requires runtime access")
+	_, _ = fmt.Fprintln(os.Stderr, "This command will be implemented via API in a future release")
 	return 1
 }
 
 func scheduleStatus(args []string, configPath string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Error: job ID required")
-		fmt.Fprintln(os.Stderr, "Usage: evoclaw schedule status <job-id>")
+		_, _ = fmt.Fprintln(os.Stderr, "Error: job ID required")
+		_, _ = fmt.Fprintln(os.Stderr, "Usage: evoclaw schedule status <job-id>")
 		return 1
 	}
 
@@ -254,7 +254,7 @@ func scheduleStatus(args []string, configPath string) int {
 
 	cfg, err := loadConfigFromFile(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		return 1
 	}
 
@@ -268,7 +268,7 @@ func scheduleStatus(args []string, configPath string) int {
 	}
 
 	if targetJob == nil {
-		fmt.Fprintf(os.Stderr, "Error: Job '%s' not found\n", jobID)
+		_, _ = fmt.Fprintf(os.Stderr, "Error: Job '%s' not found\n", jobID)
 		return 1
 	}
 

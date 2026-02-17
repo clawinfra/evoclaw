@@ -80,7 +80,7 @@ func (u *Updater) CheckForUpdates(ctx context.Context) (*Release, bool, error) {
 	if err != nil {
 		return nil, false, fmt.Errorf("fetch release: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	
 	if resp.StatusCode != http.StatusOK {
 		return nil, false, fmt.Errorf("unexpected status: %d", resp.StatusCode)
@@ -134,7 +134,7 @@ func (u *Updater) DownloadAndInstall(ctx context.Context, release *Release) erro
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 	
 	archivePath := filepath.Join(tmpDir, targetAsset.Name)
 	if err := u.downloadFile(ctx, targetAsset.BrowserDownloadURL, archivePath); err != nil {
@@ -238,7 +238,7 @@ func (u *Updater) downloadFile(ctx context.Context, url, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status: %d", resp.StatusCode)
@@ -248,7 +248,7 @@ func (u *Updater) downloadFile(ctx context.Context, url, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 	
 	_, err = io.Copy(out, resp.Body)
 	return err
@@ -259,7 +259,7 @@ func (u *Updater) extractBinary(archivePath, destDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	
 	// Handle .tar.gz
 	if strings.HasSuffix(archivePath, ".tar.gz") {
@@ -267,7 +267,7 @@ func (u *Updater) extractBinary(archivePath, destDir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		defer gzr.Close()
+		defer func() { _ = gzr.Close() }()
 		
 		tr := tar.NewReader(gzr)
 		
@@ -288,7 +288,7 @@ func (u *Updater) extractBinary(archivePath, destDir string) (string, error) {
 				if err != nil {
 					return "", err
 				}
-				defer out.Close()
+				defer func() { _ = out.Close() }()
 				
 				if _, err := io.Copy(out, tr); err != nil {
 					return "", err
@@ -326,7 +326,7 @@ func (u *Updater) replaceBinary(newBinaryPath string) error {
 	// Copy new binary
 	if err := u.copyFile(newBinaryPath, currentPath); err != nil {
 		// Restore backup on failure
-		os.Rename(backupPath, currentPath)
+		_ = os.Rename(backupPath, currentPath)
 		return fmt.Errorf("copy new binary: %w", err)
 	}
 	
@@ -336,7 +336,7 @@ func (u *Updater) replaceBinary(newBinaryPath string) error {
 	}
 	
 	// Remove backup
-	os.Remove(backupPath)
+	_ = os.Remove(backupPath)
 	
 	return nil
 }
@@ -346,13 +346,13 @@ func (u *Updater) copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer sourceFile.Close()
+	defer func() { _ = sourceFile.Close() }()
 	
 	destFile, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer destFile.Close()
+	defer func() { _ = destFile.Close() }()
 	
 	_, err = io.Copy(destFile, sourceFile)
 	return err

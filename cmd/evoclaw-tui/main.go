@@ -124,7 +124,7 @@ func loadAgents(apiURL string) ([]Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
@@ -161,7 +161,7 @@ func sendMessage(apiURL, agent, message string) (*ChatResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != 200 {
 		body, _ := io.ReadAll(httpResp.Body)

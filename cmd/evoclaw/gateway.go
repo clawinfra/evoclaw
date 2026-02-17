@@ -87,7 +87,7 @@ func gatewayStop() error {
 		time.Sleep(1 * time.Second)
 		if _, running := checkRunning(); !running {
 			fmt.Println("✅ EvoClaw stopped gracefully")
-			os.Remove(getPIDFile())
+			_ = os.Remove(getPIDFile())
 			return nil
 		}
 	}
@@ -98,7 +98,7 @@ func gatewayStop() error {
 		return fmt.Errorf("force kill: %w", err)
 	}
 
-	os.Remove(getPIDFile())
+	_ = os.Remove(getPIDFile())
 	fmt.Println("✅ EvoClaw stopped (forced)")
 	return nil
 }

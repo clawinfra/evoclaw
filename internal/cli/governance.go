@@ -106,7 +106,7 @@ func governanceWAL(args []string) int {
 		fs := flag.NewFlagSet("append", flag.ExitOnError)
 		entryType := fs.String("type", "", "Entry type (correction, decision, analysis)")
 		text := fs.String("text", "", "Entry text")
-		fs.Parse(args[1:])
+		_ = fs.Parse(args[1:])
 
 		if *entryType == "" || *text == "" {
 			fmt.Fprintln(os.Stderr, "Error: --type and --text required")
@@ -150,7 +150,7 @@ func governanceVBR(args []string) int {
 		fs := flag.NewFlagSet("check", flag.ExitOnError)
 		checkType := fs.String("type", "", "Check type (file-exists, process-running, http-status)")
 		target := fs.String("target", "", "Check target")
-		fs.Parse(args[1:])
+		_ = fs.Parse(args[1:])
 
 		if *checkType == "" || *target == "" {
 			fmt.Fprintln(os.Stderr, "Error: --type and --target required")
@@ -165,7 +165,7 @@ func governanceVBR(args []string) int {
 		taskID := fs.String("task-id", "", "Task ID")
 		passed := fs.Bool("passed", false, "Verification passed")
 		notes := fs.String("notes", "", "Optional notes")
-		fs.Parse(args[1:])
+		_ = fs.Parse(args[1:])
 
 		if *taskID == "" {
 			fmt.Fprintln(os.Stderr, "Error: --task-id required")
@@ -205,7 +205,7 @@ func governanceADL(args []string) int {
 	case "load-baseline":
 		fs := flag.NewFlagSet("load-baseline", flag.ExitOnError)
 		soulPath := fs.String("soul-path", "SOUL.md", "Path to SOUL.md")
-		fs.Parse(args[1:])
+		_ = fs.Parse(args[1:])
 
 		cmd := exec.Command("python3", adlScript, "load-baseline", *soulPath)
 		return runCommand(cmd)
@@ -213,7 +213,7 @@ func governanceADL(args []string) int {
 	case "check-drift":
 		fs := flag.NewFlagSet("check-drift", flag.ExitOnError)
 		text := fs.String("text", "", "Current behavior text")
-		fs.Parse(args[1:])
+		_ = fs.Parse(args[1:])
 
 		if *text == "" {
 			fmt.Fprintln(os.Stderr, "Error: --text required")
@@ -255,7 +255,7 @@ func governanceVFM(args []string) int {
 		inputTokens := fs.Int("input", 0, "Input tokens")
 		outputTokens := fs.Int("output", 0, "Output tokens")
 		cost := fs.Float64("cost", 0, "Cost in USD")
-		fs.Parse(args[1:])
+		_ = fs.Parse(args[1:])
 
 		if *model == "" || *inputTokens == 0 || *outputTokens == 0 {
 			fmt.Fprintln(os.Stderr, "Error: --model, --input, --output required")

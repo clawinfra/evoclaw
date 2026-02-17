@@ -81,8 +81,8 @@ func ValidateToken(tokenStr string, secret []byte) (*Claims, error) {
 	return &Claims{
 		AgentID:   jc.AgentID,
 		Role:      jc.Role,
-		IssuedAt:  jc.RegisteredClaims.IssuedAt.Unix(),
-		ExpiresAt: jc.RegisteredClaims.ExpiresAt.Unix(),
+		IssuedAt:  jc.IssuedAt.Unix(),
+		ExpiresAt: jc.ExpiresAt.Unix(),
 	}, nil
 }
 

@@ -1,0 +1,16 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - staticcheck
+    - unused
+    - govet
+    - ineffassign
+
+issues:
+  exclude-rules:
+    # Test files: don't require error checks on helper calls
+    - path: _test\.go
+      linters:
+        - errcheck

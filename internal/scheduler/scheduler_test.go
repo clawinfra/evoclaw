@@ -122,7 +122,7 @@ func TestSchedulerRemoveJob(t *testing.T) {
 		},
 	}
 
-	sched.AddJob(job)
+	_ = sched.AddJob(job)
 
 	err := sched.RemoveJob("test-job")
 	if err != nil {
@@ -160,7 +160,7 @@ func TestSchedulerUpdateJob(t *testing.T) {
 		},
 	}
 
-	sched.AddJob(job)
+	_ = sched.AddJob(job)
 
 	// Update job
 	job.Enabled = false
@@ -211,7 +211,7 @@ func TestSchedulerListJobs(t *testing.T) {
 	}
 
 	for _, job := range jobs {
-		sched.AddJob(job)
+		_ = sched.AddJob(job)
 	}
 
 	list := sched.ListJobs()
@@ -280,8 +280,8 @@ func TestSchedulerGetStats(t *testing.T) {
 		},
 	}
 
-	sched.AddJob(job1)
-	sched.AddJob(job2)
+	_ = sched.AddJob(job1)
+	_ = sched.AddJob(job2)
 
 	stats := sched.GetStats()
 
@@ -318,7 +318,7 @@ func TestSchedulerRunJobNow(t *testing.T) {
 		},
 	}
 
-	sched.AddJob(job)
+	_ = sched.AddJob(job)
 
 	// Run job immediately
 	err := sched.RunJobNow("agent-job")
@@ -362,7 +362,7 @@ func TestSchedulerStartStop(t *testing.T) {
 		},
 	}
 
-	sched.AddJob(job)
+	_ = sched.AddJob(job)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()

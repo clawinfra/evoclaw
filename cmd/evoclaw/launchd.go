@@ -136,7 +136,7 @@ func installLaunchd() error {
 	if err != nil {
 		return fmt.Errorf("create plist: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if err := tmpl.Execute(f, cfg); err != nil {
 		return fmt.Errorf("write plist: %w", err)
