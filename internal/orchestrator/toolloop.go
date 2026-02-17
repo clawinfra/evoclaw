@@ -73,6 +73,12 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 		return nil, nil, fmt.Errorf("generate tool schemas: %w", err)
 	}
 
+	// Append edge_call tool if any edge agents are online.
+	// This is a single generic tool — no per-device schema needed.
+	if schema, ok := tl.orchestrator.buildEdgeCallSchema(); ok {
+		tools = append(tools, schema)
+	}
+
 	// Initialize conversation history
 	messages := []ChatMessage{
 		{Role: "user", Content: msg.Content},
@@ -210,6 +216,12 @@ func (tl *ToolLoop) callLLM(messages []ChatMessage, tools []ToolSchema, model st
 func (tl *ToolLoop) executeToolCall(agent *AgentState, toolCall ToolCall) (*ToolResult, error) {
 	start := time.Now()
 
+	// edge_call: NL passthrough to a named edge agent's own tool loop.
+	// No tool schema registration needed on the edge — it handles routing itself.
+	if toolCall.Name == "edge_call" {
+		return tl.executeEdgeCall(agent, toolCall, start)
+	}
+
 	// Generate request ID
 	requestID := fmt.Sprintf("tool-%d", time.Now().UnixNano())
 
@@ -303,4 +315,73 @@ type EdgeAgentCommand struct {
 	Command   string                 `json:"command"`
 	RequestID string                 `json:"request_id"`
 	Payload   map[string]interface{} `json:"payload"`
+}
+
+// executeEdgeCall handles the generic edge_call tool.
+// It sends the query to the named edge agent via MQTT and waits for the
+// agent's own LLM+tool loop to produce a natural language answer.
+func (tl *ToolLoop) executeEdgeCall(agent *AgentState, toolCall ToolCall, start time.Time) (*ToolResult, error) {
+	agentID, _ := toolCall.Arguments["agent_id"].(string)
+	query, _ := toolCall.Arguments["query"].(string)
+
+	if agentID == "" {
+		return &ToolResult{
+			Tool:   "edge_call",
+			Status: "error",
+			Error:  "agent_id is required",
+		}, nil
+	}
+	if query == "" {
+		// Fall back to action+params mode if query is empty
+		action, _ := toolCall.Arguments["action"].(string)
+		params, _ := toolCall.Arguments["params"].(map[string]interface{})
+		if action != "" {
+			paramJSON, _ := json.Marshal(params)
+			query = fmt.Sprintf("Execute action: %s with params: %s", action, string(paramJSON))
+		} else {
+			return &ToolResult{
+				Tool:   "edge_call",
+				Status: "error",
+				Error:  "either query or action is required",
+			}, nil
+		}
+	}
+
+	if tl.orchestrator.mqttChannel == nil {
+		return &ToolResult{
+			Tool:   "edge_call",
+			Status: "error",
+			Error:  "MQTT channel not available",
+		}, nil
+	}
+
+	if !tl.orchestrator.mqttChannel.IsEdgeAgentOnline(agentID) {
+		return &ToolResult{
+			Tool:   "edge_call",
+			Status: "error",
+			Error:  fmt.Sprintf("edge agent %q is not online", agentID),
+		}, nil
+	}
+
+	tl.logger.Info("dispatching edge_call", "agent", agentID, "query_len", len(query))
+
+	ctx, cancel := context.WithTimeout(tl.orchestrator.ctx, 60*time.Second)
+	defer cancel()
+
+	resp, err := tl.orchestrator.mqttChannel.SendPromptAndWait(ctx, agentID, query, "", 60*time.Second)
+	if err != nil {
+		return &ToolResult{
+			Tool:      "edge_call",
+			Status:    "error",
+			Error:     err.Error(),
+			ElapsedMs: time.Since(start).Milliseconds(),
+		}, nil
+	}
+
+	return &ToolResult{
+		Tool:      "edge_call",
+		Status:    "success",
+		Result:    resp.Content,
+		ElapsedMs: time.Since(start).Milliseconds(),
+	}, nil
 }

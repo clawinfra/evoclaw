@@ -1719,3 +1719,61 @@ func (o *Orchestrator) processDirect(agent *AgentState, msg Message, model strin
 
 	return resp, nil
 }
+
+// buildEdgeCallSchema dynamically constructs the edge_call tool schema based on
+// currently online edge agents and their advertised capabilities.
+// Returns (schema, true) if at least one edge agent is online, (_, false) otherwise.
+func (o *Orchestrator) buildEdgeCallSchema() (ToolSchema, bool) {
+	if o.mqttChannel == nil {
+		return ToolSchema{}, false
+	}
+
+	agentCaps := o.mqttChannel.GetOnlineAgentsWithCapabilities()
+	if len(agentCaps) == 0 {
+		return ToolSchema{}, false
+	}
+
+	// Build agent list for description
+	var agentLines []string
+	for id, caps := range agentCaps {
+		if caps != "" {
+			agentLines = append(agentLines, fmt.Sprintf("  - %s: %s", id, caps))
+		} else {
+			agentLines = append(agentLines, fmt.Sprintf("  - %s", id))
+		}
+	}
+	agentDesc := strings.Join(agentLines, "\n")
+
+	schema := ToolSchema{
+		Name: "edge_call",
+		Description: fmt.Sprintf(
+			"Call an edge agent to handle a query using its own tools and sensors. "+
+				"The edge agent runs its own LLM+tool loop and returns a natural language answer. "+
+				"Use 'query' for natural language requests; use 'action'+'params' for structured calls.\n\n"+
+				"Online edge agents:\n%s", agentDesc),
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"agent_id": map[string]interface{}{
+					"type":        "string",
+					"description": "ID of the target edge agent (e.g. 'alex-eye')",
+				},
+				"query": map[string]interface{}{
+					"type":        "string",
+					"description": "Natural language query for the edge agent to handle",
+				},
+				"action": map[string]interface{}{
+					"type":        "string",
+					"description": "Optional: specific action name for structured calls",
+				},
+				"params": map[string]interface{}{
+					"type":        "object",
+					"description": "Optional: parameters for the structured action",
+				},
+			},
+			"required": []string{"agent_id"},
+		},
+	}
+
+	return schema, true
+}

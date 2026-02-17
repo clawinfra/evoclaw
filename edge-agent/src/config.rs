@@ -28,6 +28,12 @@ pub struct Config {
     /// Skills configuration (optional)
     #[serde(default)]
     pub skills: Option<SkillsConfig>,
+
+    /// One-line capability summary advertised to the orchestrator on startup.
+    /// Example: "Pi sensor node — temperature, camera, disk, process monitoring"
+    /// If unset, a default is generated from agent_type.
+    #[serde(default)]
+    pub capabilities: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,6 +154,7 @@ impl Config {
                 None
             },
             skills: None,
+            capabilities: None, // derived from agent_type at runtime
         }
     }
 }

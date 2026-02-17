@@ -108,6 +108,31 @@ impl MqttClient {
         Ok(())
     }
 
+    /// Advertise this agent's capabilities to the orchestrator.
+    /// Published as a **retained** message so the orchestrator receives it
+    /// immediately on (re)connect — no timing dependency.
+    pub async fn advertise_capabilities(
+        &self,
+        capabilities: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let payload = serde_json::to_vec(&serde_json::json!({
+            "agent_id": self.agent_id,
+            "capabilities": capabilities,
+        }))?;
+
+        self.client
+            .publish(
+                format!("evoclaw/agents/{}/capabilities", self.agent_id),
+                QoS::AtLeastOnce,
+                true, // retained — orchestrator gets this on reconnect automatically
+                payload,
+            )
+            .await?;
+
+        info!(agent_id = %self.agent_id, capabilities = %capabilities, "capabilities advertised");
+        Ok(())
+    }
+
     /// Get the underlying async client (for custom operations)
     #[allow(dead_code)]
     pub fn client(&self) -> &AsyncClient {

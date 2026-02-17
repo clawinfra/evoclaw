@@ -15,10 +15,11 @@ import (
 
 const (
 	// MQTT topics for agent communication
-	commandsTopic  = "evoclaw/agents/%s/commands" // orchestrator → agent
-	reportsTopic   = "evoclaw/agents/%s/reports"  // agent → orchestrator
-	broadcastTopic = "evoclaw/broadcast"          // orchestrator → all agents
-	statusTopic    = "evoclaw/agents/%s/status"   // agent heartbeats
+	commandsTopic      = "evoclaw/agents/%s/commands"      // orchestrator → agent
+	reportsTopic       = "evoclaw/agents/%s/reports"       // agent → orchestrator
+	broadcastTopic     = "evoclaw/broadcast"               // orchestrator → all agents
+	statusTopic        = "evoclaw/agents/%s/status"        // agent heartbeats
+	capabilitiesTopic  = "evoclaw/agents/%s/capabilities"  // agent capability advertisement (retained)
 )
 
 // EdgeAgentCommand represents the message format expected by Rust edge agents
@@ -30,12 +31,13 @@ type EdgeAgentCommand struct {
 
 // EdgeAgentInfo tracks the status of an edge agent connected via MQTT
 type EdgeAgentInfo struct {
-	AgentID   string
-	Status    string    // "online", "idle", "busy", "error"
-	LastSeen  time.Time
-	Uptime    float64
-	CPU       float64
-	MemoryMB  float64
+	AgentID      string
+	Status       string    // "online", "idle", "busy", "error"
+	LastSeen     time.Time
+	Uptime       float64
+	CPU          float64
+	MemoryMB     float64
+	Capabilities string    // one-liner capability summary, published on startup
 }
 
 // PendingRequest tracks a request waiting for response
@@ -277,7 +279,76 @@ func (m *MQTTChannel) subscribe() error {
 	}
 	m.logger.Info("subscribed", "topic", statusPattern)
 
+	// Subscribe to agent capability advertisements (retained messages — delivered immediately on connect)
+	capPattern := "evoclaw/agents/+/capabilities"
+	token = m.client.Subscribe(capPattern, 1, m.handleCapabilities)
+	if !token.WaitTimeout(5 * time.Second) {
+		return fmt.Errorf("subscribe timeout")
+	}
+	if err := token.Error(); err != nil {
+		return fmt.Errorf("subscribe to %s: %w", capPattern, err)
+	}
+	m.logger.Info("subscribed", "topic", capPattern)
+
 	return nil
+}
+
+// handleCapabilities processes capability advertisement messages from edge agents.
+// Edge agents publish a retained message on startup describing what they can do.
+func (m *MQTTChannel) handleCapabilities(client mqtt.Client, mqttMsg mqtt.Message) {
+	var payload struct {
+		AgentID      string `json:"agent_id"`
+		Capabilities string `json:"capabilities"` // one-liner summary
+	}
+	if err := json.Unmarshal(mqttMsg.Payload(), &payload); err != nil {
+		m.logger.Warn("failed to parse capabilities message", "error", err)
+		return
+	}
+	if payload.AgentID == "" || payload.Capabilities == "" {
+		return
+	}
+
+	m.edgeAgentsMu.Lock()
+	if existing, ok := m.edgeAgents[payload.AgentID]; ok {
+		existing.Capabilities = payload.Capabilities
+	} else {
+		m.edgeAgents[payload.AgentID] = &EdgeAgentInfo{
+			AgentID:      payload.AgentID,
+			Status:       "online",
+			LastSeen:     time.Now(),
+			Capabilities: payload.Capabilities,
+		}
+	}
+	m.edgeAgentsMu.Unlock()
+
+	m.logger.Info("edge agent capabilities registered",
+		"agent", payload.AgentID,
+		"capabilities", payload.Capabilities,
+	)
+}
+
+// GetEdgeAgentCapabilities returns the capability summary for an edge agent.
+func (m *MQTTChannel) GetEdgeAgentCapabilities(agentID string) string {
+	m.edgeAgentsMu.RLock()
+	defer m.edgeAgentsMu.RUnlock()
+	if info, ok := m.edgeAgents[agentID]; ok {
+		return info.Capabilities
+	}
+	return ""
+}
+
+// GetOnlineAgentsWithCapabilities returns a map of online agentID → capability summary.
+func (m *MQTTChannel) GetOnlineAgentsWithCapabilities() map[string]string {
+	m.edgeAgentsMu.RLock()
+	defer m.edgeAgentsMu.RUnlock()
+
+	result := make(map[string]string)
+	for id, info := range m.edgeAgents {
+		if time.Since(info.LastSeen) < 2*time.Minute {
+			result[id] = info.Capabilities
+		}
+	}
+	return result
 }
 
 // AgentReport represents messages from edge agents (matching Rust struct)

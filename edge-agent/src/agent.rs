@@ -80,6 +80,29 @@ impl EdgeAgent {
         self.mqtt.subscribe().await
     }
 
+    /// Advertise capabilities to the orchestrator.
+    /// Uses config.capabilities if set, otherwise derives a default from agent_type.
+    pub async fn advertise_capabilities(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let caps = self.config.capabilities.clone().unwrap_or_else(|| {
+            match self.config.agent_type.as_str() {
+                "sensor" | "monitor" => format!(
+                    "{} sensor node — temperature, CPU/memory/disk stats, process monitoring, camera snapshot",
+                    self.config.agent_id
+                ),
+                "trader" => format!(
+                    "{} trading agent — market data, order execution, position management",
+                    self.config.agent_id
+                ),
+                "governance" => format!(
+                    "{} governance agent — on-chain voting, proposal management",
+                    self.config.agent_id
+                ),
+                _ => format!("{} edge agent", self.config.agent_id),
+            }
+        });
+        self.mqtt.advertise_capabilities(&caps).await
+    }
+
     /// Send heartbeat with metrics
     pub async fn heartbeat(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.metrics.increment_uptime(30); // Called every 30s
@@ -97,6 +120,7 @@ impl EdgeAgent {
         mut eventloop: rumqttc::EventLoop,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.subscribe().await?;
+        self.advertise_capabilities().await?;
         info!("agent ready, entering main loop");
 
         // Heartbeat timer
