@@ -38,6 +38,8 @@ class AgentService : Service() {
     }
 
     private var agentProcess: java.lang.Process? = null
+    // PID stored separately — java.lang.Process.pid() requires API 26 (minSdk 21)
+    private var agentPid: Int = -1
     private var logThread: Thread? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -73,9 +75,9 @@ class AgentService : Service() {
     // ── Agent Lifecycle ────────────────────────────────────────────────────
 
     private fun startAgent() {
-        if (agentProcess?.isAlive == true) {
-            Log.i(TAG, "Agent already running (PID ${agentProcess?.pid()})")
-            broadcastStatus("running", agentProcess?.pid() ?: -1)
+        if (procIsAlive(agentProcess)) {
+            Log.i(TAG, "Agent already running (PID $agentPid)")
+            broadcastStatus("running", agentPid)
             return
         }
 
@@ -105,16 +107,16 @@ class AgentService : Service() {
                 .start()
 
             agentProcess = process
-            val pid = process.pid()
-            Log.i(TAG, "Agent started (PID $pid)")
+            agentPid = procPid(process)
+            Log.i(TAG, "Agent started (PID $agentPid)")
 
             // Capture logs in background thread
             logThread = Thread({
                 captureOutput(process, logFile)
             }, "agent-log").apply { isDaemon = true; start() }
 
-            updateNotification("Running (PID $pid)")
-            broadcastStatus("running", pid)
+            updateNotification("Running (PID $agentPid)")
+            broadcastStatus("running", agentPid)
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start agent", e)
@@ -125,14 +127,15 @@ class AgentService : Service() {
 
     private fun stopAgent() {
         agentProcess?.let { proc ->
-            Log.i(TAG, "Stopping agent (PID ${proc.pid()})…")
+            Log.i(TAG, "Stopping agent (PID $agentPid)…")
             proc.destroy()
             try { proc.waitFor(5, java.util.concurrent.TimeUnit.SECONDS) }
             catch (_: InterruptedException) {}
-            if (proc.isAlive) proc.destroyForcibly()
+            if (procIsAlive(proc)) proc.destroyForcibly()
             Log.i(TAG, "Agent stopped")
         }
         agentProcess = null
+        agentPid = -1
         logThread = null
         wakeLock?.release()
         wakeLock = null
@@ -266,6 +269,32 @@ class AgentService : Service() {
         })
     }
 
-    private fun Process.pid(): Int = pid()
-    private val Process.isAlive: Boolean get() = runCatching { exitValue(); false }.getOrDefault(true)
+    // ── Process Compat Helpers ─────────────────────────────────────────────
+    // java.lang.Process.pid() and .isAlive require API 26 (minSdk 21).
+    // `import android.os.*` shadows bare `Process` as android.os.Process —
+    // always use fully-qualified java.lang.Process to avoid receiver mismatch.
+
+    /** Returns the child process PID, or -1 on pre-API-26 devices. */
+    private fun procPid(proc: java.lang.Process): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            proc.pid()
+        } else {
+            // Reflection fallback for API < 26 (ProcessImpl stores pid in "pid" field)
+            try {
+                val f = proc.javaClass.getDeclaredField("pid")
+                f.isAccessible = true
+                f.getInt(proc)
+            } catch (_: Exception) { -1 }
+        }
+    }
+
+    /** Returns true if the child process is still running. */
+    private fun procIsAlive(proc: java.lang.Process?): Boolean {
+        if (proc == null) return false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            proc.isAlive
+        } else {
+            try { proc.exitValue(); false } catch (_: IllegalThreadStateException) { true }
+        }
+    }
 }
