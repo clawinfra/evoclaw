@@ -295,9 +295,17 @@ jobs:
           # Configure Android linkers if this is an Android build
           if [[ "${{ matrix.target }}" == *"android"* ]]; then
             NDK_BIN="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+            # Linker env vars (used by rustc)
             export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${NDK_BIN}/aarch64-linux-android21-clang"
             export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER="${NDK_BIN}/armv7a-linux-androideabi21-clang"
             export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="${NDK_BIN}/x86_64-linux-android21-clang"
+            # CC/AR env vars (used by cc-rs / ring build script — NDK r27 dropped unversioned symlinks)
+            export CC_aarch64_linux_android="${NDK_BIN}/aarch64-linux-android21-clang"
+            export CC_armv7_linux_androideabi="${NDK_BIN}/armv7a-linux-androideabi21-clang"
+            export CC_x86_64_linux_android="${NDK_BIN}/x86_64-linux-android21-clang"
+            export AR_aarch64_linux_android="${NDK_BIN}/llvm-ar"
+            export AR_armv7_linux_androideabi="${NDK_BIN}/llvm-ar"
+            export AR_x86_64_linux_android="${NDK_BIN}/llvm-ar"
           fi
 
           cargo build --release --target ${{ matrix.target }}
@@ -375,6 +383,13 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           NDK_BIN="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          # NDK r27 dropped unversioned clang symlinks; set CC/AR so cc-rs (ring) can find them
+          export CC_aarch64_linux_android="${NDK_BIN}/aarch64-linux-android21-clang"
+          export CC_armv7_linux_androideabi="${NDK_BIN}/armv7a-linux-androideabi21-clang"
+          export CC_x86_64_linux_android="${NDK_BIN}/x86_64-linux-android21-clang"
+          export AR_aarch64_linux_android="${NDK_BIN}/llvm-ar"
+          export AR_armv7_linux_androideabi="${NDK_BIN}/llvm-ar"
+          export AR_x86_64_linux_android="${NDK_BIN}/llvm-ar"
 
           # arm64 (most modern phones)
           CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${NDK_BIN}/aarch64-linux-android21-clang" \
