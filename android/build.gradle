@@ -14,12 +14,9 @@ buildscript {
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+// NOTE: project-level repositories are declared in settings.gradle
+// via dependencyResolutionManagement — do not add allprojects { repositories {} } here
+// as Gradle 9 enforces FAIL_ON_PROJECT_REPOS mode.
 
 task clean(type: Delete) {
     delete rootProject.buildDir
