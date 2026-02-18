@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EvoClaw Agent</string>
+    <string name="agent_running">Agent running</string>
+    <string name="agent_stopped">Agent stopped</string>
+    <string name="notification_channel_desc">Shows when the EvoClaw edge agent is running in the background</string>
+</resources>

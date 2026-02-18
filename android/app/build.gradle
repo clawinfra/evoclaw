@@ -1,0 +1,75 @@
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+}
+
+android {
+    namespace 'io.clawinfra.evoclaw'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "io.clawinfra.evoclaw"
+        minSdk 21          // Android 5.0+ — matches NDK API 21 target
+        targetSdk 35
+        versionCode 1
+        versionName "0.1.0"
+
+        ndk {
+            // Include the ABIs we build in CI
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug  // TODO: production keystore
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+    }
+
+    buildFeatures {
+        compose true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion compose_version
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    // Bundle native binaries (built by CI, placed here pre-build)
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
+}
+
+dependencies {
+    // Core Android
+    implementation 'androidx.core:core-ktx:1.15.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'
+    implementation 'androidx.work:work-runtime-ktx:2.10.0'
+
+    // Compose UI
+    implementation "androidx.compose.ui:ui:$compose_version"
+    implementation "androidx.compose.material3:material3:1.3.1"
+    implementation "androidx.compose.ui:ui-tooling-preview:$compose_version"
+    implementation 'androidx.activity:activity-compose:1.9.3'
+    debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
+
+    // Notifications & foreground service
+    implementation 'androidx.core:core-ktx:1.15.0'
+}
