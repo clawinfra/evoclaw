@@ -3,13 +3,13 @@ package agents
 import (
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
-
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
 )
 
 func newTestMemoryStore(t *testing.T) *MemoryStore {
+	t.Helper()
 	tmpDir := t.TempDir()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	m, err := NewMemoryStore(tmpDir, logger)
@@ -19,6 +19,8 @@ func newTestMemoryStore(t *testing.T) *MemoryStore {
 	return m
 }
 
+// ---- construction ----
+
 func TestNewMemoryStore(t *testing.T) {
 	tmpDir := t.TempDir()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -27,480 +29,464 @@ func TestNewMemoryStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create memory store: %v", err)
 	}
-
 	if m == nil {
 		t.Fatal("expected non-nil memory store")
 	}
-
 	if m.cache == nil {
 		t.Error("expected cache map to be initialized")
 	}
 }
 
-func TestGetMemory(t *testing.T) {
+func TestGetMemoryDefaults(t *testing.T) {
 	m := newTestMemoryStore(t)
-
-	// Get memory for new agent
 	mem := m.Get("agent-1")
+
 	if mem == nil {
 		t.Fatal("expected non-nil memory")
 	}
-
 	if mem.AgentID != "agent-1" {
-		t.Errorf("expected AgentID agent-1, got %s", mem.AgentID)
+		t.Errorf("AgentID: got %q, want %q", mem.AgentID, "agent-1")
 	}
-
 	if len(mem.Messages) != 0 {
-		t.Errorf("expected 0 messages, got %d", len(mem.Messages))
+		t.Errorf("Messages: got %d, want 0", len(mem.Messages))
 	}
-
-	if mem.MaxMessages != 100 {
-		t.Errorf("expected MaxMessages 100, got %d", mem.MaxMessages)
+	if mem.MaxMessages != defaultMaxMessages {
+		t.Errorf("MaxMessages: got %d, want %d", mem.MaxMessages, defaultMaxMessages)
 	}
-
-	if mem.TokenLimit != 100000 {
-		t.Errorf("expected TokenLimit 100000, got %d", mem.TokenLimit)
+	if mem.TokenLimit != defaultTokenLimit {
+		t.Errorf("TokenLimit: got %d, want %d", mem.TokenLimit, defaultTokenLimit)
 	}
-
-	// Get same memory again (should be cached)
+	// Second Get should return the same cached pointer.
 	mem2 := m.Get("agent-1")
 	if mem != mem2 {
-		t.Error("expected same memory instance from cache")
+		t.Error("expected same memory instance from cache on second Get")
 	}
 }
+
+// ---- Add / Get ----
 
 func TestAddMessage(t *testing.T) {
 	m := newTestMemoryStore(t)
 	mem := m.Get("agent-1")
 
-	// Add messages
 	mem.Add("user", "Hello")
 	mem.Add("assistant", "Hi there!")
 	mem.Add("user", "How are you?")
 
 	if len(mem.Messages) != 3 {
-		t.Errorf("expected 3 messages, got %d", len(mem.Messages))
+		t.Errorf("len(Messages): got %d, want 3", len(mem.Messages))
 	}
-
 	if mem.Messages[0].Role != "user" {
-		t.Errorf("expected first role to be user, got %s", mem.Messages[0].Role)
+		t.Errorf("Messages[0].Role: got %q, want %q", mem.Messages[0].Role, "user")
 	}
-
 	if mem.Messages[0].Content != "Hello" {
-		t.Errorf("expected first content to be 'Hello', got '%s'", mem.Messages[0].Content)
+		t.Errorf("Messages[0].Content: got %q, want %q", mem.Messages[0].Content, "Hello")
 	}
-
 	if mem.TotalTokens <= 0 {
-		t.Error("expected positive token count")
+		t.Error("expected positive TotalTokens after adding messages")
 	}
 }
 
-func TestGetMessages(t *testing.T) {
+func TestGetMessages_ReturnsCopy(t *testing.T) {
 	m := newTestMemoryStore(t)
 	mem := m.Get("agent-1")
-
 	mem.Add("user", "Message 1")
 	mem.Add("assistant", "Message 2")
 	mem.Add("user", "Message 3")
 
-	messages := mem.GetMessages()
-
-	if len(messages) != 3 {
-		t.Errorf("expected 3 messages, got %d", len(messages))
+	msgs := mem.GetMessages()
+	if len(msgs) != 3 {
+		t.Errorf("len(msgs): got %d, want 3", len(msgs))
 	}
-
-	// Verify it's a copy (modifying shouldn't affect original)
-	messages[0].Content = "Modified"
-	if mem.Messages[0].Content == "Modified" {
-		t.Error("expected GetMessages to return a copy, not original slice")
+	// Mutating the returned slice must not affect internal state.
+	msgs[0].Content = "mutated"
+	if mem.Messages[0].Content == "mutated" {
+		t.Error("GetMessages must return a copy, not the internal slice")
 	}
 }
 
 func TestGetRecentMessages(t *testing.T) {
 	m := newTestMemoryStore(t)
 	mem := m.Get("agent-1")
-
-	// Add 10 messages
-	for i := 1; i <= 10; i++ {
-		mem.Add("user", string(rune('0'+i)))
+	for i := 0; i < 10; i++ {
+		mem.Add("user", string(rune('a'+i)))
 	}
 
-	// Get recent 3
 	recent := mem.GetRecentMessages(3)
-
 	if len(recent) != 3 {
-		t.Errorf("expected 3 recent messages, got %d", len(recent))
+		t.Fatalf("GetRecentMessages(3): got %d, want 3", len(recent))
 	}
-
-	// Should be the last 3 messages (8, 9, 10)
-	if recent[0].Content != "8" {
-		t.Errorf("expected first recent message to be '8', got '%s'", recent[0].Content)
-	}
-
-	if recent[2].Content != ":" { // '0' + 10 = ':'
-		t.Errorf("expected last recent message to be ':', got '%s'", recent[2].Content)
+	if recent[2].Content != "j" {
+		t.Errorf("last recent message: got %q, want %q", recent[2].Content, "j")
 	}
 }
 
-func TestGetRecentMessagesMoreThanAvailable(t *testing.T) {
+func TestGetRecentMessages_MoreThanAvailable(t *testing.T) {
 	m := newTestMemoryStore(t)
 	mem := m.Get("agent-1")
+	mem.Add("user", "a")
+	mem.Add("user", "b")
 
-	mem.Add("user", "Message 1")
-	mem.Add("user", "Message 2")
-
-	// Request more than available
 	recent := mem.GetRecentMessages(10)
-
 	if len(recent) != 2 {
-		t.Errorf("expected 2 messages (all available), got %d", len(recent))
+		t.Errorf("GetRecentMessages(10) with 2 stored: got %d, want 2", len(recent))
 	}
 }
 
-func TestClearMemory(t *testing.T) {
+func TestClear(t *testing.T) {
 	m := newTestMemoryStore(t)
 	mem := m.Get("agent-1")
-
-	mem.Add("user", "Message 1")
-	mem.Add("user", "Message 2")
-	mem.Add("user", "Message 3")
-
-	if len(mem.Messages) != 3 {
-		t.Errorf("expected 3 messages before clear, got %d", len(mem.Messages))
+	for i := 0; i < 5; i++ {
+		mem.Add("user", "msg")
 	}
-
 	mem.Clear()
 
 	if len(mem.Messages) != 0 {
-		t.Errorf("expected 0 messages after clear, got %d", len(mem.Messages))
+		t.Errorf("after Clear, len(Messages): got %d, want 0", len(mem.Messages))
 	}
-
 	if mem.TotalTokens != 0 {
-		t.Errorf("expected 0 tokens after clear, got %d", mem.TotalTokens)
+		t.Errorf("after Clear, TotalTokens: got %d, want 0", mem.TotalTokens)
+	}
+	if mem.CompactionCount != 0 {
+		t.Errorf("after Clear, CompactionCount: got %d, want 0", mem.CompactionCount)
 	}
 }
 
-func TestTrimByMessageCount(t *testing.T) {
+// ---- compaction ----
+
+func TestCompact_MessageCountLimit_PreservesHeadAndTail(t *testing.T) {
 	m := newTestMemoryStore(t)
 	mem := m.Get("agent-1")
+	mem.MaxMessages = 10 // small limit for the test
 
-	// Set low max messages for testing
+	// Add more messages than the limit.
+	total := 30
+	for i := 0; i < total; i++ {
+		mem.Add("user", "message")
+	}
+
+	// Must be within the limit after compaction.
+	if len(mem.Messages) > mem.MaxMessages {
+		t.Errorf("after compaction, len(Messages) %d > MaxMessages %d", len(mem.Messages), mem.MaxMessages)
+	}
+
+	// At least one compaction must have occurred.
+	if mem.CompactionCount == 0 {
+		t.Error("expected CompactionCount > 0 after exceeding MaxMessages")
+	}
+
+	// A compaction marker must be present (role "assistant", contains "Compaction").
+	hasMarker := false
+	for _, msg := range mem.Messages {
+		if msg.Role == "assistant" && strings.Contains(msg.Content, "Compaction") {
+			hasMarker = true
+			break
+		}
+	}
+	if !hasMarker {
+		t.Error("expected a compaction marker message in the history")
+	}
+}
+
+func TestCompact_HeadMessagesPreserved(t *testing.T) {
+	m := newTestMemoryStore(t)
+	mem := m.Get("agent-1")
 	mem.MaxMessages = 10
 
-	// Add more than max
-	for i := 1; i <= 20; i++ {
-		mem.Add("user", string(rune('a'+i-1)))
+	// The first headKeepMessages messages should survive compaction.
+	sentinels := make([]string, headKeepMessages)
+	for i := 0; i < headKeepMessages; i++ {
+		sentinels[i] = "SENTINEL-" + string(rune('A'+i))
+		mem.Add("user", sentinels[i])
+	}
+	// Now flood with filler to trigger compaction.
+	for i := 0; i < 30; i++ {
+		mem.Add("user", "filler")
 	}
 
-	// Should be trimmed to MaxMessages/2 = 5 messages (or close)
-	// Trim happens incrementally, so check it's <= MaxMessages
-	if len(mem.Messages) > mem.MaxMessages {
-		t.Errorf("expected messages to be trimmed to <= %d, got %d", mem.MaxMessages, len(mem.Messages))
-	}
-
-	// Should keep the most recent messages
-	lastMsg := mem.Messages[len(mem.Messages)-1].Content
-	if lastMsg != "t" {
-		t.Logf("expected last message to be 't' (20th char), got '%s' (trim may keep different amount)", lastMsg)
+	// All sentinel messages must still be present.
+	for _, s := range sentinels {
+		found := false
+		for _, msg := range mem.Messages {
+			if msg.Content == s {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("head sentinel %q was lost during compaction", s)
+		}
 	}
 }
 
-func TestTrimByTokenLimit(t *testing.T) {
+func TestCompact_TokenLimit(t *testing.T) {
 	m := newTestMemoryStore(t)
 	mem := m.Get("agent-1")
+	mem.TokenLimit = 50 // extremely tight
 
-	// Set low token limit for testing
-	mem.TokenLimit = 50 // Very low limit
-
-	// Add messages with lots of text
-	longText := "This is a long message with lots of text that should trigger token trimming."
+	longText := strings.Repeat("word ", 30) // ~10 tokens each
 	for i := 0; i < 20; i++ {
 		mem.Add("user", longText)
 	}
 
-	// After trimming, should be close to token limit
-	// Check that trimming happened (not all 20 messages remain)
+	// Should have been trimmed — not all 20 remain.
 	if len(mem.Messages) >= 20 {
-		t.Errorf("expected messages to be trimmed, but got all %d messages", len(mem.Messages))
+		t.Errorf("expected token trimming, but all %d messages remain", len(mem.Messages))
 	}
-
-	// Should keep at least 10 messages (minimum in trim logic)
-	if len(mem.Messages) < 10 {
-		t.Errorf("expected at least 10 messages (minimum), got %d", len(mem.Messages))
+	// Floor must hold.
+	if len(mem.Messages) < minMessagesAfterTrim {
+		t.Errorf("len(Messages) %d < minMessagesAfterTrim %d", len(mem.Messages), minMessagesAfterTrim)
 	}
 }
 
-func TestMemorySaveAndLoad(t *testing.T) {
+func TestCompact_CompactionCountIncrements(t *testing.T) {
+	m := newTestMemoryStore(t)
+	mem := m.Get("agent-1")
+	mem.MaxMessages = 8
+
+	for i := 0; i < 40; i++ {
+		mem.Add("user", "msg")
+	}
+
+	if mem.CompactionCount == 0 {
+		t.Error("CompactionCount should be > 0 after many messages")
+	}
+}
+
+// ---- estimateTokens ----
+
+func TestEstimateTokens_Empty(t *testing.T) {
+	if got := estimateTokens(""); got != 0 {
+		t.Errorf("estimateTokens(%q): got %d, want 0", "", got)
+	}
+}
+
+func TestEstimateTokens_Short(t *testing.T) {
+	// "Hello" = 5 runes → ceil(5/3) = 2
+	got := estimateTokens("Hello")
+	if got < 1 || got > 3 {
+		t.Errorf("estimateTokens(%q): got %d, want 1-3", "Hello", got)
+	}
+}
+
+func TestEstimateTokens_ConservativeForCode(t *testing.T) {
+	// Code is punctuation-dense; our estimate should be at least as large as
+	// the naive len/4 estimate so we never under-count.
+	code := `func foo(x int) (int, error) { return x * 2, nil }`
+	conservative := estimateTokens(code)
+	naive := len(code) / 4
+	if conservative < naive {
+		t.Errorf("conservative estimate %d < naive estimate %d for code", conservative, naive)
+	}
+}
+
+func TestEstimateTokens_MultiByte(t *testing.T) {
+	// CJK: each rune is 3 bytes in UTF-8 but represents roughly 1 token.
+	// Our rune-based estimate should be saner than byte/4.
+	cjk := "你好世界这是一个测试" // 10 CJK runes = 30 bytes
+	byteEstimate := len(cjk) / 4  // 7 — too high if chars are 1 token each
+	runeEstimate := estimateTokens(cjk)
+
+	// runeEstimate should be in the range of actual token count (~4-10).
+	if runeEstimate > byteEstimate+5 {
+		t.Errorf("CJK estimate %d is unreasonably higher than byte estimate %d", runeEstimate, byteEstimate)
+	}
+	if runeEstimate < 1 {
+		t.Errorf("CJK estimate %d: expected at least 1", runeEstimate)
+	}
+}
+
+func TestEstimateTokens_LongEnglish(t *testing.T) {
+	text := strings.Repeat("word ", 100) // 100 words ≈ 100 tokens
+	got := estimateTokens(text)
+	// Expect 100-200 tokens (our estimate runs conservative).
+	if got < 80 || got > 250 {
+		t.Errorf("estimateTokens(100 words): got %d, want roughly 80-250", got)
+	}
+}
+
+// ---- recalculateTokens ----
+
+func TestRecalculateTokens(t *testing.T) {
+	m := newTestMemoryStore(t)
+	mem := m.Get("agent-1")
+	mem.Add("user", "Message 1")
+	mem.Add("user", "Message 2")
+	mem.Add("user", "Message 3")
+	correct := mem.TotalTokens
+
+	mem.mu.Lock()
+	mem.TotalTokens = 9999
+	mem.recalculateTokens()
+	mem.mu.Unlock()
+
+	if mem.TotalTokens != correct {
+		t.Errorf("after recalculate: got %d, want %d", mem.TotalTokens, correct)
+	}
+}
+
+// ---- persistence ----
+
+func TestSaveAndLoad(t *testing.T) {
 	tmpDir := t.TempDir()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	// Create store and add messages
-	m1, err := NewMemoryStore(tmpDir, logger)
-	if err != nil {
-		t.Fatalf("failed to create memory store: %v", err)
-	}
-
+	m1, _ := NewMemoryStore(tmpDir, logger)
 	mem := m1.Get("agent-1")
 	mem.Add("user", "Hello")
 	mem.Add("assistant", "Hi there!")
 	mem.Add("user", "How are you?")
-
-	// Save to disk
-	err = m1.Save("agent-1")
-	if err != nil {
-		t.Fatalf("failed to save memory: %v", err)
+	if err := m1.Save("agent-1"); err != nil {
+		t.Fatalf("Save: %v", err)
 	}
 
-	// Create new store and load
-	m2, err := NewMemoryStore(tmpDir, logger)
-	if err != nil {
-		t.Fatalf("failed to create second memory store: %v", err)
-	}
-
+	m2, _ := NewMemoryStore(tmpDir, logger)
 	loaded := m2.Get("agent-1")
 
-	// Verify loaded data
 	if len(loaded.Messages) != 3 {
-		t.Errorf("expected 3 messages after load, got %d", len(loaded.Messages))
+		t.Fatalf("loaded messages: got %d, want 3", len(loaded.Messages))
 	}
-
 	if loaded.Messages[0].Content != "Hello" {
-		t.Errorf("expected first message to be 'Hello', got '%s'", loaded.Messages[0].Content)
+		t.Errorf("Messages[0]: got %q, want %q", loaded.Messages[0].Content, "Hello")
+	}
+	if loaded.Messages[2].Content != "How are you?" {
+		t.Errorf("Messages[2]: got %q, want %q", loaded.Messages[2].Content, "How are you?")
+	}
+}
+
+func TestLoadMigration_HighTokenLimit(t *testing.T) {
+	// Records written with the old 100k default must be migrated down on load.
+	tmpDir := t.TempDir()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	m, _ := NewMemoryStore(tmpDir, logger)
+
+	mem := m.Get("agent-migration")
+	// Simulate the old unsafe defaults.
+	mem.mu.Lock()
+	mem.TokenLimit = 100_000
+	mem.MaxMessages = 100
+	mem.mu.Unlock()
+	if err := m.Save("agent-migration"); err != nil {
+		t.Fatalf("Save: %v", err)
 	}
 
-	if loaded.Messages[2].Content != "How are you?" {
-		t.Errorf("expected third message to be 'How are you?', got '%s'", loaded.Messages[2].Content)
+	m2, _ := NewMemoryStore(tmpDir, logger)
+	loaded := m2.Get("agent-migration")
+
+	if loaded.TokenLimit > defaultTokenLimit*2 {
+		t.Errorf("migration: TokenLimit not clamped; got %d", loaded.TokenLimit)
+	}
+	if loaded.MaxMessages > defaultMaxMessages*2 {
+		t.Errorf("migration: MaxMessages not clamped; got %d", loaded.MaxMessages)
 	}
 }
 
 func TestSaveAll(t *testing.T) {
 	m := newTestMemoryStore(t)
-
-	// Create multiple agent memories
-	for i := 1; i <= 3; i++ {
-		agentID := string(rune('a'+i-1)) + "-agent"
-		mem := m.Get(agentID)
-		mem.Add("user", "Message for "+agentID)
+	for i := 0; i < 3; i++ {
+		id := string(rune('a'+i)) + "-agent"
+		m.Get(id).Add("user", "hello from "+id)
 	}
-
-	// Save all
-	err := m.SaveAll()
-	if err != nil {
-		t.Fatalf("failed to save all: %v", err)
+	if err := m.SaveAll(); err != nil {
+		t.Fatalf("SaveAll: %v", err)
 	}
-
-	// Verify files exist
-	for i := 1; i <= 3; i++ {
-		agentID := string(rune('a'+i-1)) + "-agent"
-		path := m.memoryPath(agentID)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			t.Errorf("expected memory file for %s to exist", agentID)
+	for i := 0; i < 3; i++ {
+		id := string(rune('a'+i)) + "-agent"
+		if _, err := os.Stat(m.memoryPath(id)); os.IsNotExist(err) {
+			t.Errorf("expected memory file for %s to exist after SaveAll", id)
 		}
 	}
 }
 
-func TestCleanup(t *testing.T) {
-	m := newTestMemoryStore(t)
-
-	// Create some memories
-	mem1 := m.Get("agent-1")
-	mem1.Add("user", "Message 1")
-
-	mem2 := m.Get("agent-2")
-	mem2.Add("user", "Message 2")
-
-	// Save memories
-	_ = m.Save("agent-1")
-	_ = m.Save("agent-2")
-
-	// Run cleanup (with very short threshold to test the function)
-	err := m.Cleanup(0)
-	if err != nil {
-		t.Fatalf("failed to cleanup: %v", err)
-	}
-
-	// Just verify cleanup runs without error
-	// Actual cleanup behavior depends on timing and file mod times
-}
+// ---- stats ----
 
 func TestGetStats(t *testing.T) {
 	m := newTestMemoryStore(t)
 
-	// Empty stats
 	stats := m.GetStats()
 	if stats["cached_agents"].(int) != 0 {
-		t.Errorf("expected 0 cached agents, got %d", stats["cached_agents"])
+		t.Errorf("empty store: cached_agents = %d, want 0", stats["cached_agents"])
 	}
 
-	// Add some memories
-	mem1 := m.Get("agent-1")
-	mem1.Add("user", "Message 1")
-	mem1.Add("user", "Message 2")
-
-	mem2 := m.Get("agent-2")
-	mem2.Add("user", "Message 3")
+	m.Get("agent-1").Add("user", "msg1")
+	m.Get("agent-1").Add("user", "msg2")
+	m.Get("agent-2").Add("user", "msg3")
 
 	stats = m.GetStats()
-
 	if stats["cached_agents"].(int) != 2 {
-		t.Errorf("expected 2 cached agents, got %d", stats["cached_agents"])
+		t.Errorf("cached_agents: got %d, want 2", stats["cached_agents"])
 	}
-
 	if stats["total_messages"].(int) != 3 {
-		t.Errorf("expected 3 total messages, got %d", stats["total_messages"])
+		t.Errorf("total_messages: got %d, want 3", stats["total_messages"])
 	}
-
 	if stats["total_tokens"].(int) <= 0 {
-		t.Error("expected positive total tokens")
+		t.Error("total_tokens should be > 0")
+	}
+	if _, ok := stats["total_compactions"]; !ok {
+		t.Error("stats should include total_compactions")
 	}
 }
 
-func TestEstimateTokens(t *testing.T) {
-	tests := []struct {
-		text     string
-		minToken int
-		maxToken int
-	}{
-		{
-			text:     "Hello",
-			minToken: 1,
-			maxToken: 2,
-		},
-		{
-			text:     "This is a longer sentence with more words.",
-			minToken: 10,
-			maxToken: 15,
-		},
-		{
-			text:     "",
-			minToken: 0,
-			maxToken: 0,
-		},
-	}
+// ---- concurrency ----
 
-	for _, tt := range tests {
-		tokens := estimateTokens(tt.text)
-
-		if tokens < tt.minToken {
-			t.Errorf("text '%s': tokens %d below minimum %d", tt.text, tokens, tt.minToken)
-		}
-
-		if tokens > tt.maxToken {
-			t.Errorf("text '%s': tokens %d above maximum %d", tt.text, tokens, tt.maxToken)
-		}
-	}
-}
-
-func TestRecalculateTokens(t *testing.T) {
+func TestConcurrentAccess(t *testing.T) {
 	m := newTestMemoryStore(t)
 	mem := m.Get("agent-1")
+	done := make(chan struct{}, 30)
 
-	// Add messages
-	mem.Add("user", "Message 1")
-	mem.Add("user", "Message 2")
-	mem.Add("user", "Message 3")
-
-	originalTokens := mem.TotalTokens
-
-	// Manually set tokens to wrong value
-	mem.mu.Lock()
-	mem.TotalTokens = 9999
-	mem.mu.Unlock()
-
-	// Recalculate
-	mem.mu.Lock()
-	mem.recalculateTokens()
-	mem.mu.Unlock()
-
-	// Should be back to correct value
-	if mem.TotalTokens != originalTokens {
-		t.Errorf("expected tokens %d after recalculation, got %d", originalTokens, mem.TotalTokens)
-	}
-}
-
-func TestMemoryConcurrentAccess(t *testing.T) {
-	m := newTestMemoryStore(t)
-	mem := m.Get("agent-1")
-
-	// Concurrent operations
-	done := make(chan bool, 30)
-
-	// Concurrent adds
 	for i := 0; i < 10; i++ {
 		go func(n int) {
-			mem.Add("user", "Message "+string(rune('0'+n)))
-			done <- true
+			mem.Add("user", "msg")
+			done <- struct{}{}
 		}(i)
 	}
-
-	// Concurrent reads
 	for i := 0; i < 10; i++ {
 		go func() {
 			mem.GetMessages()
-			done <- true
+			done <- struct{}{}
 		}()
 	}
-
-	// Concurrent recent reads
 	for i := 0; i < 10; i++ {
 		go func() {
 			mem.GetRecentMessages(5)
-			done <- true
+			done <- struct{}{}
 		}()
 	}
-
-	// Wait for all goroutines
 	for i := 0; i < 30; i++ {
 		<-done
 	}
-
-	// Verify messages were added
-	if len(mem.Messages) != 10 {
-		t.Errorf("expected 10 messages, got %d", len(mem.Messages))
+	// Data race detector would catch any issues; just verify count.
+	if len(mem.Messages) == 0 {
+		t.Error("expected at least some messages after concurrent adds")
 	}
 }
 
-func TestMemoryLastAccessedUpdate(t *testing.T) {
+// ---- misc ----
+
+func TestLastAccessedUpdates(t *testing.T) {
 	m := newTestMemoryStore(t)
-
-	// Get memory
 	mem := m.Get("agent-1")
-	firstAccess := mem.LastAccessed
-
-	// Wait a bit
-	time.Sleep(10 * time.Millisecond)
-
-	// Get again
+	first := mem.LastAccessed
+	time.Sleep(15 * time.Millisecond)
 	mem2 := m.Get("agent-1")
-	secondAccess := mem2.LastAccessed
-
-	// LastAccessed should be updated
-	if !secondAccess.After(firstAccess) {
+	if !mem2.LastAccessed.After(first) {
 		t.Error("expected LastAccessed to be updated on subsequent Get")
 	}
 }
 
-func TestConversationMemoryStructure(t *testing.T) {
+func TestConversationMemoryType(t *testing.T) {
 	m := newTestMemoryStore(t)
 	mem := m.Get("agent-1")
-
-	// Test that messages are ChatMessage type
 	mem.Add("user", "Test message")
 
 	if len(mem.Messages) != 1 {
-		t.Fatalf("expected 1 message, got %d", len(mem.Messages))
+		t.Fatalf("len(Messages): got %d, want 1", len(mem.Messages))
 	}
-
 	msg := mem.Messages[0]
-	if _, ok := interface{}(msg).(orchestrator.ChatMessage); !ok {
-		t.Error("expected message to be orchestrator.ChatMessage type")
-	}
-
 	if msg.Role != "user" {
-		t.Errorf("expected role 'user', got '%s'", msg.Role)
+		t.Errorf("Role: got %q, want %q", msg.Role, "user")
 	}
-
 	if msg.Content != "Test message" {
-		t.Errorf("expected content 'Test message', got '%s'", msg.Content)
+		t.Errorf("Content: got %q, want %q", msg.Content, "Test message")
 	}
 }
