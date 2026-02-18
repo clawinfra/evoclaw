@@ -225,7 +225,7 @@ jobs:
           - target: x86_64-apple-darwin
             os-name: darwin
             arch: amd64
-            runner: macos-12
+            runner: macos-13
           - target: aarch64-apple-darwin
             os-name: darwin
             arch: arm64
