@@ -592,9 +592,13 @@ impl EdgeTools {
                 let raw = value_str.trim();
                 // gpiod v2 returns '"17"=inactive' / '"17"=active'
                 // gpiod v1 returns '0' / '1'
-                let state: u8 = if raw.contains("=active") { 1 }
-                    else if raw.contains("=inactive") { 0 }
-                    else { raw.parse::<u8>().unwrap_or(0) };
+                let state: u8 = if raw.contains("=active") {
+                    1
+                } else if raw.contains("=inactive") {
+                    0
+                } else {
+                    raw.parse::<u8>().unwrap_or(0)
+                };
                 ToolResult::ok(serde_json::json!({
                     "pin": pin,
                     "value": state,
