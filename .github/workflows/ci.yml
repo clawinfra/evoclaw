@@ -230,6 +230,24 @@ jobs:
             os-name: darwin
             arch: arm64
             runner: macos-14
+          # Windows (cross-compiled from Ubuntu via mingw-w64)
+          - target: x86_64-pc-windows-gnu
+            os-name: windows
+            arch: amd64
+            runner: ubuntu-latest
+          # Android (cross-compiled via Android NDK)
+          - target: aarch64-linux-android
+            os-name: android
+            arch: arm64
+            runner: ubuntu-latest
+          - target: armv7-linux-androideabi
+            os-name: android
+            arch: armv7
+            runner: ubuntu-latest
+          - target: x86_64-linux-android
+            os-name: android
+            arch: amd64
+            runner: ubuntu-latest
     defaults:
       run:
         working-directory: edge-agent
@@ -244,39 +262,72 @@ jobs:
         with:
           workspaces: edge-agent
 
-      - name: Install cross-compilation tools (Linux only)
-        if: runner.os == 'Linux' && (contains(matrix.target, 'aarch64') || contains(matrix.target, 'armv7'))
+      - name: Install cross-compilation tools (Linux ARM)
+        if: runner.os == 'Linux' && (matrix.target == 'aarch64-unknown-linux-gnu' || matrix.target == 'armv7-unknown-linux-gnueabihf')
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+
+      - name: Install cross-compilation tools (Windows)
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      - name: Set up Android NDK
+        if: contains(matrix.target, 'android')
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
+          add-to-path: true
 
       - name: Build release
         env:
           # Cross-compilation linkers for Linux targets
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
           CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+          # Windows cross-compilation linker
+          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc
+          # Android NDK linkers (set dynamically via NDK path)
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
-          cargo build --release --target ${{ matrix.target }}
-          
-          BINARY_NAME="evoclaw-agent"
-          BINARY_PATH="target/${{ matrix.target }}/release/${BINARY_NAME}"
-          OUTPUT="evoclaw-agent-${{ matrix.os-name }}-${{ matrix.arch }}"
-          
-          if [ -f "${BINARY_PATH}" ]; then
-            cp "${BINARY_PATH}" "${OUTPUT}"
-          elif [ -f "target/${{ matrix.target }}/release/evoclaw_agent" ]; then
-            cp "target/${{ matrix.target }}/release/evoclaw_agent" "${OUTPUT}"
+          # Configure Android linkers if this is an Android build
+          if [[ "${{ matrix.target }}" == *"android"* ]]; then
+            NDK_BIN="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+            export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${NDK_BIN}/aarch64-linux-android21-clang"
+            export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER="${NDK_BIN}/armv7a-linux-androideabi21-clang"
+            export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="${NDK_BIN}/x86_64-linux-android21-clang"
           fi
-          
-          # Compress binary
-          tar -czf "${OUTPUT}.tar.gz" "${OUTPUT}"
-          ls -lh ${OUTPUT}*
+
+          cargo build --release --target ${{ matrix.target }}
+
+          BINARY_NAME="evoclaw-agent"
+          OUTPUT="evoclaw-agent-${{ matrix.os-name }}-${{ matrix.arch }}"
+
+          # Windows binary has .exe extension
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            BINARY_PATH="target/${{ matrix.target }}/release/${BINARY_NAME}.exe"
+            cp "${BINARY_PATH}" "${OUTPUT}.exe"
+            zip "${OUTPUT}.zip" "${OUTPUT}.exe"
+            ls -lh ${OUTPUT}*
+          else
+            BINARY_PATH="target/${{ matrix.target }}/release/${BINARY_NAME}"
+            if [ ! -f "${BINARY_PATH}" ]; then
+              BINARY_PATH="target/${{ matrix.target }}/release/evoclaw_agent"
+            fi
+            cp "${BINARY_PATH}" "${OUTPUT}"
+            tar -czf "${OUTPUT}.tar.gz" "${OUTPUT}"
+            ls -lh ${OUTPUT}*
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: evoclaw-agent-${{ matrix.os-name }}-${{ matrix.arch }}
-          path: edge-agent/evoclaw-agent-${{ matrix.os-name }}-${{ matrix.arch }}
+          path: |
+            edge-agent/evoclaw-agent-${{ matrix.os-name }}-${{ matrix.arch }}
+            edge-agent/evoclaw-agent-${{ matrix.os-name }}-${{ matrix.arch }}.exe
           retention-days: 30
 
       - name: Upload release archives
@@ -366,7 +417,9 @@ jobs:
             
             ## Edge Agent (Lightweight Device Agent)
             - **Linux**: amd64, arm64, armv7
-            - **macOS**: amd64, arm64
+            - **macOS**: amd64 (Intel), arm64 (Apple Silicon)
+            - **Windows**: amd64
+            - **Android**: arm64, armv7, x86_64 (API 21+, Android 5.0+)
             
             ## Installation
             
