@@ -1,6 +1,7 @@
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
+    id 'org.jetbrains.kotlin.plugin.compose'  // required for Kotlin 2.0+
 }
 
 android {
@@ -36,9 +37,8 @@ android {
         compose true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion compose_version
-    }
+    // composeOptions.kotlinCompilerExtensionVersion is managed by the
+    // org.jetbrains.kotlin.plugin.compose plugin in Kotlin 2.0+ — not needed here.
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

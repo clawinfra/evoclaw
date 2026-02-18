@@ -11,6 +11,8 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.7.3'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        // Kotlin 2.0+ requires the Compose Compiler as an explicit plugin
+        classpath "org.jetbrains.kotlin:compose-compiler-gradle-plugin:$kotlin_version"
     }
 }
 
