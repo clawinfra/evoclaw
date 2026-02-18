@@ -274,27 +274,21 @@ class AgentService : Service() {
     // `import android.os.*` shadows bare `Process` as android.os.Process —
     // always use fully-qualified java.lang.Process to avoid receiver mismatch.
 
-    /** Returns the child process PID, or -1 on pre-API-26 devices. */
+    /** Returns the child process PID, or -1 if unavailable.
+     *  java.lang.Process.pid() is Java 9+ and not in Android's android.jar stubs,
+     *  so we always use reflection against Android's ProcessImpl. */
     private fun procPid(proc: java.lang.Process): Int {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            proc.pid()
-        } else {
-            // Reflection fallback for API < 26 (ProcessImpl stores pid in "pid" field)
-            try {
-                val f = proc.javaClass.getDeclaredField("pid")
-                f.isAccessible = true
-                f.getInt(proc)
-            } catch (_: Exception) { -1 }
-        }
+        return try {
+            val f = proc.javaClass.getDeclaredField("pid")
+            f.isAccessible = true
+            f.getInt(proc)
+        } catch (_: Exception) { -1 }
     }
 
-    /** Returns true if the child process is still running. */
+    /** Returns true if the child process is still running.
+     *  exitValue() throws IllegalThreadStateException while alive — portable across all API levels. */
     private fun procIsAlive(proc: java.lang.Process?): Boolean {
         if (proc == null) return false
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            proc.isAlive
-        } else {
-            try { proc.exitValue(); false } catch (_: IllegalThreadStateException) { true }
-        }
+        return try { proc.exitValue(); false } catch (_: IllegalThreadStateException) { true }
     }
 }
