@@ -37,7 +37,7 @@ class AgentService : Service() {
         const val EXTRA_PID = "pid"
     }
 
-    private var agentProcess: Process? = null
+    private var agentProcess: java.lang.Process? = null
     private var logThread: Thread? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -193,7 +193,7 @@ class AgentService : Service() {
 
     // ── Log Capture ────────────────────────────────────────────────────────
 
-    private fun captureOutput(process: Process, logFile: File) {
+    private fun captureOutput(process: java.lang.Process, logFile: File) {
         try {
             process.inputStream.bufferedReader().forEachLine { line ->
                 Log.d(TAG, line)
