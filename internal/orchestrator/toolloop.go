@@ -91,7 +91,7 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 		metrics.TotalIterations++
 
 		// Call LLM
-		llmResp, toolCalls, err := tl.callLLM(messages, tools, model)
+		llmResp, toolCalls, err := tl.callLLM(messages, tools, model, agent.Def.SystemPrompt)
 		if err != nil {
 			return nil, nil, fmt.Errorf("call LLM: %w", err)
 		}
@@ -158,7 +158,7 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 	metrics.TotalDuration = time.Since(startTime)
 
 	// Final LLM call to generate response
-	finalResp, _, err := tl.callLLM(messages, tools, model)
+	finalResp, _, err := tl.callLLM(messages, tools, model, agent.Def.SystemPrompt)
 	if err != nil {
 		return nil, metrics, fmt.Errorf("final LLM call: %w", err)
 	}
@@ -175,7 +175,7 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 }
 
 // callLLM calls the LLM with conversation history and tools
-func (tl *ToolLoop) callLLM(messages []ChatMessage, tools []ToolSchema, model string) (*ChatResponse, []ToolCall, error) {
+func (tl *ToolLoop) callLLM(messages []ChatMessage, tools []ToolSchema, model, systemPrompt string) (*ChatResponse, []ToolCall, error) {
 	// Find provider
 	provider := tl.orchestrator.findProvider(model)
 	if provider == nil {
@@ -191,8 +191,9 @@ func (tl *ToolLoop) callLLM(messages []ChatMessage, tools []ToolSchema, model st
 	// Prepare request with tools
 	req := ChatRequest{
 		Model:        modelID,
-		SystemPrompt: "", // Use agent's system prompt
+		SystemPrompt: systemPrompt, // Pass agent's system prompt
 		Messages:     messages,
+		Tools:        tools, // Include tool schemas for function calling
 		MaxTokens:    4096,
 		Temperature:  0.7,
 	}

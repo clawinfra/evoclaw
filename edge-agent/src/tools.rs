@@ -582,14 +582,19 @@ impl EdgeTools {
             ));
         }
 
-        // Try gpioget first (libgpiod - modern approach)
+        // Try gpioget first (libgpiod v2+ syntax: --chip gpiochip0 <pin>)
         match Command::new("gpioget")
-            .args(["gpiochip0", &pin.to_string()])
+            .args(["--chip", "gpiochip0", &pin.to_string()])
             .output()
         {
             Ok(output) if output.status.success() => {
                 let value_str = String::from_utf8_lossy(&output.stdout);
-                let state = value_str.trim().parse::<u8>().unwrap_or(0);
+                let raw = value_str.trim();
+                // gpiod v2 returns '"17"=inactive' / '"17"=active'
+                // gpiod v1 returns '0' / '1'
+                let state: u8 = if raw.contains("=active") { 1 }
+                    else if raw.contains("=inactive") { 0 }
+                    else { raw.parse::<u8>().unwrap_or(0) };
                 ToolResult::ok(serde_json::json!({
                     "pin": pin,
                     "value": state,
