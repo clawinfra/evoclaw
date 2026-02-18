@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Base application theme -->
-    <style name="Theme.Evoclaw" parent="Theme.AppCompat.Light.DarkActionBar">
-        <!-- Customize your theme here -->
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryDark">@color/purple_700</item>
-        <item name="colorAccent">@color/teal_200</item>
+    <!-- Base application theme — uses Android framework Material theme.
+         No AppCompat dependency needed; UI is handled entirely by Compose. -->
+    <style name="Theme.Evoclaw" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/purple_500</item>
+        <item name="android:colorPrimaryDark">@color/purple_700</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 </resources>
