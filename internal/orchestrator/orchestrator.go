@@ -776,10 +776,18 @@ func (o *Orchestrator) handleMessage(msg Message) {
 }
 
 // selectAgent picks the best agent for a message using hash-based routing
-// for session affinity (same sender → same agent) and natural load balancing
+// for session affinity (same sender → same agent) and natural load balancing.
+// If msg.To is set and matches a known agent, that agent is used directly.
 func (o *Orchestrator) selectAgent(msg Message) string {
 	if len(o.agents) == 0 {
 		return ""
+	}
+
+	// Explicit target: honour msg.To if it names a registered agent
+	if msg.To != "" {
+		if _, ok := o.agents[msg.To]; ok {
+			return msg.To
+		}
 	}
 
 	// Get sorted agent IDs for deterministic selection
@@ -914,16 +922,16 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 
 	// Use tool loop if enabled and agent has capabilities
 	if o.toolLoop != nil && len(agent.Def.Capabilities) > 0 {
-		resp, metrics, err := o.toolLoop.Execute(agent, msg, model)
-		if err != nil {
-			o.logger.Error("tool loop error", "error", err)
+		tlResp, tlMetrics, tlErr := o.toolLoop.Execute(agent, msg, model)
+		if tlErr != nil {
+			o.logger.Error("tool loop error", "error", tlErr)
 			agent.mu.Lock()
 			agent.ErrorCount++
 			agent.Metrics.FailedActions++
 			agent.mu.Unlock()
 
 			if o.healthRegistry != nil {
-				errType := router.ClassifyError(err)
+				errType := router.ClassifyError(tlErr)
 				o.healthRegistry.RecordFailure(model, errType)
 			}
 			return
@@ -931,12 +939,21 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 
 		// Log metrics
 		o.logger.Debug("tool loop completed",
-			"iterations", metrics.TotalIterations,
-			"tool_calls", metrics.ToolCalls,
-			"errors", metrics.ErrorCount,
+			"iterations", tlMetrics.TotalIterations,
+			"tool_calls", tlMetrics.ToolCalls,
+			"errors", tlMetrics.ErrorCount,
 		)
 
-		llmResp = &ChatResponse{Content: resp.Content}
+		llmResp = &ChatResponse{Content: tlResp.Content}
+		resp = &Response{
+			AgentID:   agent.ID,
+			Content:   tlResp.Content,
+			Channel:   msg.Channel,
+			To:        msg.From,
+			ReplyTo:   msg.ID,
+			MessageID: msg.ID,
+			Model:     model,
+		}
 	} else {
 		// Legacy: direct LLM call without tools
 		llmResp, err = o.processDirect(agent, msg, model)
