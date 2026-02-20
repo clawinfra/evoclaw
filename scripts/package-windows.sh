@@ -24,6 +24,7 @@ else
 fi
 
 # Generate WiX v4 XML (compatible with `wix build`)
+# Note: WiX v4 doesn't support ComponentGroupRef inside Directory
 cat > "$BUILD_DIR/evoclaw.wxs" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
@@ -40,23 +41,21 @@ cat > "$BUILD_DIR/evoclaw.wxs" <<EOF
     <MediaTemplate EmbedCab="yes" />
 
     <Feature Id="ProductFeature" Title="EvoClaw" Level="1">
-      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="MainBinary" />
     </Feature>
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="EvoClaw">
-        <ComponentGroup Id="ProductComponents">
-          <Component Id="MainBinary">
-            <File Id="evoclaw.exe" Source="evoclaw.exe" KeyPath="yes" />
-            <Environment Id="AddToPath"
-                         Name="PATH"
-                         Value="[INSTALLFOLDER]"
-                         Permanent="no"
-                         Part="last"
-                         Action="set"
-                         System="yes" />
-          </Component>
-        </ComponentGroup>
+        <Component Id="MainBinary">
+          <File Id="evoclaw.exe" Source="evoclaw.exe" KeyPath="yes" />
+          <Environment Id="AddToPath"
+                       Name="PATH"
+                       Value="[INSTALLFOLDER]"
+                       Permanent="no"
+                       Part="last"
+                       Action="set"
+                       System="yes" />
+        </Component>
       </Directory>
     </StandardDirectory>
 

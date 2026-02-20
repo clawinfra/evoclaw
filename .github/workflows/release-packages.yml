@@ -214,7 +214,8 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout main repo (for scripts)
+        uses: actions/checkout@v4
 
       - name: Checkout homebrew-evoclaw
         uses: actions/checkout@v4
