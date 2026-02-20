@@ -102,6 +102,21 @@ func run() int {
 	// Handle subcommands
 	if subCmd != "" {
 		switch subCmd {
+		case "help", "--help", "-h":
+			// evoclaw help [command]
+			target := ""
+			if subCmdIdx+1 < len(os.Args) {
+				target = os.Args[subCmdIdx+1]
+			}
+			if target == "" {
+				cli.PrintHelp(os.Args[0])
+			} else {
+				cli.PrintCommandHelp(os.Args[0], target)
+			}
+			return 0
+		case "version", "--version", "-v":
+			printVersion()
+			return 0
 		case "memory":
 			// Memory system operations
 			return cli.MemoryCommand(os.Args[subCmdIdx+1:], configPath)
@@ -129,25 +144,34 @@ func run() int {
 		case "start":
 			// Explicit start subcommand — falls through to normal server start below
 		default:
-			fmt.Fprintf(os.Stderr, "Unknown command: %s\n", subCmd)
-			fmt.Fprintln(os.Stderr, "Available commands: init, start, chain")
+			fmt.Fprintf(os.Stderr, "error: unknown command %q\n\n", subCmd)
+			cli.PrintHelp(os.Args[0])
 			return 1
 		}
 	}
 
-	// No subcommand - parse as normal server start
-	fs := flag.NewFlagSet("evoclaw", flag.ExitOnError)
+	// No subcommand — parse as normal server start
+	fs := flag.NewFlagSet("evoclaw", flag.ContinueOnError)
+	fs.Usage = func() { cli.PrintHelp(os.Args[0]) }
 	configPathFlag := fs.String("config", "evoclaw.json", "Path to config file")
 	showVersion := fs.Bool("version", false, "Show version")
+	showHelp := fs.Bool("help", false, "Show help")
+	fs.BoolVar(showHelp, "h", false, "Show help (shorthand)")
 	if err := fs.Parse(os.Args[1:]); err != nil {
-		fmt.Printf("Error parsing arguments: %v\n", err)
-		os.Exit(1)
+		if err == flag.ErrHelp {
+			return 0
+		}
+		fmt.Fprintf(os.Stderr, "error: %v\n\nRun '%s help' for usage.\n", err, os.Args[0])
+		return 1
+	}
+
+	if *showHelp {
+		cli.PrintHelp(os.Args[0])
+		return 0
 	}
 
 	if *showVersion {
-		fmt.Printf("EvoClaw v%s (built %s)\n", version, buildTime)
-		fmt.Println("Self-evolving agent framework for edge devices")
-		fmt.Println("https://github.com/clawinfra/evoclaw")
+		printVersion()
 		return 0
 	}
 	
@@ -179,6 +203,13 @@ func run() int {
 	}
 
 	return 0
+}
+
+// printVersion prints version and build information.
+func printVersion() {
+	fmt.Printf("EvoClaw v%s (built %s)\n", version, buildTime)
+	fmt.Println("Self-evolving agent framework for edge devices")
+	fmt.Println("https://github.com/clawinfra/evoclaw")
 }
 
 // setup initializes all application components
