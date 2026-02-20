@@ -1,77 +1,11 @@
-name: Update Homebrew Tap
-
+# Homebrew formula updates are now handled as part of the
+# "Build Release Packages" workflow (homebrew job, needs: [macos-dmg]).
+# This file is intentionally a no-op stub to avoid breaking the file history.
+name: Update Homebrew Tap (disabled)
 on:
-  release:
-    types: [published]
-
-jobs:
-  update-formula:
-    name: Update Homebrew Formula
-    runs-on: ubuntu-latest
-    # Only run on actual releases, not on push events
-    if: github.event_name == 'release'
-    steps:
-      - name: Checkout homebrew-evoclaw
-        uses: actions/checkout@v4
-        with:
-          repository: clawinfra/homebrew-evoclaw
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: homebrew-evoclaw
-
-      - name: Download macOS binaries
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          
-          # Download both macOS binaries
-          wget -q "https://github.com/clawinfra/evoclaw/releases/download/${GITHUB_REF#refs/tags/}/evoclaw-darwin-amd64.tar.gz"
-          wget -q "https://github.com/clawinfra/evoclaw/releases/download/${GITHUB_REF#refs/tags/}/evoclaw-darwin-arm64.tar.gz"
-          
-          # Calculate SHA256
-          AMD64_SHA=$(shasum -a 256 evoclaw-darwin-amd64.tar.gz | awk '{print $1}')
-          ARM64_SHA=$(shasum -a 256 evoclaw-darwin-arm64.tar.gz | awk '{print $1}')
-          
-          echo "AMD64_SHA=${AMD64_SHA}" >> $GITHUB_ENV
-          echo "ARM64_SHA=${ARM64_SHA}" >> $GITHUB_ENV
-          
-          echo "✅ Checksums calculated:"
-          echo "  AMD64: ${AMD64_SHA}"
-          echo "  ARM64: ${ARM64_SHA}"
-
-      - name: Update formula
-        run: |
-          cd homebrew-evoclaw
-          
-          # Update version and checksums
-          sed -i "s/version \".*\"/version \"${VERSION}\"/" Formula/evoclaw.rb
-          sed -i "s|/v[0-9.]\+/|/${GITHUB_REF#refs/tags/}/|g" Formula/evoclaw.rb
-          sed -i "s/sha256 \"PLACEHOLDER_AMD64_SHA256\"/sha256 \"${AMD64_SHA}\"/" Formula/evoclaw.rb
-          sed -i "s/sha256 \"PLACEHOLDER_ARM64_SHA256\"/sha256 \"${ARM64_SHA}\"/" Formula/evoclaw.rb
-          
-          # Also update any existing SHA256 (for subsequent releases)
-          sed -i "/else$/,/^    end$/ s/sha256 \"[^\"]*\"/sha256 \"${AMD64_SHA}\"/" Formula/evoclaw.rb
-          sed -i "/if Hardware::CPU.arm?$/,/else$/ s/sha256 \"[^\"]*\"/sha256 \"${ARM64_SHA}\"/" Formula/evoclaw.rb
-          
-          echo "✅ Formula updated"
-          cat Formula/evoclaw.rb
-
-      - name: Test formula
-        run: |
-          cd homebrew-evoclaw
-          # Validate Ruby syntax
-          ruby -c Formula/evoclaw.rb
-
-      - name: Commit and push
-        run: |
-          cd homebrew-evoclaw
-          
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git add Formula/evoclaw.rb
-          git commit -m "chore: bump evoclaw to v${VERSION} (AMD64: ${AMD64_SHA:0:8}, ARM64: ${ARM64_SHA:0:8})"
-          
-          git push origin main
-          
-          echo "✅ Homebrew tap updated successfully"
-          echo "Users can now: brew update && brew upgrade evoclaw"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'This workflow is disabled — see release-packages.yml homebrew job'
+        required: false
+jobs: {}

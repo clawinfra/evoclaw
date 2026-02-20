@@ -17,10 +17,16 @@ jobs:
   # ─── Windows MSI ────────────────────────────────────────────
   windows-msi:
     name: Build Windows MSI (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     strategy:
       matrix:
-        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            wix_arch: x64
+            goarch: amd64
+          - arch: arm64
+            wix_arch: arm64
+            goarch: arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -28,13 +34,14 @@ jobs:
         with:
           go-version: '1.24'
 
-      - name: Install msitools
-        run: sudo apt-get update && sudo apt-get install -y msitools
+      - name: Install WiX Toolset v4
+        run: dotnet tool install --global wix
 
       - name: Build Windows binary
         env:
           GOOS: windows
-          GOARCH: ${{ matrix.arch }}
+          GOARCH: ${{ matrix.goarch }}
+        shell: bash
         run: |
           VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
           VERSION="${VERSION#v}"
@@ -43,18 +50,19 @@ jobs:
             ./cmd/evoclaw
 
       - name: Build MSI
+        shell: bash
         run: |
           VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
           VERSION="${VERSION#v}"
-          bash scripts/package-windows.sh "$VERSION" "${{ matrix.arch }}"
+          bash scripts/package-windows.sh "$VERSION" "${{ matrix.arch }}" "${{ matrix.wix_arch }}"
 
-      - name: Upload MSI
+      - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-msi-${{ matrix.arch }}
           path: dist/*.msi
 
-      - name: Upload to Release
+      - name: Upload MSI to Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
@@ -94,17 +102,33 @@ jobs:
           VERSION="${VERSION#v}"
           bash scripts/package-macos.sh "$VERSION" "${{ matrix.arch }}"
 
-      - name: Upload DMG
+      - name: Create binary tarball (for Homebrew)
+        run: |
+          VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+          mkdir -p dist
+          tar -czf "dist/evoclaw-darwin-${{ matrix.arch }}.tar.gz" \
+            -C . "evoclaw-darwin-${{ matrix.arch }}"
+
+      - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-dmg-${{ matrix.arch }}
           path: dist/*.dmg
 
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-tarball-${{ matrix.arch }}
+          path: dist/*.tar.gz
+
       - name: Upload to Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.dmg
+          files: |
+            dist/*.dmg
+            dist/*.tar.gz
 
   # ─── Linux Packages ─────────────────────────────────────────
   linux-packages:
@@ -172,10 +196,109 @@ jobs:
       - name: Generate checksums
         run: |
           cd artifacts
-          find . -type f \( -name "*.msi" -o -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" \) -exec sha256sum {} \; > SHA256SUMS
+          find . -type f \( -name "*.msi" -o -name "*.dmg" -o -name "*.tar.gz" -o -name "*.deb" -o -name "*.rpm" \) \
+            -exec sha256sum {} \; | sed 's|./[^/]*/||' > SHA256SUMS
           cat SHA256SUMS
 
       - name: Upload checksums
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/SHA256SUMS
+
+  # ─── Update Homebrew Tap ─────────────────────────────────────
+  homebrew:
+    name: Update Homebrew Tap
+    needs: [macos-dmg]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Checkout homebrew-evoclaw
+        uses: actions/checkout@v4
+        with:
+          repository: clawinfra/homebrew-evoclaw
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-evoclaw
+
+      - name: Download macOS tarballs
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          TAG="${GITHUB_REF#refs/tags/}"
+
+          # Download binary tarballs (not DMGs — homebrew prefers raw binaries)
+          wget -q "https://github.com/clawinfra/evoclaw/releases/download/${TAG}/evoclaw-darwin-amd64.tar.gz"
+          wget -q "https://github.com/clawinfra/evoclaw/releases/download/${TAG}/evoclaw-darwin-arm64.tar.gz"
+
+          AMD64_SHA=$(sha256sum evoclaw-darwin-amd64.tar.gz | awk '{print $1}')
+          ARM64_SHA=$(sha256sum evoclaw-darwin-arm64.tar.gz | awk '{print $1}')
+
+          echo "AMD64_SHA=${AMD64_SHA}" >> $GITHUB_ENV
+          echo "ARM64_SHA=${ARM64_SHA}" >> $GITHUB_ENV
+
+          echo "✅ Checksums:"
+          echo "  amd64: ${AMD64_SHA}"
+          echo "  arm64: ${ARM64_SHA}"
+
+      - name: Update formula
+        run: |
+          cd homebrew-evoclaw
+          TAG="${GITHUB_REF#refs/tags/}"
+
+          python3 - <<'PYEOF'
+import os, re
+
+version   = os.environ["VERSION"]
+tag       = os.environ["GITHUB_REF"].split("/")[-1]   # e.g. v0.3.0
+amd64_sha = os.environ["AMD64_SHA"]
+arm64_sha = os.environ["ARM64_SHA"]
+base_url  = f"https://github.com/clawinfra/evoclaw/releases/download/{tag}"
+
+formula = f'''# typed: false
+# frozen_string_literal: true
+
+class Evoclaw < Formula
+  desc "Self-evolving AI agent framework"
+  homepage "https://github.com/clawinfra/evoclaw"
+  version "{version}"
+  license "MIT"
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "{base_url}/evoclaw-darwin-arm64.tar.gz"
+      sha256 "{arm64_sha}"
+    else
+      url "{base_url}/evoclaw-darwin-amd64.tar.gz"
+      sha256 "{amd64_sha}"
+    end
+  end
+
+  def install
+    arch = Hardware::CPU.arm? ? "arm64" : "amd64"
+    bin.install "evoclaw-darwin-#{{arch}}" => "evoclaw"
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{{bin}}/evoclaw version")
+  end
+end
+'''
+
+with open("Formula/evoclaw.rb", "w") as f:
+    f.write(formula)
+
+print("✅ Formula written")
+PYEOF
+
+      - name: Test formula syntax
+        run: ruby -c homebrew-evoclaw/Formula/evoclaw.rb
+
+      - name: Commit and push
+        run: |
+          cd homebrew-evoclaw
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/evoclaw.rb
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "chore: bump evoclaw to v${VERSION} (amd64: ${AMD64_SHA:0:8}, arm64: ${ARM64_SHA:0:8})"
+          git push origin main
+          echo "✅ Homebrew tap updated — brew update && brew upgrade evoclaw"
