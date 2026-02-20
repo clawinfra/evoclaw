@@ -145,10 +145,6 @@ func TestNewReadTool_LocalFile(t *testing.T) {
 
 func TestNewReadTool_WithOffsetLimit(t *testing.T) {
 	dir := t.TempDir()
-	var lines []string
-	for i := 1; i <= 10; i++ {
-		lines = append(lines, "line"+string(rune('0'+i)))
-	}
 	// Create file with lines "lineA" through "lineJ" for clearer testing
 	content := "lineA\nlineB\nlineC\nlineD\nlineE\nlineF\nlineG\nlineH\nlineI\nlineJ\n"
 	if err := os.WriteFile(filepath.Join(dir, "test.txt"), []byte(content), 0644); err != nil {

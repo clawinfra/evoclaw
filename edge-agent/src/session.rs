@@ -88,8 +88,7 @@ impl SessionStore {
     /// to root, then reversing to get chronological order.
     pub fn load_branch(&self, leaf_id: &str) -> std::io::Result<Vec<SessionEntry>> {
         let all = self.load_all()?;
-        let index: HashMap<&str, &SessionEntry> =
-            all.iter().map(|e| (e.id.as_str(), e)).collect();
+        let index: HashMap<&str, &SessionEntry> = all.iter().map(|e| (e.id.as_str(), e)).collect();
 
         let mut branch = Vec::new();
         let mut current_id: Option<&str> = Some(leaf_id);
