@@ -61,6 +61,7 @@ type ToolManager struct {
 	capabilities []string
 	logger       *slog.Logger
 	cache        map[string][]ToolSchema
+	builtinTools map[string]*BuiltinTool // pi-style built-in tools (name → tool)
 	mu           sync.RWMutex
 }
 
@@ -281,4 +282,91 @@ func (tm *ToolManager) InvalidateCache() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	tm.cache = make(map[string][]ToolSchema)
+}
+
+// ---------------------------------------------------------------------------
+// Built-in tool integration (pi-inspired architecture)
+// ---------------------------------------------------------------------------
+
+// RegisterBuiltinTools adds pi-style built-in tools to the manager.
+// These take precedence over TOML definitions with the same name.
+// When both a TOML tool and a BuiltinTool share the same name, the
+// BuiltinTool wins — allowing the factory-created tools to override
+// skill.toml definitions while keeping backward compatibility.
+func (tm *ToolManager) RegisterBuiltinTools(tools []*BuiltinTool) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	// Invalidate cache since tool set changed
+	tm.cache = make(map[string][]ToolSchema)
+
+	// Store built-in tools
+	if tm.builtinTools == nil {
+		tm.builtinTools = make(map[string]*BuiltinTool)
+	}
+	for _, tool := range tools {
+		tm.builtinTools[tool.Name()] = tool
+		tm.logger.Info("registered built-in tool", "name", tool.Name(), "backend", tool.backend.Name)
+	}
+}
+
+// GetBuiltinTool returns a registered built-in tool by name, or nil.
+func (tm *ToolManager) GetBuiltinTool(name string) *BuiltinTool {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+	if tm.builtinTools == nil {
+		return nil
+	}
+	return tm.builtinTools[name]
+}
+
+// GenerateSchemasWithBuiltins generates LLM tool schemas including registered
+// built-in tools. Built-in tools override TOML tools with the same name.
+func (tm *ToolManager) GenerateSchemasWithBuiltins() ([]ToolSchema, error) {
+	// Get TOML-based schemas
+	tomlSchemas, err := tm.GenerateSchemas()
+	if err != nil {
+		return nil, err
+	}
+
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+
+	if len(tm.builtinTools) == 0 {
+		return tomlSchemas, nil
+	}
+
+	// Build name set of built-in tools for dedup
+	builtinNames := make(map[string]bool)
+	for name := range tm.builtinTools {
+		builtinNames[name] = true
+	}
+
+	// Filter out TOML tools that are overridden by built-ins
+	var merged []ToolSchema
+	for _, ts := range tomlSchemas {
+		if !builtinNames[ts.Name] {
+			merged = append(merged, ts)
+		}
+	}
+
+	// Add built-in tool schemas
+	for _, tool := range tm.builtinTools {
+		merged = append(merged, builtinToSchema(tool))
+	}
+
+	return merged, nil
+}
+
+// builtinToSchema converts a BuiltinTool to ToolSchema for LLM API calls.
+func builtinToSchema(t *BuiltinTool) ToolSchema {
+	return ToolSchema{
+		Name:        t.Name(),
+		Description: t.Description(),
+		Parameters:  t.Schema(),
+		EvoClawMeta: ToolMetadata{
+			Binary:  "builtin",
+			Timeout: int(t.opts.BashTimeout.Milliseconds()),
+		},
+	}
 }

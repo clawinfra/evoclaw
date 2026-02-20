@@ -1123,10 +1123,24 @@ evoclaw logs --filter=tool
 
 ---
 
+## Built-in Tool Architecture (Pi-Inspired)
+
+> **See [TOOL-ARCHITECTURE.md](./TOOL-ARCHITECTURE.md) for the full design.**
+
+The orchestrator now supports **built-in tools** created via factory functions alongside TOML-loaded tools. Key concepts:
+
+- **Operations injection** — `FileOps` and `ExecOps` interfaces abstract local/SSH/HTTP backends
+- **Factory pattern** — `NewReadTool(opts)`, `CodingTools(cwd)`, `RemoteTools(...)` create configured tool sets
+- **ContentBlock returns** — `ToolOutput` with `TextBlock`, `ImageBlock`, `ErrorBlock` replaces raw strings
+- **Backward compatible** — `ToolOutput.ToLegacyResult()` converts to the existing `ToolResult` format
+
+---
+
 ## References
 
 - [OpenAI Function Calling](https://platform.openai.com/docs/guides/function-calling)
 - [Anthropic Tool Use](https://docs.anthropic.com/claude/docs/tool-use)
 - [EvoClaw INSTALLATION.md](./INSTALLATION.md)
 - [EvoClaw MESSAGING.md](./MESSAGING.md)
+- [EvoClaw TOOL-ARCHITECTURE.md](./TOOL-ARCHITECTURE.md)
 - [Desktop-Tools Skill](~/.evoclaw/skills/desktop-tools/skill.toml)
