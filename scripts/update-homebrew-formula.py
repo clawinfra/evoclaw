@@ -45,11 +45,11 @@ class Evoclaw < Formula
 
   def install
     arch = Hardware::CPU.arm? ? "arm64" : "amd64"
-    bin.install "evoclaw-darwin-\#{arch}" => "evoclaw"
+    bin.install "evoclaw-darwin-#{{arch}}" => "evoclaw"
   end
 
   test do
-    assert_match version.to_s, shell_output("\#{bin}/evoclaw version")
+    assert_match version.to_s, shell_output("#{{bin}}/evoclaw version")
   end
 end
 """
