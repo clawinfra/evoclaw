@@ -243,51 +243,8 @@ jobs:
         run: |
           cd homebrew-evoclaw
           TAG="${GITHUB_REF#refs/tags/}"
-
-          python3 - <<'PYEOF'
-import os, re
-
-version   = os.environ["VERSION"]
-tag       = os.environ["GITHUB_REF"].split("/")[-1]   # e.g. v0.3.0
-amd64_sha = os.environ["AMD64_SHA"]
-arm64_sha = os.environ["ARM64_SHA"]
-base_url  = f"https://github.com/clawinfra/evoclaw/releases/download/{tag}"
-
-formula = f'''# typed: false
-# frozen_string_literal: true
-
-class Evoclaw < Formula
-  desc "Self-evolving AI agent framework"
-  homepage "https://github.com/clawinfra/evoclaw"
-  version "{version}"
-  license "MIT"
-
-  on_macos do
-    if Hardware::CPU.arm?
-      url "{base_url}/evoclaw-darwin-arm64.tar.gz"
-      sha256 "{arm64_sha}"
-    else
-      url "{base_url}/evoclaw-darwin-amd64.tar.gz"
-      sha256 "{amd64_sha}"
-    end
-  end
-
-  def install
-    arch = Hardware::CPU.arm? ? "arm64" : "amd64"
-    bin.install "evoclaw-darwin-#{{arch}}" => "evoclaw"
-  end
-
-  test do
-    assert_match version.to_s, shell_output("#{{bin}}/evoclaw version")
-  end
-end
-'''
-
-with open("Formula/evoclaw.rb", "w") as f:
-    f.write(formula)
-
-print("✅ Formula written")
-PYEOF
+          python3 ../scripts/update-homebrew-formula.py \
+            "${VERSION}" "${TAG}" "${AMD64_SHA}" "${ARM64_SHA}"
 
       - name: Test formula syntax
         run: ruby -c homebrew-evoclaw/Formula/evoclaw.rb

@@ -1,11 +1,19 @@
-# Homebrew formula updates are now handled as part of the
-# "Build Release Packages" workflow (homebrew job, needs: [macos-dmg]).
-# This file is intentionally a no-op stub to avoid breaking the file history.
+# Homebrew formula updates are now handled inside "Build Release Packages"
+# (the homebrew job, which runs after macos-dmg completes).
+# This file is a no-op stub kept for git history only.
 name: Update Homebrew Tap (disabled)
+
 on:
   workflow_dispatch:
     inputs:
-      reason:
+      note:
         description: 'This workflow is disabled — see release-packages.yml homebrew job'
         required: false
-jobs: {}
+        default: 'no-op'
+
+jobs:
+  noop:
+    name: No-op (disabled)
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Homebrew updates moved to Build Release Packages workflow"
