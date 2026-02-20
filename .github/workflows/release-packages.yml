@@ -35,7 +35,9 @@ jobs:
           go-version: '1.24'
 
       - name: Install WiX Toolset v4
-        run: dotnet tool install --global wix
+        run: |
+          dotnet tool install --global wix
+          echo "$USERPROFILE/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Build Windows binary
         env:
@@ -212,6 +214,8 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
+      - uses: actions/checkout@v4
+
       - name: Checkout homebrew-evoclaw
         uses: actions/checkout@v4
         with:
@@ -219,18 +223,22 @@ jobs:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: homebrew-evoclaw
 
-      - name: Download macOS tarballs
+      - name: Download macOS tarball artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: macos-tarball-*
+          path: tarballs
+          merge-multiple: true
+
+      - name: Compute checksums
         run: |
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           TAG="${GITHUB_REF#refs/tags/}"
 
-          # Download binary tarballs (not DMGs — homebrew prefers raw binaries)
-          wget -q "https://github.com/clawinfra/evoclaw/releases/download/${TAG}/evoclaw-darwin-amd64.tar.gz"
-          wget -q "https://github.com/clawinfra/evoclaw/releases/download/${TAG}/evoclaw-darwin-arm64.tar.gz"
-
-          AMD64_SHA=$(sha256sum evoclaw-darwin-amd64.tar.gz | awk '{print $1}')
-          ARM64_SHA=$(sha256sum evoclaw-darwin-arm64.tar.gz | awk '{print $1}')
+          # Compute SHA256 checksums
+          AMD64_SHA=$(sha256sum tarballs/evoclaw-darwin-amd64.tar.gz | awk '{print $1}')
+          ARM64_SHA=$(sha256sum tarballs/evoclaw-darwin-arm64.tar.gz | awk '{print $1}')
 
           echo "AMD64_SHA=${AMD64_SHA}" >> $GITHUB_ENV
           echo "ARM64_SHA=${ARM64_SHA}" >> $GITHUB_ENV
