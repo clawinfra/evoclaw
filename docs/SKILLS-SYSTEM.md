@@ -116,4 +116,76 @@ timeout_secs = 60
 
 ---
 
+## Pi Package Compatibility
+
+EvoClaw's skill system is compatible with the [Agent Skills standard](https://agentskills.io) — the same standard used by [pi](https://github.com/badlogic/pi-mono). This means skills can be authored once and used across both ecosystems.
+
+### How It Works
+
+Pi uses a `pi` key in `package.json` to declare skills, extensions, prompts, and themes. EvoClaw skills published to ClawHub can include the same key alongside the EvoClaw-native `SKILL.md` manifest, making them dual-compatible.
+
+When a pi-format package is installed into EvoClaw:
+1. The `SKILL.md` manifest is used for EvoClaw's native skill loader.
+2. The `pi` key in `package.json` (if present) is preserved for pi compatibility.
+3. Tool definitions in `agent.toml` map to pi's tool registration model.
+
+### Dual-Compatible Skill Manifest
+
+A skill package that works in both EvoClaw and pi:
+
+```
+my-skill/
+├── SKILL.md              # EvoClaw manifest
+├── agent.toml            # EvoClaw tool definitions
+├── package.json          # Pi compatibility layer
+├── scripts/
+│   └── run.sh
+└── README.md             # Shared — both systems use this
+```
+
+**`package.json`** (pi compatibility):
+```json
+{
+  "name": "@clawinfra/market-monitor",
+  "version": "1.0.0",
+  "pi": {
+    "skills": ["./README.md"],
+    "extensions": [],
+    "prompts": [],
+    "themes": []
+  }
+}
+```
+
+**`SKILL.md`** (EvoClaw native):
+```yaml
+---
+name: market-monitor
+version: 1.0.0
+description: Real-time market monitoring
+author: clawinfra
+metadata:
+  evoclaw:
+    permissions: ["internet"]
+    env: ["MARKET_API_KEY"]
+---
+```
+
+Both systems discover the same skill through their respective entry points. The `README.md` serves as the skill documentation for pi's skill loader and as supplementary docs for EvoClaw.
+
+### ClawHub ↔ Pi Packages
+
+Skills on ClawHub can be installed into pi-based agents via:
+```bash
+# Install from ClawHub into pi
+pi install @clawinfra/market-monitor
+
+# Install from npm into EvoClaw (if it has a SKILL.md)
+evoclaw skill add npm:@clawinfra/market-monitor
+```
+
+The interoperability goal: **write a skill once, publish to ClawHub, and it works in EvoClaw agents _and_ pi-based coding agents**.
+
+---
+
 *Extendable. Composable. Powerful.* 🧩

@@ -419,6 +419,10 @@ data/
 
 MIT
 
+## Foundations
+
+EvoClaw's design is built on patterns from [pi](https://github.com/badlogic/pi-mono), Mario Zechner's minimal coding agent engine. Pi's philosophy — no baked-in opinions, skills over protocols, append-only session branching — directly shaped EvoClaw's architecture. See [docs/PI-INTEGRATION.md](docs/PI-INTEGRATION.md) for details.
+
 ## Built By
 
 **Alex Chen** (alex.chen31337@gmail.com)

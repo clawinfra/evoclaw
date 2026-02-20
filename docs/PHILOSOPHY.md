@@ -75,4 +75,37 @@ They need to be water.
 
 ---
 
+## Influences & Lineage
+
+EvoClaw didn't emerge from nothing. Its design is shaped by a clear lineage.
+
+### Pi — The Foundation
+
+[Pi](https://github.com/badlogic/pi-mono) is a minimal, extensible coding agent built by Mario Zechner. OpenClaw uses pi as its core engine, and EvoClaw inherits pi's fundamental design convictions:
+
+- **No baked-in opinions.** Pi doesn't ship with MCP, sub-agents, or plan mode. It ships with a tool loop, skills (CLI tools with READMEs), and an extension API. Everything else is opt-in.
+- **Session branching.** Pi stores sessions as JSONL trees — each entry has an `id` and `parentId`, enabling in-place branching without duplicating history. EvoClaw's edge agent adopts this format directly (see `edge-agent/src/session.rs`).
+- **Compaction as first-class.** Context overflow is inevitable on constrained devices. Pi handles it by auto-compacting when approaching limits. EvoClaw does the same.
+
+### On MCP
+
+EvoClaw takes a clear position: **skills + tool loops > MCP for edge agents.**
+
+MCP (Model Context Protocol) adds protocol overhead — JSON-RPC framing, capability negotiation, server lifecycle management — that is incompatible with a 1.8MB Rust binary running on a $5 microcontroller. As [Zechner articulated](https://github.com/badlogic/pi-mono): build CLI tools with READMEs (skills), or build an extension that adds MCP support if you need it. Don't bake it into the core.
+
+EvoClaw follows this philosophy. Skills are executable scripts with `SKILL.md` manifests. The agent invokes them as subprocesses. No protocol negotiation, no server lifecycle, no transport layer. If a deployment needs MCP, it can be added as a skill — but the core stays lean.
+
+### Where EvoClaw Diverges
+
+Pi is a coding agent. EvoClaw takes its patterns further:
+
+- **Genome-driven evolution.** Pi agents are configured. EvoClaw agents _evolve_ — their strategies, model selection, and behavior mutate based on fitness metrics.
+- **Multi-tier deployment.** A single genome format runs on ESP32s, Raspberry Pis, desktops, and Kubernetes clusters. Pi targets developer workstations.
+- **ClawChain integration.** Agent evolution histories, fitness scores, and skill compositions are anchored on-chain for verifiable provenance.
+- **MQTT mesh.** Agents communicate peer-to-peer over MQTT, forming a distributed nervous system. Pi operates as a single-user tool.
+
+The core insight borrowed from pi: keep the foundation minimal, make everything else composable. Then build upward.
+
+---
+
 *EvoClaw — Be water, my agent.* 🌊🧬
