@@ -23,36 +23,41 @@ def main():
 
     base_url = f"https://github.com/clawinfra/evoclaw/releases/download/{tag}"
 
-    formula = f"""\
-# typed: false
-# frozen_string_literal: true
+    # Ruby interpolation uses #{...} — we build the formula in two parts to avoid
+    # Python f-string trying to evaluate #{arch} and #{bin} as Python expressions.
+    ruby_arch_interp = "#{arch}"    # noqa: E501  — this is a Ruby string, not Python
+    ruby_bin_interp  = "#{bin}"     # noqa: E501
 
-class Evoclaw < Formula
-  desc "Self-evolving AI agent framework"
-  homepage "https://github.com/clawinfra/evoclaw"
-  version "{version}"
-  license "MIT"
-
-  on_macos do
-    if Hardware::CPU.arm?
-      url "{base_url}/evoclaw-darwin-arm64.tar.gz"
-      sha256 "{arm64_sha}"
-    else
-      url "{base_url}/evoclaw-darwin-amd64.tar.gz"
-      sha256 "{amd64_sha}"
-    end
-  end
-
-  def install
-    arch = Hardware::CPU.arm? ? "arm64" : "amd64"
-    bin.install "evoclaw-darwin-#{{arch}}" => "evoclaw"
-  end
-
-  test do
-    assert_match version.to_s, shell_output("#{{bin}}/evoclaw version")
-  end
-end
-"""
+    formula = (
+        "# typed: false\n"
+        "# frozen_string_literal: true\n"
+        "\n"
+        "class Evoclaw < Formula\n"
+        '  desc "Self-evolving AI agent framework"\n'
+        '  homepage "https://github.com/clawinfra/evoclaw"\n'
+        f'  version "{version}"\n'
+        '  license "MIT"\n'
+        "\n"
+        "  on_macos do\n"
+        "    if Hardware::CPU.arm?\n"
+        f'      url "{base_url}/evoclaw-darwin-arm64.tar.gz"\n'
+        f'      sha256 "{arm64_sha}"\n'
+        "    else\n"
+        f'      url "{base_url}/evoclaw-darwin-amd64.tar.gz"\n'
+        f'      sha256 "{amd64_sha}"\n'
+        "    end\n"
+        "  end\n"
+        "\n"
+        "  def install\n"
+        '    arch = Hardware::CPU.arm? ? "arm64" : "amd64"\n'
+        f'    bin.install "evoclaw-darwin-{ruby_arch_interp}" => "evoclaw"\n'
+        "  end\n"
+        "\n"
+        "  test do\n"
+        f'    assert_match version.to_s, shell_output("{ruby_bin_interp}/evoclaw version")\n'
+        "  end\n"
+        "end\n"
+    )
 
     formula_path = os.path.join("Formula", "evoclaw.rb")
     os.makedirs("Formula", exist_ok=True)
