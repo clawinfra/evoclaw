@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/clawinfra/evoclaw/internal/channels"
+	"github.com/clawinfra/evoclaw/internal/clawchain"
 	"github.com/clawinfra/evoclaw/internal/cloudsync"
 	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/governance"
@@ -257,6 +258,9 @@ func (o *Orchestrator) Start() error {
 			o.logger.Warn("on-chain integration failed (non-fatal)", "error", err)
 		}
 	}
+
+	// Initialize ClawChain DID auto-discovery (ADR-003)
+	o.initClawChainDiscovery()
 
 	// Initialize cloud sync if enabled
 	if o.cfg.CloudSync.Enabled {
@@ -647,6 +651,43 @@ func (o *Orchestrator) initOnChain() error {
 // GetChainRegistry returns the chain registry for external access (API, dashboard)
 func (o *Orchestrator) GetChainRegistry() *onchain.ChainRegistry {
 	return o.chainRegistry
+}
+
+// initClawChainDiscovery starts the ClawChain DID auto-discovery loop (ADR-003).
+// It is non-fatal: if auto-discovery is disabled or misconfigured, a warning is
+// logged and startup continues normally.
+func (o *Orchestrator) initClawChainDiscovery() {
+	if !o.cfg.ClawChain.AutoDiscover {
+		o.logger.Info("clawchain auto-discovery disabled")
+		return
+	}
+
+	interval := time.Duration(o.cfg.ClawChain.CheckIntervalHours) * time.Hour
+	if interval == 0 {
+		interval = 6 * time.Hour
+	}
+
+	nodeURL := o.cfg.ClawChain.NodeURL
+	if nodeURL == "" {
+		nodeURL = "http://testnet.clawchain.win:9944"
+	}
+
+	cfg := clawchain.DiscoveryConfig{
+		Enabled:       true,
+		NodeURL:       nodeURL,
+		CheckInterval: interval,
+		AgentSeed:     o.cfg.ClawChain.AgentSeed,
+		AgentContext:  "https://www.w3.org/ns/did/v1",
+		AccountIDHex:  o.cfg.ClawChain.AccountIDHex,
+	}
+
+	discoverer := clawchain.NewDiscoverer(cfg, o.logger)
+	go discoverer.Start(o.ctx)
+
+	o.logger.Info("clawchain auto-discovery started",
+		"node_url", nodeURL,
+		"interval", interval,
+	)
 }
 
 // Stop gracefully shuts down the orchestrator

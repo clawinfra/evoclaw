@@ -30,6 +30,9 @@ type Config struct {
 	// Multi-chain configuration (execution chains)
 	Chains map[string]ChainConfig `json:"chains,omitempty"`
 
+	// ClawChain DID auto-discovery (ADR-003)
+	ClawChain ClawChainConfig `json:"clawchain,omitempty"`
+
 	// Cloud sync configuration
 	CloudSync CloudSyncConfig `json:"cloudSync,omitempty"`
 
@@ -72,6 +75,33 @@ type OnChainConfig struct {
 	ContractAddress string `json:"contractAddress"`
 	PrivateKey      string `json:"privateKey,omitempty"` // signing key (hex, 0x-prefixed)
 	ChainID         int64  `json:"chainId"`              // 56=BSC, 97=BSCTestnet, 204=opBNB
+}
+
+// ClawChainConfig holds ClawChain Substrate DID auto-discovery settings (ADR-003).
+// On startup, EvoClaw checks whether its agent DID is registered on ClawChain
+// and, if not, submits a register_did extrinsic automatically.
+type ClawChainConfig struct {
+	// AutoDiscover enables automatic DID registration on ClawChain at startup
+	// and on the configured polling interval.
+	AutoDiscover bool `json:"autoDiscover"`
+
+	// NodeURL is the ClawChain Substrate HTTP RPC endpoint.
+	// Default: "http://testnet.clawchain.win:9944"
+	NodeURL string `json:"nodeUrl"`
+
+	// AgentSeed is the sr25519 seed phrase used to sign register_did extrinsics.
+	// Use "//Alice" for dev/testnet. Store production secrets in an environment
+	// variable or secrets manager — never commit them to source control.
+	AgentSeed string `json:"agentSeed,omitempty"`
+
+	// CheckIntervalHours controls how often the discovery loop polls ClawChain.
+	// Default: 6 hours (0 → use default).
+	CheckIntervalHours int `json:"checkIntervalHours,omitempty"`
+
+	// AccountIDHex is the 32-byte raw public key as a hex string (optional "0x" prefix).
+	// If omitted, the agent derives it from AgentSeed for well-known dev accounts
+	// (//Alice, //Bob, …). Production deployments should set this explicitly.
+	AccountIDHex string `json:"accountIdHex,omitempty"`
 }
 
 // ChainConfig holds configuration for a blockchain (execution chain)
