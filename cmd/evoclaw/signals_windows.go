@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"os"
 	"syscall"
+
+	"github.com/clawinfra/evoclaw/internal/config"
 )
 
 // getShutdownSignals returns the signals to listen for on Windows
@@ -18,3 +20,6 @@ func handlePlatformSignal(sig os.Signal, logger *slog.Logger) bool {
 	// Windows only handles SIGINT and SIGTERM, no special cases
 	return false
 }
+
+// SetActiveConfig is a no-op on Windows (SIGHUP not supported).
+func SetActiveConfig(cfg *config.Config, path string) {}

@@ -14,6 +14,8 @@ import (
 )
 
 // Observer captures outcomes from orchestrator actions and stores them.
+// NOTE: The canonical observability interface is interfaces.Observer (internal/interfaces/observer.go).
+// This concrete observer can be adapted to implement that interface for trait-driven composition.
 type Observer struct {
 	cfg      Config
 	logger   *slog.Logger

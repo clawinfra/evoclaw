@@ -17,6 +17,7 @@ import (
 	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/governance"
 	"github.com/clawinfra/evoclaw/internal/rsi"
+	"github.com/clawinfra/evoclaw/internal/security"
 	"github.com/clawinfra/evoclaw/internal/memory"
 	"github.com/clawinfra/evoclaw/internal/onchain"
 	"github.com/clawinfra/evoclaw/internal/router"
@@ -66,7 +67,10 @@ type Channel interface {
 	Receive() <-chan Message
 }
 
-// ModelProvider is the interface for LLM providers
+// ModelProvider is the interface for LLM providers.
+// NOTE: The canonical trait-driven interface is interfaces.Provider (internal/interfaces/provider.go).
+// This interface is retained for backward compatibility. New implementations should prefer
+// interfaces.Provider which adds HealthCheck() and uses []string for Models().
 type ModelProvider interface {
 	Name() string
 	Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error)
@@ -142,6 +146,8 @@ type Orchestrator struct {
 	rsiLoop *rsi.Loop
 	// MQTT channel for edge agent dispatch
 	mqttChannel *channels.MQTTChannel
+	// Security policy for workspace sandboxing
+	securityPolicy *security.SecurityPolicy
 }
 
 // New creates a new Orchestrator
@@ -189,6 +195,14 @@ func (o *Orchestrator) SetEvolutionEngine(e EvolutionEngine) {
 	defer o.mu.Unlock()
 	o.evolution = e
 	o.logger.Info("evolution engine registered")
+}
+
+// SetSecurityPolicy sets the workspace sandboxing and security policy.
+func (o *Orchestrator) SetSecurityPolicy(p *security.SecurityPolicy) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.securityPolicy = p
+	o.logger.Info("security policy registered", "autonomy", p.AutonomyLevel, "workspace_only", p.WorkspaceOnly)
 }
 
 // Start begins the orchestrator loop

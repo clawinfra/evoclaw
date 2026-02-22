@@ -195,3 +195,80 @@ The agent picks up the new tool on next startup (or live-reload if supported).
 ---
 
 *Compose behavior. Don't fork agents.* 🔌
+
+---
+
+## Trait-Driven Interfaces
+
+EvoClaw defines formal Go interfaces for all core subsystems in `internal/interfaces/`. These make every subsystem swappable via configuration.
+
+### Provider (`interfaces.Provider`)
+
+Implement this to add a new LLM backend:
+
+```go
+import iface "github.com/clawinfra/evoclaw/internal/interfaces"
+
+type MyProvider struct{}
+
+func (p *MyProvider) Name() string                                               { return "my-llm" }
+func (p *MyProvider) Chat(ctx context.Context, req iface.ChatRequest) (*iface.ChatResponse, error) { /* ... */ }
+func (p *MyProvider) Models() []string                                           { return []string{"my-model-v1"} }
+func (p *MyProvider) HealthCheck(ctx context.Context) error                      { return nil }
+```
+
+### MemoryBackend (`interfaces.MemoryBackend`)
+
+Implement this to add a custom memory store (vector DB, Redis, etc.):
+
+```go
+type MyMemory struct{}
+
+func (m *MyMemory) Store(ctx context.Context, key string, content []byte, metadata map[string]string) error { /* ... */ }
+func (m *MyMemory) Retrieve(ctx context.Context, query string, limit int) ([]iface.MemoryEntry, error)      { /* ... */ }
+func (m *MyMemory) Delete(ctx context.Context, key string) error                                              { /* ... */ }
+func (m *MyMemory) HealthCheck(ctx context.Context) error                                                     { return nil }
+```
+
+### Tool (`interfaces.Tool`) and ToolRegistry
+
+Implement `Tool` for custom tools. Use `ToolRegistry` to manage collections:
+
+```go
+type MyTool struct{}
+
+func (t *MyTool) Name() string                                                          { return "my-tool" }
+func (t *MyTool) Description() string                                                   { return "Does something" }
+func (t *MyTool) Execute(ctx context.Context, params map[string]interface{}) (*iface.ToolResult, error) { /* ... */ }
+func (t *MyTool) Schema() iface.ToolSchema                                              { return iface.ToolSchema{Name: "my-tool"} }
+```
+
+### Channel (`interfaces.Channel`)
+
+Implement this to add a messaging transport (Slack, Discord, etc.):
+
+```go
+type MyChannel struct{}
+
+func (c *MyChannel) Name() string                                                    { return "slack" }
+func (c *MyChannel) Send(ctx context.Context, msg iface.OutboundMessage) error       { /* ... */ }
+func (c *MyChannel) Receive(ctx context.Context) (<-chan iface.InboundMessage, error) { /* ... */ }
+func (c *MyChannel) Close() error                                                     { return nil }
+```
+
+### Observer (`interfaces.Observer`)
+
+Implement this for custom telemetry/monitoring:
+
+```go
+type MyObserver struct{}
+
+func (o *MyObserver) OnRequest(ctx context.Context, req iface.ObservedRequest)   { /* log/emit */ }
+func (o *MyObserver) OnResponse(ctx context.Context, resp iface.ObservedResponse) { /* log/emit */ }
+func (o *MyObserver) OnError(ctx context.Context, err iface.ObservedError)       { /* log/emit */ }
+func (o *MyObserver) Flush() error                                                { return nil }
+```
+
+### Shared Types
+
+All shared types (`ChatRequest`, `ChatResponse`, `MemoryEntry`, `OutboundMessage`, etc.) are defined in `internal/interfaces/types.go`. Import `github.com/clawinfra/evoclaw/internal/interfaces` to use them.

@@ -193,6 +193,9 @@ func run() int {
 		return 1
 	}
 
+	// Register active config for SIGHUP reload
+	SetActiveConfig(app.Config, configPath)
+
 	// Print banner
 	printBanner(app)
 
