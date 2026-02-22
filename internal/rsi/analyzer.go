@@ -110,12 +110,6 @@ func (a *Analyzer) HealthScore() float64 {
 	return weightedSum / totalWeight
 }
 
-type outcomeGroup struct {
-	taskType string
-	issue    string
-	outcomes []Outcome
-}
-
 // groupByTaskAndIssue groups outcomes by (task_type, issue) pairs.
 func (a *Analyzer) groupByTaskAndIssue(outcomes []Outcome) map[string][]Outcome {
 	groups := make(map[string][]Outcome)
