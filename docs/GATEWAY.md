@@ -478,9 +478,39 @@ kill $(cat evoclaw.pid)
 
 ---
 
+## Config Hot-Reload (SIGHUP)
+
+Send `SIGHUP` to the running EvoClaw process to reload configuration without restarting:
+
+```bash
+kill -HUP $(cat ~/.evoclaw/evoclaw.pid)
+# or
+systemctl reload evoclaw
+```
+
+### Hot-Reloadable Fields (no restart needed)
+- `models` — providers, routing, health config
+- `channels` — Telegram, Discord, TUI config
+- `evolution` — evaluation intervals, mutation rates
+- `scheduler` — job definitions, schedules
+- `agents` — agent definitions, system prompts
+- `memory` — tiered memory settings
+- `cloudSync` — sync intervals, device config
+- `updates` — auto-update settings
+- `server.logLevel` — log verbosity
+
+### Require Restart
+- `server.port` — HTTP listen port
+- `server.dataDir` — data directory path
+- `mqtt.port` — MQTT broker port
+- `mqtt.host` — MQTT bind address
+
+A file watcher also monitors the config file for changes and triggers reload automatically.
+
+---
+
 ## Future Enhancements
 
-- [ ] SIGHUP config reload (hot reload without restart)
 - [ ] SIGUSR1 self-update (download and restart with new binary)
 - [ ] `evoclaw gateway logs` command (tail logs cross-platform)
 - [ ] `evoclaw gateway health` (HTTP health check endpoint)

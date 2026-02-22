@@ -262,6 +262,80 @@ func TestFullMigration(t *testing.T) {
 	}
 }
 
+func TestNoSkillsDir(t *testing.T) {
+	src := t.TempDir()
+	target := t.TempDir()
+	// Only create a MEMORY.md, no skills dir
+	os.WriteFile(filepath.Join(src, "MEMORY.md"), []byte("test"), 0644)
+
+	result, err := OpenClaw(Options{Source: src, Target: target})
+	if err != nil {
+		t.Fatalf("failed: %v", err)
+	}
+	if len(result.Skills) != 0 {
+		t.Errorf("expected 0 skills, got %d", len(result.Skills))
+	}
+}
+
+func TestConfigWithDiscord(t *testing.T) {
+	src := t.TempDir()
+	target := t.TempDir()
+
+	cfg := map[string]any{
+		"models":   map[string]any{"providers": map[string]any{}},
+		"channels": map[string]any{
+			"discord": map[string]any{"enabled": true, "token": "discord-token"},
+		},
+	}
+	data, _ := json.Marshal(cfg)
+	os.WriteFile(filepath.Join(src, "config.json"), data, 0644)
+
+	result, err := OpenClaw(Options{Source: src, Target: target})
+	if err != nil {
+		t.Fatalf("failed: %v", err)
+	}
+
+	foundDiscord := false
+	for _, c := range result.Config {
+		if containsStr(c, "discord") {
+			foundDiscord = true
+		}
+	}
+	if !foundDiscord {
+		t.Error("expected discord channel in config")
+	}
+}
+
+func TestTruncate(t *testing.T) {
+	if truncate("hello", 10) != "hello" {
+		t.Error("short string should not be truncated")
+	}
+	if truncate("hello world", 5) != "hello..." {
+		t.Errorf("got %q", truncate("hello world", 5))
+	}
+}
+
+func TestIdentityNoFiles(t *testing.T) {
+	src := t.TempDir()
+	target := t.TempDir()
+
+	// No identity files at all
+	result, err := OpenClaw(Options{Source: src, Target: target})
+	if err != nil {
+		t.Fatalf("failed: %v", err)
+	}
+	if len(result.Identity) != 0 {
+		t.Errorf("expected 0 identity fields, got %d", len(result.Identity))
+	}
+}
+
+func TestCopyFileError(t *testing.T) {
+	err := copyFile("/nonexistent/file", "/tmp/out", false)
+	if err == nil {
+		t.Error("expected error for nonexistent source")
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))
 }
