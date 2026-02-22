@@ -189,7 +189,7 @@ func TestAutonomy_Readonly(t *testing.T) {
 	}
 
 	// Write should be blocked
-	ok, reason = p.IsAllowed(Action{Type: "write", Path: filepath.Join(ws, "test.txt")})
+	ok, _ = p.IsAllowed(Action{Type: "write", Path: filepath.Join(ws, "test.txt")})
 	if ok {
 		t.Error("readonly should block writes")
 	}

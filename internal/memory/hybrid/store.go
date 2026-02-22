@@ -104,7 +104,7 @@ func (s *Store) Store(ctx context.Context, docID, text string, metadata map[stri
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Delete existing chunks for this doc
 	if _, err := tx.ExecContext(ctx, `DELETE FROM chunks WHERE doc_id = ?`, docID); err != nil {

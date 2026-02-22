@@ -98,7 +98,7 @@ func (f *FTSIndex) Reindex() error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.Exec(`DELETE FROM chunks_fts`); err != nil {
 		return fmt.Errorf("fts reindex clear: %w", err)
