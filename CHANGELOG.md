@@ -2,6 +2,19 @@
 
 All notable changes to EvoClaw will be documented in this file.
 
+## [v0.5.0] — 2026-02-22
+
+### Added
+- **feat(interfaces):** Trait-driven interfaces — Provider, Memory, Tool, Channel, Observer formalized as Go interfaces (ADR-006) (#9)
+- **feat(memory):** Hybrid search layer — SQLite FTS5 + vector with weighted merge, pure Go, zero CGO via modernc.org/sqlite (#10)
+- **feat(security):** Workspace sandboxing — symlink escape detection, forbidden paths, command allowlists, autonomy levels (readonly/supervised/full) (#11)
+- **feat(config):** SIGHUP hot-reload — hot-apply config changes without restart (#12)
+- **feat(migrate):** OpenClaw migration tool — `evoclaw migrate openclaw` with dry-run support (#13)
+- **docs:** ADR-006 (Trait-Driven Interfaces), SECURITY.md, MEMORY.md, MIGRATION.md, updated GATEWAY.md and PLUGIN-API.md
+
+### Fixed
+- **fix(rsi):** Remove unused outcomeGroup type (lint cleanup)
+
 ## [v0.4.0] — 2026-02-22
 
 ### Added
