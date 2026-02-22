@@ -409,7 +409,7 @@ EvoClaw stores state in the configured `dataDir`:
 data/
 ├── agents/          # Agent state (JSON)
 │   └── assistant-1.json
-├── memory/          # Conversation history
+├── memory/          # Conversation history + hybrid search (FTS5 + vector)
 │   └── assistant-1.json
 └── evolution/       # Strategy versions
     └── assistant-1.json

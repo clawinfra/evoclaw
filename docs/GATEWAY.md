@@ -271,7 +271,7 @@ EvoClaw handles shutdown signals gracefully:
 |--------|----------|
 | `SIGTERM` | Graceful shutdown (save state, stop services) |
 | `SIGINT` | Same as SIGTERM (Ctrl+C) |
-| `SIGHUP` | Reload config (planned - not yet implemented) |
+| `SIGHUP` | ✅ Hot-reload config (re-reads config file, applies changes without restart) |
 | `SIGUSR1` | Self-update and restart (planned - not yet implemented) |
 
 **Shutdown sequence:**

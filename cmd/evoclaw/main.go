@@ -134,6 +134,9 @@ func run() int {
 			return cli.ChainCommand(os.Args[subCmdIdx+1:], configPath)
 		case "init":
 			return cli.InitCommand(os.Args[subCmdIdx+1:])
+		case "migrate":
+			// Migration tools
+			return cli.MigrateCommand(os.Args[subCmdIdx+1:])
 		case "gateway":
 			// Gateway daemon management
 			if err := runGatewayCommand(os.Args[subCmdIdx+1:]); err != nil {

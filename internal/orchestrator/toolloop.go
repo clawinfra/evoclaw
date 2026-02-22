@@ -10,6 +10,7 @@ import (
 	"log/slog"
 
 	rsiPkg "github.com/clawinfra/evoclaw/internal/rsi"
+	"github.com/clawinfra/evoclaw/internal/security"
 )
 
 // ToolLoop manages the multi-turn tool execution loop
@@ -233,6 +234,20 @@ func (tl *ToolLoop) callLLM(messages []ChatMessage, tools []ToolSchema, model, s
 func (tl *ToolLoop) executeToolCall(agent *AgentState, toolCall ToolCall) (*ToolResult, error) {
 	start := time.Now()
 
+	// Security policy check: validate tool call before execution
+	if policy := tl.orchestrator.securityPolicy; policy != nil {
+		action := tl.buildSecurityAction(toolCall)
+		if allowed, reason := policy.IsAllowed(action); !allowed {
+			return &ToolResult{
+				Tool:      toolCall.Name,
+				Status:    "error",
+				Error:     fmt.Sprintf("blocked by security policy: %s", reason),
+				ErrorType: "security_policy",
+				ElapsedMs: time.Since(start).Milliseconds(),
+			}, nil
+		}
+	}
+
 	// edge_call: NL passthrough to a named edge agent's own tool loop.
 	// No tool schema registration needed on the edge — it handles routing itself.
 	if toolCall.Name == "edge_call" {
@@ -415,4 +430,36 @@ func (tl *ToolLoop) executeEdgeCall(agent *AgentState, toolCall ToolCall, start 
 		Result:    resp.Content,
 		ElapsedMs: time.Since(start).Milliseconds(),
 	}, nil
+}
+
+// buildSecurityAction maps a ToolCall to a security.Action for policy checks.
+func (tl *ToolLoop) buildSecurityAction(tc ToolCall) security.Action {
+	action := security.Action{Tool: tc.Name}
+
+	switch tc.Name {
+	case "read_file", "list_files":
+		action.Type = "read"
+		if p, ok := tc.Arguments["path"].(string); ok {
+			action.Path = p
+		}
+	case "write_file", "edit_file":
+		action.Type = "write"
+		if p, ok := tc.Arguments["path"].(string); ok {
+			action.Path = p
+		}
+	case "delete_file":
+		action.Type = "delete"
+		if p, ok := tc.Arguments["path"].(string); ok {
+			action.Path = p
+		}
+	case "execute", "shell":
+		action.Type = "execute"
+		if c, ok := tc.Arguments["command"].(string); ok {
+			action.Command = c
+		}
+	default:
+		action.Type = "execute"
+	}
+
+	return action
 }
