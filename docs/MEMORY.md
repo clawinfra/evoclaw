@@ -1,10 +1,96 @@
-# Memory System — Hybrid Search Layer
+# Memory System
 
 ## Overview
 
-The hybrid search layer (`internal/memory/hybrid`) combines **SQLite FTS5 keyword search** with **vector similarity search** in a single, zero-external-dependency package. It uses `modernc.org/sqlite` (pure Go, no CGO required).
+EvoClaw's memory system has **two layers** that work together:
 
-## Architecture
+1. **Tiered Memory** — LLM-powered tree-based retrieval across hot/warm/cold tiers (semantic understanding)
+2. **Hybrid Search** — SQLite FTS5 + vector search for fast keyword/similarity lookups (speed)
+
+Neither replaces the other. They serve different retrieval patterns.
+
+## Full Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│                    Agent Query                        │
+├──────────────────────┬───────────────────────────────┤
+│   Tiered Memory      │      Hybrid Search            │
+│   (tree navigation)  │      (SQLite FTS5 + vector)   │
+│                      │                               │
+│  ┌──────────────┐    │    ┌─────────────┐            │
+│  │  Hot Tier    │    │    │   Store     │ ← MemoryBackend│
+│  │  (today/     │    │    ├─────────────┤            │
+│  │   yesterday) │    │    │  Chunker    │            │
+│  ├──────────────┤    │    ├──────┬──────┤            │
+│  │  Warm Tier   │    │    │ FTS5 │Vector│            │
+│  │  (this week/ │    │    ├──────┴──────┤            │
+│  │   month)     │    │    │   Merger    │            │
+│  ├──────────────┤    │    ├─────────────┤            │
+│  │  Cold Tier   │    │    │   SQLite    │            │
+│  │  (archive)   │    │    └─────────────┘            │
+│  └──────────────┘    │                               │
+│         │            │            │                   │
+│    Tree Index        │    Keyword + Vector Index      │
+│  (LLM-navigated)     │    (BM25 + cosine similarity)  │
+└──────────┬───────────┴────────────┬──────────────────┘
+           │                        │
+           └────────┬───────────────┘
+                    ▼
+            Merged Results
+         (deduplicated, ranked)
+```
+
+## When Each Layer Is Used
+
+| Query Type | Layer | Why |
+|---|---|---|
+| "What did we decide about X?" | **Tiered Memory** | Requires semantic understanding of decisions, context |
+| "Find all mentions of rate_limit" | **Hybrid Search** | Fast keyword match across all stored content |
+| "What happened with the GPU server?" | **Both** | Tiered finds relevant context, hybrid finds specific logs |
+| "Recent project updates" | **Tiered Memory** | Tree navigates by time + topic categories |
+| "Error message: connection refused" | **Hybrid Search** | Exact string matching via FTS5 |
+
+### How They Work Together
+
+1. **Daily notes ingestion** → Both layers index the same source material:
+   - Tiered memory consolidation jobs (quick/daily/monthly) organize notes into hot → warm → cold tiers with a tree index
+   - Hybrid search indexes the raw text into SQLite FTS5 + vector embeddings
+
+2. **Query routing** — The orchestrator can:
+   - Use hybrid search for fast, precise lookups (keyword matches, exact errors)
+   - Use tiered memory for complex semantic queries (reasoning about past decisions)
+   - Combine both: hybrid search for candidates, tiered memory for ranking/context
+
+3. **No duplication of source data** — Both layers point to the same underlying content (daily notes, memory files). They differ only in *how* they index and retrieve.
+
+## Tiered Memory
+
+The tiered memory system uses **LLM-powered tree navigation** for retrieval:
+
+- **O(log n) search** — navigates category tree, doesn't scan everything
+- **Explainable** — every result traces a reasoning path through the tree
+- **No embeddings required** — pure reasoning-based retrieval
+- **Context-aware** — understands "recent project updates" vs "old architecture decisions"
+
+### Tiers
+
+| Tier | Content | Retention | Access Pattern |
+|---|---|---|---|
+| **Hot** | Today + yesterday's notes | 48h | Read every session |
+| **Warm** | This week/month, consolidated | 30 days | Tree-navigated on demand |
+| **Cold** | Archive, compressed | Indefinite | Tree-navigated, rarely accessed |
+
+### Consolidation
+
+Automated jobs move data through tiers:
+- **Quick** (every few hours) — ingest new daily notes into hot tier
+- **Daily** — consolidate hot → warm, extract key facts
+- **Monthly** — consolidate warm → cold, compress
+
+## Hybrid Search Layer
+
+The hybrid search layer (`internal/memory/hybrid`) adds **fast keyword + vector retrieval** as a complement to tiered memory. Zero external dependencies, pure Go.
 
 ```
 ┌─────────────┐
