@@ -76,9 +76,7 @@ func (s *Store) migrate() error {
 			PRIMARY KEY (doc_id, chunk_id)
 		)`,
 		`CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
-			doc_id, chunk_id, heading, content,
-			content='chunks',
-			content_rowid='rowid'
+			doc_id, chunk_id, heading, content
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(doc_id)`,
 	}
