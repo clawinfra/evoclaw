@@ -85,6 +85,8 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 	}
 
 	consecutiveErrors := 0
+	var finalContent string    // Tracks the final text response
+	needsSummary := false      // True when loop ended after tool results (needs summarisation)
 
 	// Tool loop
 	for iteration := 0; iteration < tl.maxIterations; iteration++ {
@@ -93,7 +95,7 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 		// Call LLM
 		llmResp, toolCalls, err := tl.callLLM(messages, tools, model, agent.Def.SystemPrompt)
 		if err != nil {
-			return nil, nil, fmt.Errorf("call LLM: %w", err)
+			return nil, nil, fmt.Errorf("call LLM (iteration %d): %w", iteration, err)
 		}
 
 		// Add assistant response to history
@@ -109,13 +111,14 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 
 		messages = append(messages, assistantMsg)
 
-		// If no tool calls, we're done
+		// If no tool calls, the LLM produced its final answer — use it directly
 		if len(toolCalls) == 0 {
+			finalContent = llmResp.Content
 			tl.logger.Info("tool loop complete", "iterations", iteration+1)
 			break
 		}
 
-		// Execute each tool call (Phase 1: single tool only)
+		// Execute each tool call
 		for _, toolCall := range toolCalls {
 			metrics.ToolCalls++
 
@@ -153,19 +156,30 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 			toolMsg := tl.formatToolResult(toolCall, toolResult)
 			messages = append(messages, toolMsg)
 		}
+
+		// If we've hit max iterations, we need a summary call
+		if iteration == tl.maxIterations-1 {
+			needsSummary = true
+		}
 	}
 
 	metrics.TotalDuration = time.Since(startTime)
 
-	// Final LLM call to generate response
-	finalResp, _, err := tl.callLLM(messages, tools, model, agent.Def.SystemPrompt)
-	if err != nil {
-		return nil, metrics, fmt.Errorf("final LLM call: %w", err)
+	// Only make a final LLM call if:
+	// 1. The loop hit max iterations (last messages are tool results, not a text answer)
+	// 2. finalContent is empty (the LLM never produced a text-only response)
+	if needsSummary || finalContent == "" {
+		tl.logger.Info("making summary LLM call", "reason_max_iter", needsSummary, "empty_content", finalContent == "")
+		summaryResp, _, err := tl.callLLM(messages, tools, model, agent.Def.SystemPrompt)
+		if err != nil {
+			return nil, metrics, fmt.Errorf("summary LLM call: %w", err)
+		}
+		finalContent = summaryResp.Content
 	}
 
 	return &Response{
 		AgentID:   agent.ID,
-		Content:   finalResp.Content,
+		Content:   finalContent,
 		Channel:   msg.Channel,
 		To:        msg.From,
 		ReplyTo:   msg.ID,
