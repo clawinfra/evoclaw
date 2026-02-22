@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"log/slog"
+
+	rsiPkg "github.com/clawinfra/evoclaw/internal/rsi"
 )
 
 // ToolLoop manages the multi-turn tool execution loop
@@ -287,6 +289,20 @@ func (tl *ToolLoop) executeToolCall(agent *AgentState, toolCall ToolCall) (*Tool
 	}
 
 	result.ElapsedMs = time.Since(start).Milliseconds()
+
+	// Record in RSI loop
+	if tl.orchestrator.rsiLoop != nil {
+		rsiResult := &rsiPkg.ToolResult{
+			Tool:      toolCall.Name,
+			Status:    result.Status,
+			Result:    result.Result,
+			Error:     result.Error,
+			ExitCode:  result.ExitCode,
+			ElapsedMs: result.ElapsedMs,
+		}
+		tl.orchestrator.rsiLoop.Observer().RecordToolCall(toolCall.Name, rsiResult, time.Since(start))
+	}
+
 	return result, nil
 }
 

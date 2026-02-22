@@ -16,6 +16,7 @@ import (
 	"github.com/clawinfra/evoclaw/internal/cloudsync"
 	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/governance"
+	"github.com/clawinfra/evoclaw/internal/rsi"
 	"github.com/clawinfra/evoclaw/internal/memory"
 	"github.com/clawinfra/evoclaw/internal/onchain"
 	"github.com/clawinfra/evoclaw/internal/router"
@@ -137,6 +138,8 @@ type Orchestrator struct {
 	resultRegistry     map[string]chan *ToolResult
 	edgeResultRegistry map[string]chan map[string]interface{} // For edge agent prompt results
 	resultMu           sync.RWMutex
+	// RSI loop for recursive self-improvement
+	rsiLoop *rsi.Loop
 	// MQTT channel for edge agent dispatch
 	mqttChannel *channels.MQTTChannel
 }
@@ -280,6 +283,9 @@ func (o *Orchestrator) Start() error {
 	if err := o.initGovernance(); err != nil {
 		o.logger.Warn("governance failed to initialize (non-fatal)", "error", err)
 	}
+
+	// Initialize RSI loop
+	o.initRSI()
 
 	// Initialize scheduler if enabled
 	if o.cfg.Scheduler.Enabled {
@@ -511,6 +517,22 @@ func (o *Orchestrator) initGovernance() error {
 	o.logger.Info("governance protocols initialized", "base_dir", govCfg.BaseDir)
 
 	return nil
+}
+
+// initRSI sets up the RSI loop for recursive self-improvement.
+func (o *Orchestrator) initRSI() {
+	cfg := rsi.DefaultConfig()
+	cfg.DataDir = filepath.Join(o.cfg.Server.DataDir, "rsi")
+
+	o.rsiLoop = rsi.NewLoop(cfg, o.logger)
+	go o.rsiLoop.Start(o.ctx)
+
+	o.logger.Info("RSI loop initialized", "data_dir", cfg.DataDir)
+}
+
+// GetRSI returns the RSI loop for external access.
+func (o *Orchestrator) GetRSI() *rsi.Loop {
+	return o.rsiLoop
 }
 
 // initScheduler sets up the job scheduler
@@ -1048,6 +1070,11 @@ func (o *Orchestrator) processWithAgent(agent *AgentState, msg Message, model st
 	// Prepare metrics for evolution evaluation
 	metrics := agent.Metrics
 	agent.mu.Unlock()
+
+	// Record outcome in RSI loop
+	if o.rsiLoop != nil {
+		o.rsiLoop.Observer().RecordFromAgent(agent.ID, model, msg.Content, llmResp.Content, elapsed, err)
+	}
 
 	// Report to evolution engine if available
 	if o.evolution != nil {
