@@ -250,7 +250,7 @@ func (o *Orchestrator) Start() error {
 		// Initialize tool manager with first agent's capabilities
 		if o.toolManager == nil && len(def.Capabilities) > 0 {
 			o.toolManager = NewToolManager("", def.Capabilities, o.logger)
-			o.toolLoop = NewToolLoop(o, o.toolManager)
+			o.toolLoop = NewToolLoop(o, o.toolManager, WithRSILogger(NewDefaultRSILogger()))
 			o.logger.Info("tool manager initialized", "capabilities", def.Capabilities)
 		}
 	}
