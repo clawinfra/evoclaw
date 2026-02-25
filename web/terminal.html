@@ -189,6 +189,7 @@ let historyIndex = -1;
 let inputBuffer = '';
 let reconnectDelay = RECONNECT_BASE;
 let reconnectTimer = null;
+let pingIntervalId = null;
 let awaitingResponse = false;
 let pendingRequestId = null;
 
@@ -469,8 +470,10 @@ function connectWS() {
     scheduleReconnect();
   };
 
-  // Keepalive ping every 25 s
-  setInterval(() => {
+  // Keepalive ping every 25 s — clear any existing interval first so reconnects
+  // don't accumulate duplicate ping timers (one per reconnect cycle).
+  clearInterval(pingIntervalId);
+  pingIntervalId = setInterval(() => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'ping', request_id: 'keepalive' }));
     }

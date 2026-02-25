@@ -60,8 +60,11 @@ func (s *Server) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ── 2. Upgrade to WebSocket ───────────────────────────────────────────────
+	// InsecureSkipVerify disables the Origin check.  Enable it only in dev mode
+	// (no jwtSecret); in production the Origin must match the Host to prevent
+	// cross-site WebSocket hijacking (CSWSH).
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		InsecureSkipVerify: true, // accept any Origin for dev convenience
+		InsecureSkipVerify: s.jwtSecret == nil,
 	})
 	if err != nil {
 		s.logger.Error("websocket accept failed", "error", err)
