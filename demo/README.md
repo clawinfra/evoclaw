@@ -76,7 +76,7 @@ demo/
 
 ```bash
 # Serve locally
-cd /home/bowen/evoclaw/demo
+cd /home/user/evoclaw/demo
 npx serve -l 3000 -s
 ```
 

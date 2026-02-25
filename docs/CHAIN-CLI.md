@@ -121,7 +121,7 @@ go test ./internal/cli -v
 
 ```bash
 # Build (using specified Go toolchain)
-export GOROOT=/home/bowen/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.13.linux-amd64
+export GOROOT=/home/user/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.13.linux-amd64
 export PATH=$GOROOT/bin:$PATH
 go build -o evoclaw ./cmd/evoclaw
 

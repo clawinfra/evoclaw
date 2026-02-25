@@ -122,7 +122,7 @@ GET /api/memory/retrieve?q=blockchain&limit=3
       "content": {
         "fact": "Deployed smart contract to BSC testnet",
         "emotion": "excited",
-        "people": ["Bowen"],
+        "people": ["Alice"],
         "topics": ["blockchain", "deployment"],
         "actions": ["test contract"],
         "outcome": "successful deployment"
@@ -171,7 +171,7 @@ memory:
 
 Run tests:
 ```bash
-cd /home/bowen/evoclaw
+cd /home/user/evoclaw
 go test ./internal/api/... -v
 ```
 

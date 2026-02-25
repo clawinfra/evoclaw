@@ -192,7 +192,7 @@
   },
   "cloudSync": {
     "enabled": true,
-    "databaseUrl": "libsql://alphastrike-bowen31337.aws-us-east-1.turso.io",
+    "databaseUrl": "libsql://alphastrike-example.aws-us-east-1.turso.io",
     "authToken": "ENV:TURSO_AUTH_TOKEN",
     "heartbeatIntervalSeconds": 60,
     "criticalSyncEnabled": true,
@@ -222,7 +222,7 @@
     },
     "cold": {
       "backend": "turso",
-      "databaseUrl": "libsql://alphastrike-bowen31337.aws-us-east-1.turso.io",
+      "databaseUrl": "libsql://alphastrike-example.aws-us-east-1.turso.io",
       "authToken": "ENV:TURSO_AUTH_TOKEN",
       "retentionYears": 10
     },

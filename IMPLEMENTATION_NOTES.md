@@ -281,4 +281,4 @@ cargo test
 
 - Design: `/media/DATA/clawd/evoclaw/docs/AGENTIC-TOOL-LOOP.md`
 - Implementation: `/media/DATA/clawd/evoclaw/docs/AGENTIC-TOOL-LOOP-IMPLEMENTATION.md`
-- Skill Config: `/home/bowen/.evoclaw/skills/desktop-tools/skill.toml`
+- Skill Config: `/home/user/.evoclaw/skills/desktop-tools/skill.toml`

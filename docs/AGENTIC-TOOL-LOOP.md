@@ -854,17 +854,17 @@ raspberrypi
 **Result:**
 ```
 commit abc123 (HEAD -> main)
-Author: Bowen
+Author: Alice Smith
 Date:   2025-02-15
     Fix bug
 
 commit def456
-Author: Bowen
+Author: Alice Smith
 Date:   2025-02-14
     Add feature
 
 commit ghi789
-Author: Bowen
+Author: Alice Smith
 Date:   2025-02-13
     Initial commit
 ```

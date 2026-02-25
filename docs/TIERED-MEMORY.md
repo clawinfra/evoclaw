@@ -11,7 +11,7 @@ Current AI agent memory systems suffer from three fatal flaws:
 
 1. **Context Window Bloat** — As memory grows, the entire history gets loaded into context. At 100K+ tokens, attention degrades, hallucinations increase, and costs soar.
 
-2. **Similarity ≠ Relevance** — Vector-based retrieval (RAG) finds semantically *similar* content, not *relevant* content. "Bowen likes coffee" and "coffee machine broke" score high similarity but are irrelevant to each other.
+2. **Similarity ≠ Relevance** — Vector-based retrieval (RAG) finds semantically *similar* content, not *relevant* content. "Alice likes coffee" and "coffee machine broke" score high similarity but are irrelevant to each other.
 
 3. **Linear Scaling** — Flat-file memory (MEMORY.md) works for weeks. It breaks at months. It's unusable at years. No human remembers every conversation from 5 years ago — agents shouldn't try to either.
 
