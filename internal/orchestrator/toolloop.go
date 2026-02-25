@@ -15,6 +15,15 @@ import (
 	"github.com/clawinfra/evoclaw/internal/security"
 )
 
+// ToolLoopOption is a functional option for configuring a ToolLoop.
+type ToolLoopOption func(*ToolLoop)
+
+// WithRSILogger wires an RSILogger into the ToolLoop so that every Execute()
+// call automatically emits one outcome record.
+func WithRSILogger(logger RSILogger) ToolLoopOption {
+	return func(tl *ToolLoop) { tl.rsiLogger = logger }
+}
+
 // ToolLoop manages the multi-turn tool execution loop
 type ToolLoop struct {
 	orchestrator *Orchestrator
@@ -27,6 +36,9 @@ type ToolLoop struct {
 	defaultTimeout time.Duration
 	maxParallel    int
 	execFunc       func(agent *AgentState, call ToolCall) (*ToolResult, error)
+
+	// RSI auto-logging
+	rsiLogger RSILogger
 }
 
 // ToolCall represents a tool invocation from the LLM
@@ -69,8 +81,8 @@ type parallelToolResult struct {
 }
 
 // NewToolLoop creates a new tool loop
-func NewToolLoop(orch *Orchestrator, tm *ToolManager) *ToolLoop {
-	return &ToolLoop{
+func NewToolLoop(orch *Orchestrator, tm *ToolManager, opts ...ToolLoopOption) *ToolLoop {
+	tl := &ToolLoop{
 		orchestrator:   orch,
 		toolManager:    tm,
 		logger:         orch.logger.With("component", "tool_loop"),
@@ -78,7 +90,12 @@ func NewToolLoop(orch *Orchestrator, tm *ToolManager) *ToolLoop {
 		errorLimit:     3,  // Configurable
 		defaultTimeout: 30 * time.Second,
 		maxParallel:    5,
+		rsiLogger:      NoopRSILogger{},
 	}
+	for _, opt := range opts {
+		opt(tl)
+	}
+	return tl
 }
 
 // executeParallel executes a batch of tool calls concurrently and returns
@@ -124,10 +141,36 @@ func (tl *ToolLoop) executeParallel(ctx context.Context, agent *AgentState, call
 	return results
 }
 
+// logRSIOutcome emits one RSI outcome record at every Execute exit point.
+// It is a no-op when rsiLogger is nil or a NoopRSILogger.
+func (tl *ToolLoop) logRSIOutcome(agentID, model string, metrics *ToolLoopMetrics, toolNames []string, elapsed time.Duration) {
+	if tl.rsiLogger == nil {
+		return
+	}
+	outcome := RSIOutcome{
+		Source:     "evoclaw",
+		AgentID:    agentID,
+		Model:      model,
+		Success:    metrics.ErrorCount == 0,
+		Quality:    DeriveQuality(metrics.ErrorCount, metrics.ToolCalls),
+		DurationMs: elapsed.Milliseconds(),
+		TaskType:   DeriveTaskType(toolNames),
+		Notes:      fmt.Sprintf("%d tool calls, %d parallel batches", metrics.ToolCalls, metrics.ParallelBatches),
+		Tags:       []string{"toolloop"},
+	}
+	if metrics.ParallelBatches > 0 {
+		outcome.Tags = append(outcome.Tags, "parallel")
+	}
+	if err := tl.rsiLogger.LogOutcome(context.Background(), outcome); err != nil {
+		tl.logger.Warn("failed to log RSI outcome", "error", err)
+	}
+}
+
 // Execute runs the tool loop for a message
 func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Response, *ToolLoopMetrics, error) {
 	startTime := time.Now()
 	metrics := &ToolLoopMetrics{}
+	var allToolNames []string
 
 	// Generate tool schemas
 	tools, err := tl.toolManager.GenerateSchemas()
@@ -157,6 +200,7 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 		// Call LLM
 		llmResp, toolCalls, err := tl.callLLM(messages, tools, model, agent.Def.SystemPrompt)
 		if err != nil {
+			tl.logRSIOutcome(agent.ID, model, metrics, allToolNames, time.Since(startTime))
 			return nil, nil, fmt.Errorf("call LLM (iteration %d): %w", iteration, err)
 		}
 
@@ -178,6 +222,11 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 			finalContent = llmResp.Content
 			tl.logger.Info("tool loop complete", "iterations", iteration+1)
 			break
+		}
+
+		// Collect tool names for RSI outcome
+		for _, c := range toolCalls {
+			allToolNames = append(allToolNames, c.Name)
 		}
 
 		// --- Parallel batch execution (Phase 2) ---
@@ -244,6 +293,7 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 		if batchAllFailed {
 			consecutiveErrors++
 			if consecutiveErrors >= tl.errorLimit {
+				tl.logRSIOutcome(agent.ID, model, metrics, allToolNames, time.Since(startTime))
 				return nil, nil, fmt.Errorf("too many consecutive errors (%d)", consecutiveErrors)
 			}
 		} else {
@@ -265,11 +315,13 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 		tl.logger.Info("making summary LLM call", "reason_max_iter", needsSummary, "empty_content", finalContent == "")
 		summaryResp, _, err := tl.callLLM(messages, tools, model, agent.Def.SystemPrompt)
 		if err != nil {
+			tl.logRSIOutcome(agent.ID, model, metrics, allToolNames, time.Since(startTime))
 			return nil, metrics, fmt.Errorf("summary LLM call: %w", err)
 		}
 		finalContent = summaryResp.Content
 	}
 
+	tl.logRSIOutcome(agent.ID, model, metrics, allToolNames, time.Since(startTime))
 	return &Response{
 		AgentID:   agent.ID,
 		Content:   finalContent,
