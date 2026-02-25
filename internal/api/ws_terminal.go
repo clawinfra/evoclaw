@@ -8,8 +8,8 @@ import (
 
 	"github.com/clawinfra/evoclaw/internal/security"
 	"github.com/clawinfra/evoclaw/internal/types"
-	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 )
 
 // WSRequest is the JSON structure sent by the browser terminal.

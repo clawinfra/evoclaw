@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/clawinfra/evoclaw/internal/types"
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 )
 
 // wsConn tracks an active WebSocket connection along with its pending response channel.
