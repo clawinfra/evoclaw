@@ -30,6 +30,8 @@ type Server struct {
 	webFS       fs.FS // embedded web dashboard assets (optional)
 	jwtSecret   []byte
 	httpChannel *channels.HTTPChannel // HTTP channel for request-response pairs
+	wsChannel   *channels.WSChannel   // WebSocket channel for terminal connections
+	wsTimeout   time.Duration         // timeout for WS chat responses (default 30 s)
 }
 
 // NewServer creates a new API server
@@ -48,10 +50,12 @@ func NewServer(
 	
 	// Create and register HTTP channel (only if orchestrator exists)
 	httpChannel := channels.NewHTTPChannel()
+	wsChannel := channels.NewWSChannel(logger)
 	if orch != nil {
 		orch.RegisterChannel(httpChannel)
+		orch.RegisterChannel(wsChannel)
 	}
-	
+
 	return &Server{
 		port:        port,
 		orch:        orch,
@@ -61,6 +65,8 @@ func NewServer(
 		logger:      logger.With("component", "api"),
 		jwtSecret:   jwtSecret,
 		httpChannel: httpChannel,
+		wsChannel:   wsChannel,
+		wsTimeout:   30 * time.Second,
 	}
 }
 
@@ -80,6 +86,9 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Auth endpoint (unauthenticated — before auth middleware)
 	mux.HandleFunc("/api/auth/token", s.handleAuthToken)
+
+	// WebSocket terminal (auth handled inside handler via ?token= param)
+	mux.HandleFunc("/api/terminal/ws", s.handleTerminalWS)
 
 	// Terminal web UI
 	mux.HandleFunc("/terminal", s.handleTerminalPage)
@@ -133,7 +142,7 @@ func (s *Server) Start(ctx context.Context) error {
 		Addr:         fmt.Sprintf(":%d", s.port),
 		Handler:      s.corsMiddleware(s.loggingMiddleware(authedHandler)),
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 0, // 0 = no write timeout (required for long-lived WS connections)
 		IdleTimeout:  60 * time.Second,
 	}
 
@@ -420,8 +429,10 @@ func (s *Server) jwtAuthWrapper(next http.Handler) http.Handler {
 	authMW := security.AuthMiddleware(s.jwtSecret)
 	authed := authMW(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip auth for token endpoint and non-API routes
-		if r.URL.Path == "/api/auth/token" || !strings.HasPrefix(r.URL.Path, "/api/") {
+		// Skip auth for token endpoint, WS terminal (has own auth), and non-API routes
+		if r.URL.Path == "/api/auth/token" ||
+			r.URL.Path == "/api/terminal/ws" ||
+			!strings.HasPrefix(r.URL.Path, "/api/") {
 			next.ServeHTTP(w, r)
 			return
 		}

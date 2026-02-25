@@ -1,392 +1,593 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EvoClaw Terminal</title>
-    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-            background: #1e1e1e;
-            color: #d4d4d4;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .header {
-            background: #252526;
-            padding: 15px 20px;
-            border-bottom: 1px solid #3e3e42;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .header h1 {
-            font-size: 18px;
-            font-weight: normal;
-            color: #ffffff;
-        }
-        
-        .agent-selector {
-            padding: 6px 12px;
-            background: #3c3c3c;
-            border: 1px solid #3e3e42;
-            color: #cccccc;
-            border-radius: 4px;
-            font-family: inherit;
-            font-size: 14px;
-        }
-        
-        .terminal {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        
-        .message {
-            margin-bottom: 20px;
-            padding: 10px 15px;
-            border-radius: 6px;
-        }
-        
-        .message.user {
-            background: #264f78;
-            margin-left: 20px;
-        }
-        
-        .message.agent {
-            background: #1e3a1e;
-            margin-right: 20px;
-        }
-        
-        .message.system {
-            background: #3e2a17;
-            font-style: italic;
-        }
-        
-        .message-header {
-            font-size: 12px;
-            color: #808080;
-            margin-bottom: 5px;
-        }
-        
-        .message-content {
-            color: #d4d4d4;
-        }
-        
-        /* Markdown styling */
-        .message-content h1, .message-content h2, .message-content h3 {
-            margin: 12px 0 8px 0;
-            color: #ffffff;
-        }
-        
-        .message-content h1 { font-size: 1.5em; border-bottom: 1px solid #3e3e42; padding-bottom: 4px; }
-        .message-content h2 { font-size: 1.3em; }
-        .message-content h3 { font-size: 1.1em; }
-        
-        .message-content p {
-            margin: 8px 0;
-        }
-        
-        .message-content code {
-            background: #1e1e1e;
-            border: 1px solid #3e3e42;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-            font-size: 0.9em;
-            color: #ce9178;
-        }
-        
-        .message-content pre {
-            background: #1e1e1e;
-            border: 1px solid #3e3e42;
-            border-radius: 6px;
-            padding: 12px;
-            overflow-x: auto;
-            margin: 10px 0;
-        }
-        
-        .message-content pre code {
-            background: none;
-            border: none;
-            padding: 0;
-            color: #d4d4d4;
-        }
-        
-        .message-content ul, .message-content ol {
-            margin: 8px 0;
-            padding-left: 25px;
-        }
-        
-        .message-content li {
-            margin: 4px 0;
-        }
-        
-        .message-content a {
-            color: #4ec9b0;
-            text-decoration: none;
-        }
-        
-        .message-content a:hover {
-            text-decoration: underline;
-        }
-        
-        .message-content blockquote {
-            border-left: 4px solid #007acc;
-            padding-left: 12px;
-            margin: 10px 0;
-            color: #808080;
-        }
-        
-        .message-content table {
-            border-collapse: collapse;
-            margin: 10px 0;
-            width: 100%;
-        }
-        
-        .message-content th, .message-content td {
-            border: 1px solid #3e3e42;
-            padding: 6px 10px;
-            text-align: left;
-        }
-        
-        .message-content th {
-            background: #2d2d30;
-            font-weight: 600;
-        }
-        
-        .message-content strong {
-            color: #ffffff;
-            font-weight: 600;
-        }
-        
-        .message-content em {
-            color: #9cdcfe;
-        }
-        
-        .input-area {
-            background: #252526;
-            border-top: 1px solid #3e3e42;
-            padding: 15px 20px;
-            display: flex;
-            gap: 10px;
-        }
-        
-        .input-box {
-            flex: 1;
-            padding: 10px 15px;
-            background: #3c3c3c;
-            border: 1px solid #3e3e42;
-            color: #cccccc;
-            border-radius: 4px;
-            font-family: inherit;
-            font-size: 14px;
-            outline: none;
-        }
-        
-        .input-box:focus {
-            border-color: #007acc;
-        }
-        
-        .send-btn {
-            padding: 10px 25px;
-            background: #007acc;
-            border: none;
-            color: white;
-            border-radius: 4px;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        
-        .send-btn:hover {
-            background: #005a9e;
-        }
-        
-        .send-btn:disabled {
-            background: #555555;
-            cursor: not-allowed;
-        }
-        
-        .status {
-            font-size: 12px;
-            color: #808080;
-        }
-        
-        .status.connected {
-            color: #4ec9b0;
-        }
-        
-        .status.error {
-            color: #f48771;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EvoClaw Terminal</title>
+
+  <!-- xterm.js v5.5.0 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.js"></script>
+  <!-- marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #1e1e1e;
+      --bg2:      #252526;
+      --border:   #3e3e42;
+      --fg:       #d4d4d4;
+      --fg-dim:   #6b6b6b;
+      --green:    #4ec9b0;
+      --blue:     #569cd6;
+      --yellow:   #dcdcaa;
+      --red:      #f44747;
+      --accent:   #007acc;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--fg); font-family: 'Cascadia Code', 'Consolas', 'Menlo', monospace; overflow: hidden; }
+
+    /* ── Header ── */
+    #header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    #header .logo {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+    #header .logo span { color: var(--accent); }
+
+    #agent-select {
+      padding: 4px 10px;
+      background: #3c3c3c;
+      border: 1px solid var(--border);
+      color: var(--fg);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    #agent-select:focus { outline: none; border-color: var(--accent); }
+
+    #ws-status {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--fg-dim);
+      margin-left: auto;
+      transition: background 0.3s;
+      flex-shrink: 0;
+    }
+    #ws-status.connected    { background: #4caf50; }
+    #ws-status.connecting   { background: #ff9800; }
+    #ws-status.disconnected { background: var(--red); }
+
+    /* ── Main layout ── */
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    #terminal-wrap {
+      flex: 1;
+      min-height: 0;
+      padding: 4px;
+      background: var(--bg);
+    }
+    #terminal-wrap .xterm { height: 100%; }
+
+    /* ── Login overlay ── */
+    #login-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    #login-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 32px 40px;
+      min-width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    #login-box h2 { color: #fff; font-size: 20px; font-weight: 500; }
+    #login-box p  { color: var(--fg-dim); font-size: 13px; }
+
+    #login-box label { font-size: 13px; color: var(--fg); }
+    #api-key-input {
+      width: 100%;
+      padding: 8px 12px;
+      background: #3c3c3c;
+      border: 1px solid var(--border);
+      color: var(--fg);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    #api-key-input:focus { outline: none; border-color: var(--accent); }
+
+    #login-btn {
+      padding: 8px 16px;
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    #login-btn:hover   { opacity: 0.85; }
+    #login-btn:active  { opacity: 0.7; }
+    #login-error { color: var(--red); font-size: 13px; min-height: 16px; }
+  </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🧬 EvoClaw Terminal</h1>
-        <select class="agent-selector" id="agentSelector">
-            <option value="">Loading agents...</option>
-        </select>
-        <span class="status connected" id="status">● Connected</span>
-    </div>
-    
-    <div class="terminal" id="terminal">
-        <div class="message system">
-            <div class="message-header">System</div>
-            <div class="message-content">Welcome to EvoClaw Terminal. Select an agent and start chatting.</div>
-        </div>
-    </div>
-    
-    <div class="input-area">
-        <input type="text" 
-               class="input-box" 
-               id="messageInput" 
-               placeholder="Type your message..." 
-               disabled>
-        <button class="send-btn" id="sendBtn" disabled>Send</button>
-    </div>
 
-    <script>
-        const API_BASE = window.location.origin;
-        let currentAgent = null;
-        
-        // Load agents on startup
-        async function loadAgents() {
-            try {
-                const resp = await fetch(`${API_BASE}/api/agents`);
-                const agents = await resp.json();
-                
-                const selector = document.getElementById('agentSelector');
-                selector.innerHTML = agents.map(a => 
-                    `<option value="${a.id}">${a.id} (${a.status})</option>`
-                ).join('');
-                
-                if (agents.length > 0) {
-                    currentAgent = agents[0].id;
-                    document.getElementById('messageInput').disabled = false;
-                    document.getElementById('sendBtn').disabled = false;
-                    addSystemMessage(`Connected to ${currentAgent}`);
-                }
-            } catch (err) {
-                setStatus('error', `Failed to load agents: ${err.message}`);
-            }
+<div id="app">
+  <div id="header">
+    <span class="logo">Evo<span>Claw</span></span>
+    <select id="agent-select">
+      <option value="">— loading agents —</option>
+    </select>
+    <div id="ws-status" title="WebSocket disconnected"></div>
+  </div>
+  <div id="terminal-wrap"><div id="terminal"></div></div>
+</div>
+
+<!-- Login overlay (shown when no token) -->
+<div id="login-overlay" style="display:none">
+  <div id="login-box">
+    <h2>EvoClaw Terminal</h2>
+    <p>Enter your API key to connect.</p>
+    <div>
+      <label for="api-key-input">API Key / Role</label><br/>
+      <input id="api-key-input" type="password" placeholder="owner" autocomplete="off" />
+    </div>
+    <button id="login-btn">Connect</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ─── Constants ─── */
+const MAX_HISTORY = 50;
+const MAX_STORED_MSGS = 100;
+const LS_TOKEN = 'evoclaw_token';
+const LS_HISTORY = 'evoclaw_cmd_history';
+const LS_MESSAGES = 'evoclaw_messages';
+const RECONNECT_BASE = 1000;
+const RECONNECT_MAX  = 30_000;
+
+/* ─── State ─── */
+let term, fitAddon;
+let ws = null;
+let wsStatus = 'disconnected';
+let currentAgent = '';
+let token = localStorage.getItem(LS_TOKEN) || '';
+let cmdHistory = JSON.parse(localStorage.getItem(LS_HISTORY) || '[]');
+let historyIndex = -1;
+let inputBuffer = '';
+let reconnectDelay = RECONNECT_BASE;
+let reconnectTimer = null;
+let awaitingResponse = false;
+let pendingRequestId = null;
+
+/* ─── xterm init ─── */
+function initTerminal() {
+  term = new Terminal({
+    theme: {
+      background:   '#1e1e1e',
+      foreground:   '#d4d4d4',
+      cursor:       '#aeafad',
+      black:        '#1e1e1e',
+      red:          '#f44747',
+      green:        '#4ec9b0',
+      yellow:       '#dcdcaa',
+      blue:         '#569cd6',
+      magenta:      '#c586c0',
+      cyan:         '#9cdcfe',
+      white:        '#d4d4d4',
+      brightBlack:  '#6b6b6b',
+      brightRed:    '#f44747',
+      brightGreen:  '#4ec9b0',
+      brightYellow: '#dcdcaa',
+      brightBlue:   '#569cd6',
+      brightMagenta:'#c586c0',
+      brightCyan:   '#9cdcfe',
+      brightWhite:  '#ffffff',
+    },
+    fontFamily: "'Cascadia Code', 'Consolas', 'Menlo', monospace",
+    fontSize: 14,
+    lineHeight: 1.4,
+    cursorBlink: true,
+    scrollback: 5000,
+    allowProposedApi: true,
+  });
+
+  fitAddon = new FitAddon.FitAddon();
+  const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+  term.loadAddon(fitAddon);
+  term.loadAddon(webLinksAddon);
+  term.open(document.getElementById('terminal'));
+  fitAddon.fit();
+
+  window.addEventListener('resize', () => fitAddon.fit());
+
+  term.writeln('\x1b[36m  EvoClaw Terminal\x1b[0m  — type a message and press Enter');
+  term.writeln('\x1b[90m  Ctrl+C  clear line   Ctrl+L  clear screen   ↑↓  history\x1b[0m');
+  term.writeln('');
+
+  term.onKey(handleKey);
+
+  // Replay stored message history
+  const storedMsgs = JSON.parse(localStorage.getItem(LS_MESSAGES) || '[]');
+  if (storedMsgs.length) {
+    term.writeln('\x1b[90m── session history ──────────────────────────────────\x1b[0m');
+    storedMsgs.slice(-20).forEach(m => term.writeln(m));
+    term.writeln('\x1b[90m─────────────────────────────────────────────────────\x1b[0m');
+    term.writeln('');
+  }
+
+  drawPrompt();
+}
+
+/* ─── Prompt ─── */
+function drawPrompt() {
+  const agent = currentAgent || '(no agent)';
+  term.write('\r\x1b[2K');   // clear current line
+  term.write(
+    '\x1b[32mevoclaw\x1b[0m' +
+    '@' +
+    '\x1b[36m' + agent + '\x1b[0m' +
+    ' > ' +
+    inputBuffer
+  );
+}
+
+/* ─── Key handler ─── */
+function handleKey({ key, domEvent }) {
+  if (awaitingResponse) return;
+
+  const code = domEvent.keyCode;
+  const ctrl  = domEvent.ctrlKey;
+
+  // Ctrl+C — clear line
+  if (ctrl && code === 67) {
+    inputBuffer = '';
+    term.writeln('^C');
+    drawPrompt();
+    return;
+  }
+
+  // Ctrl+L — clear screen
+  if (ctrl && code === 76) {
+    term.clear();
+    drawPrompt();
+    return;
+  }
+
+  // Arrow Up — history back
+  if (code === 38) {
+    if (cmdHistory.length === 0) return;
+    if (historyIndex < cmdHistory.length - 1) historyIndex++;
+    inputBuffer = cmdHistory[cmdHistory.length - 1 - historyIndex] || '';
+    drawPrompt();
+    return;
+  }
+
+  // Arrow Down — history forward
+  if (code === 40) {
+    if (historyIndex > 0) {
+      historyIndex--;
+      inputBuffer = cmdHistory[cmdHistory.length - 1 - historyIndex] || '';
+    } else {
+      historyIndex = -1;
+      inputBuffer = '';
+    }
+    drawPrompt();
+    return;
+  }
+
+  // Enter — submit
+  if (code === 13) {
+    const cmd = inputBuffer.trim();
+    term.writeln('');     // newline after input
+    if (cmd) {
+      pushHistory(cmd);
+      sendChat(cmd);
+    } else {
+      drawPrompt();
+    }
+    inputBuffer = '';
+    historyIndex = -1;
+    return;
+  }
+
+  // Backspace
+  if (code === 8) {
+    if (inputBuffer.length > 0) {
+      inputBuffer = inputBuffer.slice(0, -1);
+      drawPrompt();
+    }
+    return;
+  }
+
+  // Printable characters
+  if (!ctrl && key.length === 1) {
+    inputBuffer += key;
+    drawPrompt();
+  }
+}
+
+/* ─── History ─── */
+function pushHistory(cmd) {
+  // Avoid consecutive duplicates
+  if (cmdHistory[cmdHistory.length - 1] !== cmd) {
+    cmdHistory.push(cmd);
+    if (cmdHistory.length > MAX_HISTORY) cmdHistory.shift();
+    localStorage.setItem(LS_HISTORY, JSON.stringify(cmdHistory));
+  }
+}
+
+/* ─── Message storage ─── */
+function storeMessage(line) {
+  const msgs = JSON.parse(localStorage.getItem(LS_MESSAGES) || '[]');
+  msgs.push(line);
+  if (msgs.length > MAX_STORED_MSGS) msgs.splice(0, msgs.length - MAX_STORED_MSGS);
+  localStorage.setItem(LS_MESSAGES, JSON.stringify(msgs));
+}
+
+/* ─── Chat ─── */
+function sendChat(message) {
+  if (!currentAgent) {
+    term.writeln('\x1b[33m⚠ No agent selected. Choose one from the dropdown.\x1b[0m');
+    drawPrompt();
+    return;
+  }
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    term.writeln('\x1b[31m✗ Not connected. Waiting for reconnect…\x1b[0m');
+    drawPrompt();
+    return;
+  }
+
+  const requestId = 'req-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  pendingRequestId = requestId;
+  awaitingResponse = true;
+
+  // Echo user input
+  const userLine = '\x1b[90m[you]\x1b[0m ' + message;
+  term.writeln(userLine);
+  storeMessage('[you] ' + message);
+
+  ws.send(JSON.stringify({
+    type:       'chat',
+    agent_id:   currentAgent,
+    message:    message,
+    request_id: requestId,
+  }));
+
+  term.writeln('\x1b[90m⋯ waiting…\x1b[0m');
+}
+
+/* ─── WebSocket ─── */
+function setWSStatus(status) {
+  wsStatus = status;
+  const dot = document.getElementById('ws-status');
+  dot.className = status;
+  dot.title = 'WebSocket: ' + status;
+}
+
+function connectWS() {
+  if (!token) return;
+
+  setWSStatus('connecting');
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url   = proto + '//' + location.host + '/api/terminal/ws?token=' + encodeURIComponent(token);
+
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    setWSStatus('connected');
+    reconnectDelay = RECONNECT_BASE;
+    term.writeln('\x1b[32m✓ Connected to EvoClaw orchestrator\x1b[0m');
+    term.writeln('');
+    drawPrompt();
+  };
+
+  ws.onmessage = (evt) => {
+    let resp;
+    try { resp = JSON.parse(evt.data); } catch (e) { return; }
+
+    // Ignore pongs from keepalive
+    if (resp.type === 'pong') return;
+
+    // Clear the "waiting" line by overwriting it
+    if (awaitingResponse) {
+      term.write('\x1b[A\r\x1b[2K'); // up 1 line, clear
+    }
+
+    if (resp.type === 'done' || resp.type === 'token') {
+      const content = resp.content || '';
+      // Strip HTML that marked might produce; write plain terminal output
+      const lines = content.split('\n');
+      const agentLabel = '\x1b[35m[' + (resp.agent_id || currentAgent) + ']\x1b[0m';
+      lines.forEach((line, i) => {
+        if (i === 0) {
+          term.writeln(agentLabel + ' ' + line);
+          storeMessage('[' + (resp.agent_id || currentAgent) + '] ' + line);
+        } else {
+          term.writeln('  ' + line);
+          storeMessage('  ' + line);
         }
-        
-        // Handle agent selection change
-        document.getElementById('agentSelector').addEventListener('change', (e) => {
-            currentAgent = e.target.value;
-            if (currentAgent) {
-                addSystemMessage(`Switched to ${currentAgent}`);
-            }
-        });
-        
-        // Handle send button
-        document.getElementById('sendBtn').addEventListener('click', sendMessage);
-        
-        // Handle Enter key
-        document.getElementById('messageInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-        
-        async function sendMessage() {
-            const input = document.getElementById('messageInput');
-            const message = input.value.trim();
-            
-            if (!message || !currentAgent) return;
-            
-            // Clear input
-            input.value = '';
-            
-            // Show user message
-            addMessage('user', 'You', message);
-            
-            // Disable input while processing
-            input.disabled = true;
-            document.getElementById('sendBtn').disabled = true;
-            setStatus('connected', '● Processing...');
-            
-            try {
-                const resp = await fetch(`${API_BASE}/api/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        agent: currentAgent,
-                        message: message,
-                        from: 'web-terminal'
-                    })
-                });
-                
-                if (!resp.ok) {
-                    throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
-                }
-                
-                const data = await resp.json();
-                addMessage('agent', currentAgent, data.message);
-                setStatus('connected', '● Connected');
-                
-            } catch (err) {
-                addMessage('system', 'Error', `Failed to send message: ${err.message}`);
-                setStatus('error', `● Error: ${err.message}`);
-            } finally {
-                input.disabled = false;
-                document.getElementById('sendBtn').disabled = false;
-                input.focus();
-            }
-        }
-        
-        function addMessage(type, sender, content) {
-            const terminal = document.getElementById('terminal');
-            const msg = document.createElement('div');
-            msg.className = `message ${type}`;
-            
-            // Render markdown for agent messages, escape HTML for user messages
-            const renderedContent = (type === 'agent' || type === 'system') 
-                ? marked.parse(content)
-                : escapeHtml(content);
-            
-            msg.innerHTML = `
-                <div class="message-header">${escapeHtml(sender)} · ${new Date().toLocaleTimeString()}</div>
-                <div class="message-content">${renderedContent}</div>
-            `;
-            terminal.appendChild(msg);
-            terminal.scrollTop = terminal.scrollHeight;
-        }
-        
-        function addSystemMessage(content) {
-            addMessage('system', 'System', content);
-        }
-        
-        function setStatus(type, message) {
-            const status = document.getElementById('status');
-            status.className = `status ${type}`;
-            status.textContent = message;
-        }
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
-        // Initialize
-        loadAgents();
-    </script>
+      });
+      if (resp.model) {
+        term.writeln('\x1b[90m  model: ' + resp.model + '\x1b[0m');
+      }
+    } else if (resp.type === 'error') {
+      term.writeln('\x1b[31m✗ Error: ' + (resp.error || 'unknown') + '\x1b[0m');
+    }
+
+    if (resp.done || resp.type === 'error') {
+      awaitingResponse  = false;
+      pendingRequestId  = null;
+      term.writeln('');
+      drawPrompt();
+    }
+  };
+
+  ws.onerror = () => {
+    setWSStatus('disconnected');
+  };
+
+  ws.onclose = () => {
+    setWSStatus('disconnected');
+    if (awaitingResponse) {
+      awaitingResponse = false;
+      term.writeln('\x1b[31m✗ Connection lost\x1b[0m');
+      drawPrompt();
+    }
+    scheduleReconnect();
+  };
+
+  // Keepalive ping every 25 s
+  setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'ping', request_id: 'keepalive' }));
+    }
+  }, 25_000);
+}
+
+function scheduleReconnect() {
+  clearTimeout(reconnectTimer);
+  term.writeln('\x1b[33m⟳ Reconnecting in ' + Math.round(reconnectDelay / 1000) + 's…\x1b[0m');
+  reconnectTimer = setTimeout(() => {
+    reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX);
+    connectWS();
+  }, reconnectDelay);
+}
+
+/* ─── Agent list ─── */
+async function loadAgents() {
+  try {
+    const headers = token ? { Authorization: 'Bearer ' + token } : {};
+    const res = await fetch('/api/agents', { headers });
+    if (!res.ok) return;
+    const agents = await res.json();
+    const sel = document.getElementById('agent-select');
+    sel.innerHTML = '';
+    if (!agents || agents.length === 0) {
+      sel.innerHTML = '<option value="">— no agents —</option>';
+      return;
+    }
+    agents.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id || a.ID;
+      opt.textContent = (a.name || a.Name || opt.value) + ' (' + opt.value + ')';
+      sel.appendChild(opt);
+    });
+    currentAgent = agents[0].id || agents[0].ID;
+  } catch (e) {
+    // ignore
+  }
+}
+
+document.getElementById('agent-select').addEventListener('change', e => {
+  currentAgent = e.target.value;
+  if (!awaitingResponse) drawPrompt();
+});
+
+/* ─── Login ─── */
+function showLogin() {
+  document.getElementById('login-overlay').style.display = 'flex';
+}
+function hideLogin() {
+  document.getElementById('login-overlay').style.display = 'none';
+}
+
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const apiKey = document.getElementById('api-key-input').value.trim();
+  const errEl  = document.getElementById('login-error');
+  errEl.textContent = '';
+
+  if (!apiKey) {
+    errEl.textContent = 'Please enter an API key.';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent_id: 'terminal-user', role: 'owner', api_key: apiKey }),
+    });
+    if (!res.ok) {
+      errEl.textContent = 'Authentication failed (' + res.status + ').';
+      return;
+    }
+    const data = await res.json();
+    token = data.token;
+    localStorage.setItem(LS_TOKEN, token);
+    hideLogin();
+    await loadAgents();
+    connectWS();
+  } catch (e) {
+    errEl.textContent = 'Network error: ' + e.message;
+  }
+});
+
+document.getElementById('api-key-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('login-btn').click();
+});
+
+/* ─── Boot ─── */
+(async function boot() {
+  initTerminal();
+
+  if (!token) {
+    // Dev mode: try a zero-credential token request
+    try {
+      const res = await fetch('/api/auth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: 'terminal-user', role: 'owner', api_key: '' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        token = data.token;
+        localStorage.setItem(LS_TOKEN, token);
+      } else {
+        showLogin();
+        return;
+      }
+    } catch (_) {
+      showLogin();
+      return;
+    }
+  }
+
+  await loadAgents();
+  connectWS();
+})();
+</script>
 </body>
 </html>
