@@ -854,17 +854,17 @@ raspberrypi
 **Result:**
 ```
 commit abc123 (HEAD -> main)
-Author: Bowen
+Author: Alice Smith
 Date:   2025-02-15
     Fix bug
 
 commit def456
-Author: Bowen
+Author: Alice Smith
 Date:   2025-02-14
     Add feature
 
 commit ghi789
-Author: Bowen
+Author: Alice Smith
 Date:   2025-02-13
     Initial commit
 ```
@@ -938,7 +938,7 @@ The diff for the most recent commit (abc123) shows a 'fix()' function was added 
    - Execute tool binary
    - Return structured result
 
-### Phase 2: Multi-Tool and Parallel Execution (Next Sprint)
+### Phase 2: Multi-Tool and Parallel Execution (✅ Implemented)
 
 **Goals:**
 - Multiple tool calls in single LLM response
@@ -950,6 +950,16 @@ The diff for the most recent commit (abc123) shows a 'fix()' function was added 
 - Execute independent tools in parallel (goroutines)
 - Wait for all results before next LLM call
 - Track tool dependencies for sequential execution
+
+**Implementation notes (`internal/orchestrator/toolloop.go`):**
+
+`executeParallel()` is the fan-out/fan-in engine for parallel tool execution:
+
+- **Single-call fast path:** when only one tool call is present, `executeParallel` skips goroutine overhead entirely and calls `execFunc` (or `executeToolCall` as fallback) directly.
+- **Multi-call path:** uses `golang.org/x/sync/errgroup` with `g.SetLimit(maxParallel)` (default: 5) to bound concurrency. Goroutines never return errors — per-call errors are captured in a pre-allocated `parallelToolResult` slice indexed by original call order, guaranteeing result ordering without post-sort.
+- **Context propagation:** the errgroup context is passed to each goroutine; a pre-flight `select` on `gCtx.Done()` lets goroutines bail immediately if the parent context is cancelled.
+- **New metrics:** `ParallelBatches`, `MaxConcurrency`, and `WallTimeSavedMs` (sum of individual elapsed times minus actual wall time) are updated in `Execute()` for every multi-call batch.
+- **Backward compat:** single-call batches do not increment `ParallelBatches`, preserving Phase 1 behaviour exactly.
 
 ### Phase 3: Tool Result Streaming (Future)
 

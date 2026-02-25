@@ -189,7 +189,7 @@ See [SKILL.md](SKILL.md) for full command reference.
 
 ```json
 {
-  "identity": {"agent_name": "Alex", "owner_name": "Bowen"},
+  "identity": {"agent_name": "Alex", "owner_name": "Alice"},
   "owner_profile": {"personality": "technical, direct", "timezone": "Australia/Sydney"},
   "active_context": {
     "projects": [{"name": "EvoClaw", "status": "Active"}],

@@ -9,6 +9,8 @@ import (
 
 	"log/slog"
 
+	"golang.org/x/sync/errgroup"
+
 	rsiPkg "github.com/clawinfra/evoclaw/internal/rsi"
 	"github.com/clawinfra/evoclaw/internal/security"
 )
@@ -23,6 +25,8 @@ type ToolLoop struct {
 	maxIterations  int
 	errorLimit     int
 	defaultTimeout time.Duration
+	maxParallel    int
+	execFunc       func(agent *AgentState, call ToolCall) (*ToolResult, error)
 }
 
 // ToolCall represents a tool invocation from the LLM
@@ -51,6 +55,17 @@ type ToolLoopMetrics struct {
 	ErrorCount      int
 	TimeoutCount    int
 	TotalDuration   time.Duration
+	ParallelBatches int
+	MaxConcurrency  int
+	WallTimeSavedMs int64
+}
+
+// parallelToolResult holds the outcome of a single tool call executed in parallel.
+type parallelToolResult struct {
+	Index  int
+	Call   ToolCall
+	Result *ToolResult
+	Err    error
 }
 
 // NewToolLoop creates a new tool loop
@@ -62,7 +77,51 @@ func NewToolLoop(orch *Orchestrator, tm *ToolManager) *ToolLoop {
 		maxIterations:  10, // Configurable
 		errorLimit:     3,  // Configurable
 		defaultTimeout: 30 * time.Second,
+		maxParallel:    5,
 	}
+}
+
+// executeParallel executes a batch of tool calls concurrently and returns
+// results in the original call order. For a single call, it takes the fast
+// path with no goroutine overhead.
+func (tl *ToolLoop) executeParallel(ctx context.Context, agent *AgentState, calls []ToolCall) []parallelToolResult {
+	fn := tl.execFunc
+	if fn == nil {
+		fn = tl.executeToolCall
+	}
+
+	results := make([]parallelToolResult, len(calls))
+
+	if len(calls) == 1 {
+		// Fast path — no goroutines
+		res, err := fn(agent, calls[0])
+		results[0] = parallelToolResult{Index: 0, Call: calls[0], Result: res, Err: err}
+		return results
+	}
+
+	// Fan-out with bounded concurrency
+	g, gCtx := errgroup.WithContext(ctx)
+	g.SetLimit(tl.maxParallel)
+
+	for i, call := range calls {
+		i, call := i, call // capture loop vars
+		g.Go(func() error {
+			// Fast-bail if parent context already cancelled
+			select {
+			case <-gCtx.Done():
+				results[i] = parallelToolResult{Index: i, Call: call, Err: gCtx.Err()}
+				return nil
+			default:
+			}
+			res, err := fn(agent, call)
+			// Store at pre-allocated index — no mutex needed (unique index per goroutine)
+			results[i] = parallelToolResult{Index: i, Call: call, Result: res, Err: err}
+			return nil // never propagate errors; capture in result
+		})
+	}
+
+	_ = g.Wait() // errgroup never sees non-nil errors from goroutines above
+	return results
 }
 
 // Execute runs the tool loop for a message
@@ -88,8 +147,8 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 	}
 
 	consecutiveErrors := 0
-	var finalContent string    // Tracks the final text response
-	needsSummary := false      // True when loop ended after tool results (needs summarisation)
+	var finalContent string // Tracks the final text response
+	needsSummary := false   // True when loop ended after tool results (needs summarisation)
 
 	// Tool loop
 	for iteration := 0; iteration < tl.maxIterations; iteration++ {
@@ -121,43 +180,74 @@ func (tl *ToolLoop) Execute(agent *AgentState, msg Message, model string) (*Resp
 			break
 		}
 
-		// Execute each tool call
-		for _, toolCall := range toolCalls {
+		// --- Parallel batch execution (Phase 2) ---
+		batchStart := time.Now()
+		batchResults := tl.executeParallel(tl.orchestrator.ctx, agent, toolCalls)
+		batchWall := time.Since(batchStart)
+
+		// Update parallel-specific metrics for multi-call batches
+		if len(toolCalls) > 1 {
+			metrics.ParallelBatches++
+			if len(toolCalls) > metrics.MaxConcurrency {
+				metrics.MaxConcurrency = len(toolCalls)
+			}
+
+			// WallTimeSavedMs = sum of individual elapsed times − actual wall time
+			var sumElapsed int64
+			for _, r := range batchResults {
+				if r.Result != nil {
+					sumElapsed += r.Result.ElapsedMs
+				}
+			}
+			saved := sumElapsed - batchWall.Milliseconds()
+			if saved > 0 {
+				metrics.WallTimeSavedMs += saved
+			}
+		}
+
+		// Fan-in results in original index order
+		batchAllFailed := true
+		for _, pr := range batchResults {
 			metrics.ToolCalls++
 
-			toolResult, err := tl.executeToolCall(agent, toolCall)
-			if err != nil {
-				consecutiveErrors++
+			if pr.Err != nil {
 				metrics.ErrorCount++
 
 				// Add error as tool result
-				errorMsg := fmt.Sprintf("Error executing %s: %v", toolCall.Name, err)
+				errorMsg := fmt.Sprintf("Error executing %s: %v", pr.Call.Name, pr.Err)
 				messages = append(messages, ChatMessage{
 					Role:       "tool",
-					ToolCallID: toolCall.ID,
+					ToolCallID: pr.Call.ID,
 					Content:    errorMsg,
 				})
-
-				if consecutiveErrors >= tl.errorLimit {
-					return nil, nil, fmt.Errorf("too many consecutive errors (%d)", consecutiveErrors)
-				}
 				continue
 			}
 
-			consecutiveErrors = 0 // Reset error counter
+			batchAllFailed = false
 
-			if toolResult.Status == "success" {
+			if pr.Result.Status == "success" {
 				metrics.SuccessCount++
 			} else {
 				metrics.ErrorCount++
-				if toolResult.ErrorType == "timeout" {
+				if pr.Result.ErrorType == "timeout" {
 					metrics.TimeoutCount++
 				}
 			}
 
 			// Add tool result to conversation
-			toolMsg := tl.formatToolResult(toolCall, toolResult)
+			toolMsg := tl.formatToolResult(pr.Call, pr.Result)
 			messages = append(messages, toolMsg)
+		}
+
+		// Consecutive error tracking: only count a batch as a consecutive error
+		// when every call in the batch failed.
+		if batchAllFailed {
+			consecutiveErrors++
+			if consecutiveErrors >= tl.errorLimit {
+				return nil, nil, fmt.Errorf("too many consecutive errors (%d)", consecutiveErrors)
+			}
+		} else {
+			consecutiveErrors = 0
 		}
 
 		// If we've hit max iterations, we need a summary call

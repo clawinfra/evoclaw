@@ -282,7 +282,7 @@ func setupMemorySystem(llmClient *models.Client, logger *slog.Logger) (*memory.M
     cfg := memory.DefaultMemoryConfig()
     cfg.AgentID = "agent-123"
     cfg.AgentName = "Alex"
-    cfg.OwnerName = "Bowen"
+    cfg.OwnerName = "Alice"
     cfg.DatabaseURL = os.Getenv("TURSO_URL")
     cfg.AuthToken = os.Getenv("TURSO_TOKEN")
 

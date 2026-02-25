@@ -24,7 +24,7 @@ func setupTestSource(t *testing.T) string {
 	os.WriteFile(filepath.Join(dir, "SOUL.md"), []byte("I am a helpful AI assistant."), 0644)
 
 	// IDENTITY.md
-	os.WriteFile(filepath.Join(dir, "IDENTITY.md"), []byte("# Alex\nAI Assistant for Bowen"), 0644)
+	os.WriteFile(filepath.Join(dir, "IDENTITY.md"), []byte("# Alex\nAI Assistant for Alice"), 0644)
 
 	// AGENTS.md
 	os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("## Voice\nUse balanced voice style"), 0644)

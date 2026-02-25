@@ -4,7 +4,7 @@ Python script for tracking memory system health over time.
 
 ## Location
 
-`/home/bowen/clawd/skills/tiered-memory/scripts/metrics_tracker.py`
+`/home/user/clawd/skills/tiered-memory/scripts/metrics_tracker.py`
 
 ## Features
 
@@ -127,10 +127,10 @@ Add to cron for automatic tracking:
 
 ```bash
 # Record metrics every hour
-0 * * * * cd /home/bowen/clawd && python3 skills/tiered-memory/scripts/metrics_tracker.py --record
+0 * * * * cd /home/user/clawd && python3 skills/tiered-memory/scripts/metrics_tracker.py --record
 
 # Daily health report at 9 AM
-0 9 * * * cd /home/bowen/clawd && python3 skills/tiered-memory/scripts/metrics_tracker.py --report
+0 9 * * * cd /home/user/clawd && python3 skills/tiered-memory/scripts/metrics_tracker.py --report
 ```
 
 Or use OpenClaw's heartbeat system to check periodically.

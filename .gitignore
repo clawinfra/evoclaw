@@ -19,6 +19,9 @@ data/
 # OS
 .DS_Store
 
+# Test artifacts
+internal/orchestrator/rsi/outcomes.jsonl
+
 # Secrets
 *.key
 *.pem
