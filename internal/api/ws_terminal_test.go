@@ -16,8 +16,8 @@ import (
 	"github.com/clawinfra/evoclaw/internal/orchestrator"
 	"github.com/clawinfra/evoclaw/internal/security"
 	"github.com/clawinfra/evoclaw/internal/types"
-	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 )
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -205,6 +205,34 @@ func TestWSAuth_ExpiredToken(t *testing.T) {
 	if resp != nil && resp.StatusCode != 401 {
 		t.Errorf("expected status 401, got %d", resp.StatusCode)
 	}
+}
+
+// TestWSAuth_ValidToken verifies that a well-formed, non-expired JWT is accepted
+// when auth is enabled (jwtSecret != nil).
+func TestWSAuth_ValidToken(t *testing.T) {
+	secret := []byte("test-secret")
+	tmpDir := t.TempDir()
+	logger := wsTestLogger()
+	registry, _ := agents.NewRegistry(tmpDir, logger)
+	memory, _ := agents.NewMemoryStore(tmpDir, logger)
+	router := models.NewRouter(logger)
+	orch := orchestrator.New(&config.Config{}, logger)
+
+	srv := NewServer(8425, orch, registry, memory, router, logger)
+	srv.jwtSecret = secret
+
+	ts := httptest.NewServer(srv.wsTerminalHandler())
+	defer ts.Close()
+
+	tok := validToken(secret)
+	conn, cancel, err := dialWS(t, ts, tok)
+	if err != nil {
+		t.Fatalf("expected successful connection with valid token, got: %v", err)
+	}
+	defer func() {
+		conn.Close(websocket.StatusNormalClosure, "")
+		cancel()
+	}()
 }
 
 // TestWSAuth_ValidToken_DevMode verifies that dev mode (jwtSecret == nil) accepts
