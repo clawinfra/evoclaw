@@ -207,6 +207,34 @@ func TestWSAuth_ExpiredToken(t *testing.T) {
 	}
 }
 
+// TestWSAuth_ValidToken verifies that a well-formed, non-expired JWT is accepted
+// when auth is enabled (jwtSecret != nil).
+func TestWSAuth_ValidToken(t *testing.T) {
+	secret := []byte("test-secret")
+	tmpDir := t.TempDir()
+	logger := wsTestLogger()
+	registry, _ := agents.NewRegistry(tmpDir, logger)
+	memory, _ := agents.NewMemoryStore(tmpDir, logger)
+	router := models.NewRouter(logger)
+	orch := orchestrator.New(&config.Config{}, logger)
+
+	srv := NewServer(8425, orch, registry, memory, router, logger)
+	srv.jwtSecret = secret
+
+	ts := httptest.NewServer(srv.wsTerminalHandler())
+	defer ts.Close()
+
+	tok := validToken(secret)
+	conn, cancel, err := dialWS(t, ts, tok)
+	if err != nil {
+		t.Fatalf("expected successful connection with valid token, got: %v", err)
+	}
+	defer func() {
+		conn.Close(websocket.StatusNormalClosure, "")
+		cancel()
+	}()
+}
+
 // TestWSAuth_ValidToken_DevMode verifies that dev mode (jwtSecret == nil) accepts
 // connections without any token.
 func TestWSAuth_ValidToken_DevMode(t *testing.T) {

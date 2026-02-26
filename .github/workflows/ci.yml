@@ -437,6 +437,7 @@ jobs:
       - name: Rename APK with version info
         run: |
           VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION//\//-}"  # sanitize: replace / with - for filename safety (e.g. PR refs like "17/merge")
           if [[ "$VERSION" == "main" ]] || [[ "$VERSION" == "master" ]]; then
             VERSION="${{ github.sha }}"
             VERSION="${VERSION:0:8}"
