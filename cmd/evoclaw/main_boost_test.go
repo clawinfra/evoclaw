@@ -644,6 +644,9 @@ func TestSetup_InvalidConfig(t *testing.T) {
 // --- startServices ---
 
 func TestStartServices(t *testing.T) {
+	if os.Getenv("EVOCLAW_INTEGRATION") == "" {
+		t.Skip("skipping integration test (set EVOCLAW_INTEGRATION=1 to run)")
+	}
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "evoclaw.json")
 	cfg := config.DefaultConfig()
@@ -815,6 +818,9 @@ func TestInitializeAgents_CreateError(t *testing.T) {
 }
 
 func TestStartServices_Full(t *testing.T) {
+	if os.Getenv("EVOCLAW_INTEGRATION") == "" {
+		t.Skip("skipping integration test (set EVOCLAW_INTEGRATION=1 to run)")
+	}
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "evoclaw.json")
 	cfg := config.DefaultConfig()

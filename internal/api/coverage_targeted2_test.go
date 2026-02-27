@@ -9,7 +9,6 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/clawinfra/evoclaw/internal/evolution"
 )
 
 // ---- terminal page with webFS ----
@@ -116,11 +115,4 @@ func TestGetEvolutionStrategy_WithOrch(t *testing.T) {
 
 
 // ---- evolution engine test helper (avoids duplicate) ----
-func newTestServerWithEvolutionTarget(t *testing.T) *Server {
-	t.Helper()
-	s := newTestServerV2(t)
-	dir := t.TempDir()
-	eng := evolution.NewEngine(dir, s.logger)
-	s.SetEvolution(eng)
-	return s
-}
+// newTestServerWithEvolutionTarget removed — was unused

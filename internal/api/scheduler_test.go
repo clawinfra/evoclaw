@@ -44,16 +44,7 @@ func newTestServerWithScheduler(t *testing.T) (*Server, *scheduler.Scheduler) {
 	return srv, sched
 }
 
-// newTestServerNoOrch creates a server with a nil orchestrator (scheduler unavailable).
-func newTestServerNoOrch(t *testing.T) *Server {
-	t.Helper()
-	logger := slog.New(slog.NewTextHandler(nil, &slog.HandlerOptions{Level: slog.LevelError}))
-	dir := t.TempDir()
-	reg, _ := agents.NewRegistry(dir, logger)
-	mem, _ := agents.NewMemoryStore(dir, logger)
-	router := models.NewRouter(logger)
-	return NewServer(0, nil, reg, mem, router, logger)
-}
+// newTestServerNoOrch removed — was unused
 
 // newTestServerOrchNoScheduler creates a server with an orchestrator but no scheduler enabled.
 func newTestServerOrchNoScheduler(t *testing.T) *Server {
