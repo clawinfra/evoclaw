@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/clawinfra/evoclaw/internal/config"
+	"github.com/clawinfra/evoclaw/internal/onchain"
 )
 
 // ChainCommand handles the 'evoclaw chain' subcommands
@@ -24,6 +27,8 @@ func ChainCommand(args []string, configPath string) int {
 		return chainList(args[1:], configPath)
 	case "remove":
 		return chainRemove(args[1:], configPath)
+	case "status":
+		return chainStatus(args[1:], configPath)
 	case "help", "--help", "-h":
 		printChainHelp()
 		return 0
@@ -40,9 +45,10 @@ func printChainHelp() {
 Manage blockchain configurations for EvoClaw agents.
 
 Subcommands:
-  add <chain-id>    Add a new chain configuration
-  list              List all configured chains
-  remove <chain-id> Remove a chain configuration
+  add <chain-id>      Add a new chain configuration (or from preset)
+  list                List all configured chains with connection status
+  remove <chain-id>   Remove a chain configuration
+  status <chain-id>   Show detailed status (block height, latency, etc.)
 
 Examples:
   # Add BSC testnet (preset with minimal flags)
@@ -54,15 +60,19 @@ Examples:
   # Add Hyperliquid
   evoclaw chain add hyperliquid --wallet 0x...
 
-  # List all chains
+  # List all chains with status
   evoclaw chain list
+
+  # Detailed status for a chain
+  evoclaw chain status bsc-testnet
 
   # Remove a chain
   evoclaw chain remove bsc-testnet
 
 Supported presets:
   bsc, bsc-testnet, opbnb, opbnb-testnet, ethereum, ethereum-sepolia,
-  arbitrum, optimism, polygon, base, hyperliquid, solana, solana-devnet`)
+  arbitrum, optimism, polygon, base, hyperliquid, solana, solana-devnet,
+  clawchain`)
 }
 
 func chainAdd(args []string, configPath string) int {
@@ -203,6 +213,12 @@ func chainAdd(args []string, configPath string) int {
 }
 
 func chainList(args []string, configPath string) int {
+	fs := flag.NewFlagSet("chain list", flag.ContinueOnError)
+	noCheck := fs.Bool("no-check", false, "Skip live connectivity check")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+
 	// Load config
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -221,29 +237,92 @@ func chainList(args []string, configPath string) int {
 
 	fmt.Println("Chains:")
 	fmt.Println()
+	fmt.Printf("  %-20s %-12s %-30s %s\n", "CHAIN ID", "TYPE", "NAME", "STATUS")
+	fmt.Printf("  %-20s %-12s %-30s %s\n", strings.Repeat("-", 20), strings.Repeat("-", 12), strings.Repeat("-", 30), strings.Repeat("-", 16))
 
+	ctx := context.Background()
 	for chainID, chainCfg := range cfg.Chains {
-		status := "✅ enabled"
 		if !chainCfg.Enabled {
-			status = "❌ disabled"
+			fmt.Printf("  %-20s %-12s %-30s %s\n", chainID, strings.ToUpper(chainCfg.Type), chainCfg.Name, "❌ disabled")
+			continue
 		}
 
-		// Format chain info
+		connStatus := "⏭  skipped"
+		if !*noCheck {
+			occ := onchain.ChainConfig{
+				ID:   chainID,
+				Type: chainCfg.Type,
+				Name: chainCfg.Name,
+				RPC:  chainCfg.RPCURL,
+			}
+			hr := onchain.CheckHealth(ctx, occ)
+			if hr.Connected {
+				connStatus = fmt.Sprintf("✅ connected (block %d)", hr.BlockHeight)
+			} else {
+				connStatus = fmt.Sprintf("🔴 disconnected: %s", hr.Error)
+			}
+		}
+
 		typeInfo := strings.ToUpper(chainCfg.Type)
-		if chainCfg.ChainID != 0 {
-			typeInfo = fmt.Sprintf("%s (%d)", typeInfo, chainCfg.ChainID)
-		}
-
 		name := chainCfg.Name
 		if name == "" {
 			name = chainID
 		}
 
-		fmt.Printf("  %-20s %-15s %-30s %s\n", chainID, typeInfo, name, status)
+		fmt.Printf("  %-20s %-12s %-30s %s\n", chainID, typeInfo, name, connStatus)
 	}
 
 	fmt.Println()
 	fmt.Printf("Total: %d chain(s)\n", len(cfg.Chains))
+
+	return 0
+}
+
+func chainStatus(args []string, configPath string) int {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "Error: chain-id required")
+		fmt.Fprintln(os.Stderr, "Usage: evoclaw chain status <chain-id>")
+		return 1
+	}
+	chainID := args[0]
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		return 1
+	}
+
+	chainCfg, ok := cfg.GetChain(chainID)
+	if !ok {
+		fmt.Fprintf(os.Stderr, "Error: chain %q not found\n", chainID)
+		return 1
+	}
+
+	occ := onchain.ChainConfig{
+		ID:   chainID,
+		Type: chainCfg.Type,
+		Name: chainCfg.Name,
+		RPC:  chainCfg.RPCURL,
+	}
+
+	fmt.Printf("Checking status for chain: %s\n\n", chainID)
+
+	ctx := context.Background()
+	hr := onchain.CheckHealth(ctx, occ)
+
+	fmt.Printf("  Chain ID    : %s\n", hr.ChainID)
+	fmt.Printf("  Name        : %s\n", hr.ChainName)
+	fmt.Printf("  Type        : %s\n", chainCfg.Type)
+	fmt.Printf("  RPC         : %s\n", chainCfg.RPCURL)
+
+	if hr.Connected {
+		fmt.Printf("  Status      : ✅ connected\n")
+		fmt.Printf("  Block Height: %d\n", hr.BlockHeight)
+		fmt.Printf("  Latency     : %s\n", hr.Latency.Round(time.Millisecond))
+	} else {
+		fmt.Printf("  Status      : 🔴 disconnected\n")
+		fmt.Printf("  Error       : %s\n", hr.Error)
+	}
 
 	return 0
 }
