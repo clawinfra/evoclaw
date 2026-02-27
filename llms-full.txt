@@ -1,0 +1,5277 @@
+# EvoClaw — Complete Documentation
+
+> Self-evolving agent framework for edge devices. Go orchestrator + Rust agents.
+> Generated: 2026-02-06T20:54:08Z
+
+---
+
+
+========================================
+FILE: docs/index.md
+========================================
+
+# EvoClaw Documentation
+
+> *Self-evolving agent framework for edge devices. Go orchestrator + Rust agents.*
+
+Welcome to the EvoClaw documentation. EvoClaw is a lightweight, evolution-powered agent orchestration framework designed to deploy AI agents on resource-constrained edge devices — from Raspberry Pi to IoT sensors to phones.
+
+**Every device is an agent. Every agent evolves.** 🧬
+
+---
+
+## Quick Start
+
+Get EvoClaw running in 5 minutes:
+
+```bash
+# Clone the repo
+git clone https://github.com/clawinfra/evoclaw.git
+cd evoclaw
+
+# Build the orchestrator
+go build -ldflags="-s -w" -o evoclaw ./cmd/evoclaw
+
+# Create config from template
+cp evoclaw.example.json evoclaw.json
+# Edit evoclaw.json with your API keys
+
+# Run
+./evoclaw --config evoclaw.json
+```
+
+Open [http://localhost:8420](http://localhost:8420) for the web dashboard.
+
+For the full setup guide, see [Getting Started](getting-started/quickstart.md).
+
+---
+
+## What is EvoClaw?
+
+EvoClaw is a framework for deploying self-improving AI agents on any device:
+
+- **Go Orchestrator** (6.9MB) — Coordinates agents, routes LLM requests, manages evolution
+- **Rust Edge Agent** (3.2MB) — Runs on constrained hardware, executes strategies
+- **Evolution Engine** — Agents improve themselves based on performance metrics
+- **Multi-Channel** — Telegram, MQTT, WhatsApp (planned)
+- **Multi-Model** — Anthropic, OpenAI, Ollama, OpenRouter with intelligent routing
+
+### The Water Principle
+
+> *"Empty your mind, be formless, shapeless — like water."* — Bruce Lee
+
+Put EvoClaw in a teddy bear → it becomes a companion.
+Put it on a trading terminal → it becomes a trader.
+Put it on a farm sensor → it becomes a crop whisperer.
+
+Same DNA. Same evolution engine. Different container.
+
+---
+
+## Documentation Map
+
+### [Getting Started](getting-started/quickstart.md)
+- [Installation](getting-started/installation.md) — Binary, source, or Docker
+- [Configuration](getting-started/configuration.md) — Full config reference
+- [Quick Start](getting-started/quickstart.md) — 5-minute guide
+- [First Agent](getting-started/first-agent.md) — Create your first agent
+
+### [Architecture](architecture/overview.md)
+- [System Overview](architecture/overview.md) — How it all fits together
+- [Orchestrator](architecture/orchestrator.md) — Go orchestrator deep dive
+- [Edge Agent](architecture/edge-agent.md) — Rust agent deep dive
+- [Evolution Engine](architecture/evolution.md) — How agents evolve
+- [Communication](architecture/communication.md) — MQTT protocol & message formats
+
+### [Guides](guides/trading-agent.md)
+- [Trading Agent](guides/trading-agent.md) — Set up a Hyperliquid trading agent
+- [Companion Agent](guides/companion-agent.md) — Build a companion device agent
+- [Custom Strategy](guides/custom-strategy.md) — Write custom trading strategies
+- [Model Routing](guides/model-routing.md) — Configure model providers & routing
+- [Deployment](guides/deployment.md) — Production deployment guide
+
+### [API Reference](api/rest-api.md)
+- [REST API](api/rest-api.md) — Full HTTP API reference
+- [MQTT Protocol](api/mqtt-protocol.md) — MQTT topics & message formats
+- [WebSocket/SSE](api/websocket.md) — Real-time streaming endpoints
+
+### [Reference](reference/config-schema.md)
+- [Config Schema](reference/config-schema.md) — Complete JSON config schema
+- [Genome Format](reference/genome-format.md) — Trading genome/style.toml format
+- [Metrics](reference/metrics.md) — All tracked metrics explained
+- [Environment Variables](reference/environment.md) — Environment configuration
+
+### [Contributing](contributing/CONTRIBUTING.md)
+- [How to Contribute](contributing/CONTRIBUTING.md)
+- [Development Setup](contributing/development.md)
+- [Architecture Decisions](contributing/architecture-decisions.md)
+
+---
+
+## License
+
+MIT — see [LICENSE](https://github.com/clawinfra/evoclaw/blob/main/LICENSE) for details.
+
+Built by **Alex Chen** for [ClawChain](https://github.com/clawinfra) 🧬
+
+
+========================================
+FILE: docs/getting-started/installation.md
+========================================
+
+# Installation
+
+EvoClaw can be installed from pre-built binaries, compiled from source, or run via Docker.
+
+## Prerequisites
+
+- **Orchestrator**: Go 1.23+ (for building from source)
+- **Edge Agent**: Rust 1.75+ with Cargo (for building from source)
+- **MQTT Broker**: Mosquitto (optional, for agent mesh communication)
+
+## Option 1: Pre-built Binaries
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/clawinfra/evoclaw/releases):
+
+```bash
+# Linux x86_64
+curl -LO https://github.com/clawinfra/evoclaw/releases/latest/download/evoclaw-linux-amd64.tar.gz
+tar xzf evoclaw-linux-amd64.tar.gz
+sudo mv evoclaw /usr/local/bin/
+
+# Linux ARM64 (Raspberry Pi 4, etc.)
+curl -LO https://github.com/clawinfra/evoclaw/releases/latest/download/evoclaw-linux-arm64.tar.gz
+tar xzf evoclaw-linux-arm64.tar.gz
+
+# macOS
+curl -LO https://github.com/clawinfra/evoclaw/releases/latest/download/evoclaw-darwin-arm64.tar.gz
+tar xzf evoclaw-darwin-arm64.tar.gz
+```
+
+### Edge Agent Binary
+
+```bash
+# Linux x86_64
+curl -LO https://github.com/clawinfra/evoclaw/releases/latest/download/evoclaw-agent-linux-amd64.tar.gz
+
+# Linux ARM64
+curl -LO https://github.com/clawinfra/evoclaw/releases/latest/download/evoclaw-agent-linux-arm64.tar.gz
+
+# Linux ARMv7 (Raspberry Pi Zero, etc.)
+curl -LO https://github.com/clawinfra/evoclaw/releases/latest/download/evoclaw-agent-linux-armv7.tar.gz
+```
+
+## Option 2: Build from Source
+
+### Go Orchestrator
+
+```bash
+git clone https://github.com/clawinfra/evoclaw.git
+cd evoclaw
+
+# Build optimized binary
+go build -ldflags="-s -w" -o evoclaw ./cmd/evoclaw
+
+# Verify
+./evoclaw --version
+# EvoClaw v0.1.0 (built dev)
+```
+
+### Rust Edge Agent
+
+```bash
+cd edge-agent
+
+# Build optimized release binary (3.2MB)
+cargo build --release
+
+# Binary is at target/release/evoclaw-agent
+ls -la target/release/evoclaw-agent
+```
+
+### Cross-Compilation
+
+Build for different architectures:
+
+```bash
+# Orchestrator for ARM64
+GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o evoclaw-arm64 ./cmd/evoclaw
+
+# Edge agent for ARM64
+rustup target add aarch64-unknown-linux-gnu
+cargo build --release --target aarch64-unknown-linux-gnu
+
+# Edge agent for ARMv7 (Pi Zero)
+rustup target add armv7-unknown-linux-gnueabihf
+cargo build --release --target armv7-unknown-linux-gnueabihf
+```
+
+## Option 3: Containers (Podman / Docker)
+
+The fastest way to get the full stack running. **Podman** is the recommended runtime (daemonless, rootless), but Docker works identically.
+
+### Install a container runtime
+
+```bash
+# Podman (recommended)
+sudo apt install -y podman podman-compose    # Debian/Ubuntu
+sudo dnf install -y podman podman-compose    # Fedora/RHEL
+
+# Docker (fallback)
+# See https://docs.docker.com/engine/install/
+```
+
+### Start the full stack
+
+```bash
+git clone https://github.com/clawinfra/evoclaw.git
+cd evoclaw
+cp evoclaw.example.json evoclaw.json
+cp edge-agent/agent.example.toml edge-agent/agent.toml
+# Edit both files with your API keys
+
+# Auto-detects Podman or Docker
+make up
+
+# Or force a specific runtime:
+make up-docker              # Docker
+podman-compose up -d        # Podman directly
+./deploy/podman-pod.sh up   # Podman pod (native)
+```
+
+This starts:
+- **Mosquitto** MQTT broker on port 1883
+- **EvoClaw orchestrator** on port 8420
+- **Edge agent** connected via MQTT
+
+### Build images
+
+```bash
+# Build both images (uses auto-detected runtime)
+make build
+
+# Or individually:
+podman build -t evoclaw-orchestrator -f orchestrator.Dockerfile .
+podman build -t evoclaw-edge-agent -f edge-agent/Dockerfile ./edge-agent
+```
+
+### Systemd integration
+
+For production, install systemd services:
+
+```bash
+make install-systemd
+sudo systemctl enable --now evoclaw-mosquitto evoclaw-orchestrator evoclaw-edge-agent
+```
+
+→ See [Container Deployment Guide](../guides/container-deployment.md) for full details.
+
+## Verify Installation
+
+```bash
+# Start the orchestrator
+./evoclaw --config evoclaw.json
+
+# In another terminal, check the API
+curl http://localhost:8420/api/status
+```
+
+Expected output:
+```json
+{
+  "version": "0.1.0",
+  "agents": 0,
+  "models": 0,
+  "total_cost": 0
+}
+```
+
+Open [http://localhost:8420](http://localhost:8420) to see the web dashboard.
+
+## Next Steps
+
+- [Configuration](configuration.md) — Set up your config file
+- [Quick Start](quickstart.md) — Get running in 5 minutes
+- [First Agent](first-agent.md) — Create your first EvoClaw agent
+- [Container Deployment](../guides/container-deployment.md) — Podman pods, systemd, production
+- [Edge Deployment](../guides/edge-deployment.md) — Deploy to Raspberry Pi and ARM devices
+
+
+========================================
+FILE: docs/getting-started/configuration.md
+========================================
+
+# Configuration
+
+EvoClaw is configured via a JSON file (`evoclaw.json` by default). This document covers all configuration options.
+
+## Config File
+
+```bash
+# Use default path
+./evoclaw
+
+# Specify custom config path
+./evoclaw --config /path/to/config.json
+```
+
+If no config file exists, EvoClaw creates a default one on first run.
+
+## Full Configuration Reference
+
+```json
+{
+  "server": {
+    "port": 8420,
+    "dataDir": "./data",
+    "logLevel": "info"
+  },
+  "mqtt": {
+    "host": "0.0.0.0",
+    "port": 1883,
+    "username": "",
+    "password": ""
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "botToken": "YOUR_TELEGRAM_BOT_TOKEN"
+    }
+  },
+  "models": {
+    "providers": {
+      "anthropic": {
+        "apiKey": "sk-ant-...",
+        "models": [
+          {
+            "id": "claude-sonnet-4-20250514",
+            "name": "Claude Sonnet 4",
+            "contextWindow": 200000,
+            "costInput": 3.0,
+            "costOutput": 15.0,
+            "capabilities": ["reasoning", "code", "vision"]
+          }
+        ]
+      },
+      "ollama": {
+        "baseUrl": "http://localhost:11434",
+        "models": [
+          {
+            "id": "llama3.2:3b",
+            "name": "Llama 3.2 3B",
+            "contextWindow": 128000,
+            "costInput": 0.0,
+            "costOutput": 0.0,
+            "capabilities": ["reasoning"]
+          }
+        ]
+      }
+    },
+    "routing": {
+      "simple": "ollama/llama3.2:3b",
+      "complex": "anthropic/claude-sonnet-4-20250514",
+      "critical": "anthropic/claude-sonnet-4-20250514"
+    }
+  },
+  "evolution": {
+    "enabled": true,
+    "evalIntervalSec": 3600,
+    "minSamplesForEval": 10,
+    "maxMutationRate": 0.2
+  },
+  "agents": [
+    {
+      "id": "assistant-1",
+      "name": "General Assistant",
+      "type": "orchestrator",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are a helpful assistant.",
+      "skills": ["chat", "search", "code"],
+      "config": {},
+      "container": {
+        "enabled": false,
+        "memoryMb": 512,
+        "cpuShares": 256,
+        "allowNet": true
+      }
+    }
+  ]
+}
+```
+
+## Section Reference
+
+### `server`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `port` | int | `8420` | HTTP API and dashboard port |
+| `dataDir` | string | `"./data"` | Directory for persistent data (agents, memory, evolution) |
+| `logLevel` | string | `"info"` | Log level: `debug`, `info`, `warn`, `error` |
+
+### `mqtt`
+
+MQTT broker settings for the agent mesh.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `host` | string | `"0.0.0.0"` | MQTT broker host to connect to |
+| `port` | int | `1883` | MQTT broker port |
+| `username` | string | `""` | MQTT authentication username |
+| `password` | string | `""` | MQTT authentication password |
+
+### `channels`
+
+Communication channel configurations.
+
+#### `channels.telegram`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `false` | Enable Telegram bot |
+| `botToken` | string | `""` | Telegram Bot API token from @BotFather |
+
+### `models`
+
+LLM provider and routing configuration.
+
+#### `models.providers`
+
+Map of provider name → provider config. Supported providers:
+- `anthropic` — Claude models (native client)
+- `openai` — OpenAI models (GPT-4, etc.)
+- `ollama` — Local models via Ollama
+- `openrouter` — OpenRouter aggregator
+- Any custom provider with OpenAI-compatible API
+
+Each provider config:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `baseUrl` | string | API base URL (required for Ollama, OpenRouter) |
+| `apiKey` | string | API key for authentication |
+| `models` | array | List of available models |
+
+Each model:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Model identifier (e.g., `claude-sonnet-4-20250514`) |
+| `name` | string | Human-readable name |
+| `contextWindow` | int | Maximum context length in tokens |
+| `costInput` | float | Cost per million input tokens (USD) |
+| `costOutput` | float | Cost per million output tokens (USD) |
+| `capabilities` | array | List of capabilities: `reasoning`, `code`, `vision` |
+
+#### `models.routing`
+
+Intelligent model selection based on task complexity:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `simple` | string | Model for simple tasks (format: `provider/model-id`) |
+| `complex` | string | Model for complex reasoning tasks |
+| `critical` | string | Model for critical tasks (trading, financial decisions) |
+
+### `evolution`
+
+Evolution engine configuration.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `true` | Enable the evolution engine |
+| `evalIntervalSec` | int | `3600` | Seconds between evaluations (default: 1 hour) |
+| `minSamplesForEval` | int | `10` | Minimum actions before first evaluation |
+| `maxMutationRate` | float | `0.2` | Maximum strategy mutation rate (0.0–1.0) |
+
+### `agents`
+
+Array of agent definitions.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique agent identifier |
+| `name` | string | Human-readable agent name |
+| `type` | string | Agent type: `orchestrator`, `trader`, `monitor`, `governance` |
+| `model` | string | Default model (format: `provider/model-id`) |
+| `systemPrompt` | string | System prompt for the agent's LLM |
+| `skills` | array | List of enabled skills |
+| `config` | object | Additional key-value configuration |
+| `container` | object | Container isolation settings |
+
+#### `agents[].container`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `false` | Enable container isolation |
+| `image` | string | `""` | Container image |
+| `memoryMb` | int | `512` | Memory limit in MB |
+| `cpuShares` | int | `256` | CPU share allocation |
+| `allowNet` | bool | `true` | Allow network access |
+| `allowTools` | array | `[]` | Allowed tool names |
+| `mounts` | array | `[]` | Volume mounts |
+
+## Environment Variables
+
+Config values can be overridden with environment variables. See [Environment Variables](../reference/environment.md).
+
+## Edge Agent Configuration
+
+The Rust edge agent uses TOML configuration. See [agent.example.toml](https://github.com/clawinfra/evoclaw/blob/main/edge-agent/agent.example.toml) and the [Edge Agent docs](../architecture/edge-agent.md).
+
+## Next Steps
+
+- [Quick Start](quickstart.md) — Get running in 5 minutes
+- [First Agent](first-agent.md) — Create your first agent
+- [Model Routing](../guides/model-routing.md) — Advanced model configuration
+
+
+========================================
+FILE: docs/getting-started/quickstart.md
+========================================
+
+# Quick Start
+
+Get EvoClaw running in 5 minutes.
+
+## Prerequisites
+
+- Go 1.24+ or a container runtime (Podman recommended, Docker works too)
+- An LLM API key (Anthropic, OpenAI, or a local Ollama instance)
+
+## Step 1: Build
+
+### Option A: Container (fastest)
+
+```bash
+git clone https://github.com/clawinfra/evoclaw.git
+cd evoclaw
+
+# Podman (recommended)
+make up
+
+# Docker (fallback)
+make up-docker
+```
+
+### Option B: From source
+
+```bash
+git clone https://github.com/clawinfra/evoclaw.git
+cd evoclaw
+
+# Build orchestrator
+go build -ldflags="-s -w" -o evoclaw ./cmd/evoclaw
+```
+
+## Step 2: Configure
+
+```bash
+cp evoclaw.example.json evoclaw.json
+```
+
+Edit `evoclaw.json` — at minimum, add an LLM provider:
+
+```json
+{
+  "server": {
+    "port": 8420,
+    "dataDir": "./data",
+    "logLevel": "info"
+  },
+  "models": {
+    "providers": {
+      "anthropic": {
+        "apiKey": "sk-ant-YOUR_KEY_HERE",
+        "models": [
+          {
+            "id": "claude-sonnet-4-20250514",
+            "name": "Claude Sonnet 4",
+            "contextWindow": 200000,
+            "costInput": 3.0,
+            "costOutput": 15.0,
+            "capabilities": ["reasoning", "code"]
+          }
+        ]
+      }
+    },
+    "routing": {
+      "simple": "anthropic/claude-sonnet-4-20250514",
+      "complex": "anthropic/claude-sonnet-4-20250514",
+      "critical": "anthropic/claude-sonnet-4-20250514"
+    }
+  },
+  "evolution": {
+    "enabled": true,
+    "evalIntervalSec": 3600,
+    "minSamplesForEval": 10,
+    "maxMutationRate": 0.2
+  },
+  "agents": [
+    {
+      "id": "assistant-1",
+      "name": "My First Agent",
+      "type": "orchestrator",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are a helpful assistant that gives concise, accurate answers.",
+      "skills": ["chat"]
+    }
+  ]
+}
+```
+
+## Step 3: Run
+
+```bash
+./evoclaw --config evoclaw.json
+```
+
+You should see:
+
+```
+  ╔═══════════════════════════════════════╗
+  ║        🧬 EvoClaw v0.1.0            ║
+  ║  Self-Evolving Agent Framework        ║
+  ║  Every device is an agent.            ║
+  ║  Every agent evolves.                 ║
+  ╚═══════════════════════════════════════╝
+
+  🌐 API: http://localhost:8420
+  📊 Dashboard: http://localhost:8420
+  🤖 Agents: 1 loaded
+  🧠 Models: 1 available
+```
+
+## Step 4: Verify
+
+```bash
+# Check system status
+curl http://localhost:8420/api/status | jq
+
+# List agents
+curl http://localhost:8420/api/agents | jq
+
+# Check models
+curl http://localhost:8420/api/models | jq
+```
+
+## Step 5: Open the Dashboard
+
+Navigate to [http://localhost:8420](http://localhost:8420) in your browser.
+
+The dashboard shows:
+- **Overview** — System status, agent count, API costs
+- **Agents** — All registered agents with metrics
+- **Models** — Available models and cost tracking
+- **Evolution** — Fitness scores and mutation history
+
+## Step 6: Add Telegram (Optional)
+
+To interact with your agent via Telegram:
+
+1. Create a bot with [@BotFather](https://t.me/BotFather)
+2. Add the token to your config:
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "botToken": "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+    }
+  }
+}
+```
+
+3. Restart EvoClaw and message your bot!
+
+## What's Next?
+
+- [Create your first custom agent](first-agent.md)
+- [Container deployment guide](../guides/container-deployment.md) — Podman pods, systemd, production
+- [Edge deployment guide](../guides/edge-deployment.md) — Deploy to Raspberry Pi and ARM devices
+- [Set up a trading agent](../guides/trading-agent.md)
+- [Understand the architecture](../architecture/overview.md)
+- [Configure model routing](../guides/model-routing.md)
+
+
+========================================
+FILE: docs/getting-started/first-agent.md
+========================================
+
+# Create Your First Agent
+
+This guide walks you through creating, configuring, and running your first EvoClaw agent.
+
+## Understanding Agent Types
+
+EvoClaw supports several agent types:
+
+| Type | Purpose | Example Use Case |
+|------|---------|-----------------|
+| `orchestrator` | General-purpose LLM agent | Chat assistant, task runner |
+| `trader` | Trading agent | Hyperliquid perpetual futures |
+| `monitor` | Monitoring agent | Price alerts, system monitoring |
+| `governance` | Governance/oversight agent | Risk management, compliance |
+
+## Define Your Agent
+
+Add an agent definition to your `evoclaw.json`:
+
+```json
+{
+  "agents": [
+    {
+      "id": "my-agent",
+      "name": "My First Agent",
+      "type": "orchestrator",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are a helpful coding assistant. You write clean, well-documented code and explain your reasoning.",
+      "skills": ["chat", "code"],
+      "config": {
+        "max_tokens": "4096"
+      },
+      "container": {
+        "enabled": false,
+        "memoryMb": 512,
+        "cpuShares": 256,
+        "allowNet": true
+      }
+    }
+  ]
+}
+```
+
+### Key Fields
+
+- **`id`** — Unique identifier. Used in API paths: `/api/agents/my-agent`
+- **`name`** — Display name shown in the dashboard
+- **`type`** — Determines agent behavior and available features
+- **`model`** — Default LLM model (format: `provider/model-id`)
+- **`systemPrompt`** — The system prompt that defines the agent's personality and behavior
+- **`skills`** — Capabilities enabled for this agent
+
+## Multiple Agents
+
+You can define multiple agents with different roles:
+
+```json
+{
+  "agents": [
+    {
+      "id": "assistant",
+      "name": "General Assistant",
+      "type": "orchestrator",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are a helpful general-purpose assistant.",
+      "skills": ["chat", "search"]
+    },
+    {
+      "id": "code-review",
+      "name": "Code Reviewer",
+      "type": "orchestrator",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are an expert code reviewer. Focus on bugs, security issues, and performance.",
+      "skills": ["code"]
+    },
+    {
+      "id": "eth-trader",
+      "name": "ETH Trader",
+      "type": "trader",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are a cautious crypto trader focused on ETH perpetual futures.",
+      "skills": ["trading"],
+      "config": {
+        "exchange": "hyperliquid",
+        "max_position_usd": "5000"
+      }
+    }
+  ]
+}
+```
+
+## Interact via API
+
+Once EvoClaw is running, interact with your agent:
+
+```bash
+# Get agent status
+curl http://localhost:8420/api/agents/my-agent | jq
+
+# Get agent metrics
+curl http://localhost:8420/api/agents/my-agent/metrics | jq
+
+# View conversation memory
+curl http://localhost:8420/api/agents/my-agent/memory | jq
+
+# Trigger evolution
+curl -X POST http://localhost:8420/api/agents/my-agent/evolve | jq
+```
+
+## Interact via Telegram
+
+If you've configured a Telegram bot (see [Configuration](configuration.md)):
+
+1. Open your bot in Telegram
+2. Send a message — the orchestrator routes it to an appropriate agent
+3. The agent responds through Telegram
+
+## Monitor in Dashboard
+
+Open [http://localhost:8420](http://localhost:8420) to see your agent in action:
+
+- **Agents view** — Status, message count, error rate
+- **Agent Detail** — Click an agent for metrics, evolution history, conversations
+- **Evolution view** — Watch fitness scores change over time
+
+## Enable Evolution
+
+With evolution enabled (`evolution.enabled: true`), your agent will:
+
+1. **Accumulate metrics** — Track success rate, response time, token usage
+2. **Get evaluated** — Every `evalIntervalSec` seconds, fitness is calculated
+3. **Evolve if needed** — If fitness drops below threshold (0.6), parameters mutate
+4. **Self-improve** — Temperature, token limits, and custom params adjust
+
+See [Evolution Engine](../architecture/evolution.md) for details.
+
+## Deploy an Edge Agent
+
+To run a Rust edge agent that connects to your orchestrator:
+
+```bash
+cd edge-agent
+cp agent.example.toml agent.toml
+# Edit agent.toml with your settings
+
+cargo run --release -- --config agent.toml
+```
+
+The edge agent connects via MQTT and appears in the orchestrator's agent list.
+
+## Next Steps
+
+- [Trading Agent Guide](../guides/trading-agent.md) — Set up a Hyperliquid trader
+- [Companion Agent Guide](../guides/companion-agent.md) — Build a companion device
+- [Architecture Overview](../architecture/overview.md) — Understand the system
+- [Model Routing](../guides/model-routing.md) — Optimize model selection
+
+
+========================================
+FILE: docs/architecture/overview.md
+========================================
+
+# Architecture Overview
+
+EvoClaw is a two-tier architecture: a **Go orchestrator** that manages everything, and lightweight **Rust edge agents** that run on devices.
+
+## System Architecture
+
+```mermaid
+graph TB
+    subgraph "Orchestrator (Go)"
+        API[HTTP API :8420]
+        Dashboard[Web Dashboard]
+        Orch[Orchestrator Core]
+        Registry[Agent Registry]
+        Memory[Memory Store]
+        Router[Model Router]
+        Evo[Evolution Engine]
+    end
+
+    subgraph "Channels"
+        TG[Telegram Bot]
+        MQTT[MQTT Broker :1883]
+    end
+
+    subgraph "LLM Providers"
+        Anthropic[Anthropic API]
+        OpenAI[OpenAI API]
+        Ollama[Ollama Local]
+        OR[OpenRouter]
+    end
+
+    subgraph "Edge Agents (Rust)"
+        Agent1[Trader Agent<br/>3.2MB binary]
+        Agent2[Monitor Agent]
+        Agent3[Companion Agent]
+    end
+
+    API --> Orch
+    Dashboard --> API
+    Orch --> Registry
+    Orch --> Memory
+    Orch --> Router
+    Orch --> Evo
+    Orch --> TG
+    Orch --> MQTT
+
+    Router --> Anthropic
+    Router --> OpenAI
+    Router --> Ollama
+    Router --> OR
+
+    MQTT --> Agent1
+    MQTT --> Agent2
+    MQTT --> Agent3
+
+    Users[Users] --> TG
+    Users --> API
+```
+
+## Component Overview
+
+### Go Orchestrator (~6.9MB binary)
+
+The brain of the operation. Written in Go for simplicity and cross-platform support.
+
+| Component | Package | Purpose |
+|-----------|---------|---------|
+| **HTTP API** | `internal/api` | REST API + web dashboard + SSE log streaming |
+| **Orchestrator** | `internal/orchestrator` | Message routing, agent coordination |
+| **Agent Registry** | `internal/agents` | Agent lifecycle, state persistence |
+| **Memory Store** | `internal/agents` | Conversation history per agent |
+| **Model Router** | `internal/models` | LLM provider management, fallback chains, cost tracking |
+| **Evolution Engine** | `internal/evolution` | Fitness evaluation, strategy mutation |
+| **Channels** | `internal/channels` | Telegram, MQTT adapters |
+| **Config** | `internal/config` | JSON configuration management |
+
+### Rust Edge Agent (~3.2MB binary)
+
+Lightweight agents that run on constrained hardware. Compiled for size with LTO, strip, and panic=abort.
+
+| Component | Module | Purpose |
+|-----------|--------|---------|
+| **Agent Core** | `agent.rs` | Main agent loop, heartbeat |
+| **MQTT Client** | `mqtt.rs` | Communication with orchestrator |
+| **Trading** | `trading.rs` | Hyperliquid API client |
+| **Strategy** | `strategy.rs` | Trading strategy engine |
+| **Evolution** | `evolution.rs` | Local fitness tracking, parameter mutation |
+| **Monitor** | `monitor.rs` | Price/funding rate monitoring |
+| **Metrics** | `metrics.rs` | Performance metric collection |
+| **Config** | `config.rs` | TOML configuration parser |
+
+## Data Flow
+
+### Message Processing
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Channel as Channel (Telegram/MQTT)
+    participant Orch as Orchestrator
+    participant Router as Model Router
+    participant LLM as LLM Provider
+    participant Evo as Evolution Engine
+
+    User->>Channel: Send message
+    Channel->>Orch: Route to inbox
+    Orch->>Orch: Select agent
+    Orch->>Orch: Select model (complexity)
+    Orch->>Router: Chat request
+    Router->>LLM: API call
+    LLM->>Router: Response
+    Router->>Router: Track cost
+    Router->>Orch: Return response
+    Orch->>Orch: Update metrics
+    Orch->>Evo: Report metrics
+    Orch->>Channel: Send response
+    Channel->>User: Deliver response
+```
+
+### Evolution Cycle
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant Evo as Evolution Engine
+    participant Orch as Orchestrator
+
+    loop Every evalIntervalSec
+        Orch->>Evo: Evaluate agent metrics
+        Evo->>Evo: Compute fitness score
+        alt Fitness < threshold
+            Evo->>Evo: Mutate strategy
+            Evo->>Agent: Apply new parameters
+            Note over Agent: Reset metrics, test new strategy
+        else Fitness >= threshold
+            Note over Evo: No change needed
+        end
+    end
+```
+
+## Directory Structure
+
+```
+evoclaw/
+├── cmd/evoclaw/           # Main binary entry point
+│   ├── main.go            # Application setup & lifecycle
+│   └── web/               # Embedded dashboard assets
+├── internal/
+│   ├── api/               # HTTP API server + dashboard endpoints
+│   ├── agents/            # Agent registry + memory store
+│   ├── channels/          # Communication adapters (Telegram, MQTT)
+│   ├── config/            # Configuration management
+│   ├── evolution/         # Evolution engine
+│   ├── models/            # Model router + LLM providers
+│   └── orchestrator/      # Core orchestration logic
+├── edge-agent/            # Rust edge agent
+│   ├── src/               # Source code
+│   ├── Cargo.toml         # Dependencies
+│   └── agent.example.toml # Example configuration
+├── web/                   # Dashboard source (HTML/CSS/JS)
+├── docs/                  # Documentation
+├── evoclaw.example.json   # Example orchestrator config
+└── docker-compose.yml     # Docker stack
+```
+
+## Design Principles
+
+1. **Small by default** — Both binaries are tiny. No unnecessary dependencies.
+2. **Modular** — Every component is a clean Go package or Rust module.
+3. **Stateless orchestrator** — All state is persisted to disk (JSON files). Restart-safe.
+4. **Evolution-first** — Metrics tracking and strategy mutation are core, not add-ons.
+5. **Multi-model** — Never locked to one LLM provider. Intelligent routing with fallback.
+
+## Deep Dives
+
+- [Orchestrator](orchestrator.md) — Go orchestrator internals
+- [Edge Agent](edge-agent.md) — Rust agent architecture
+- [Evolution Engine](evolution.md) — How evolution works
+- [Communication](communication.md) — MQTT protocol details
+
+
+========================================
+FILE: docs/architecture/orchestrator.md
+========================================
+
+# Go Orchestrator Deep Dive
+
+The orchestrator is the central coordinator of the EvoClaw framework. Written in Go, it manages agents, routes messages, selects models, and drives evolution.
+
+## Overview
+
+- **Binary size**: ~6.9MB (with `-ldflags="-s -w"`)
+- **Language**: Go 1.23+
+- **Dependencies**: Minimal (MQTT client, WebSocket)
+- **Concurrency**: goroutines + channels for message routing
+
+## Core Architecture
+
+```mermaid
+graph LR
+    subgraph Orchestrator
+        Inbox[Inbox Channel]
+        Outbox[Outbox Channel]
+        Router[Message Router]
+        Selector[Agent Selector]
+        ModelSel[Model Selector]
+    end
+
+    Channels[Channels] --> Inbox
+    Inbox --> Router
+    Router --> Selector
+    Selector --> ModelSel
+    ModelSel --> LLM[LLM Provider]
+    LLM --> Outbox
+    Outbox --> Channels
+```
+
+## Startup Sequence
+
+1. **Load config** — Parse `evoclaw.json`, create defaults if missing
+2. **Create registry** — Load persisted agents from `data/agents/*.json`
+3. **Initialize agents** — Create agents defined in config that don't exist yet
+4. **Create memory store** — Load conversation history from `data/memory/`
+5. **Create model router** — Register all LLM providers and index models
+6. **Create evolution engine** — Load strategies from `data/evolution/`
+7. **Create orchestrator** — Wire everything together
+8. **Register channels** — Start Telegram, MQTT adapters
+9. **Start API server** — HTTP + dashboard on configured port
+10. **Print banner** — Display startup info
+
+## Message Flow
+
+```go
+// Simplified message flow
+type Orchestrator struct {
+    inbox   chan Message    // Incoming messages from all channels
+    outbox  chan Response   // Outgoing responses to channels
+}
+
+// receiveFrom pipes channel messages into inbox
+func (o *Orchestrator) receiveFrom(ch Channel) {
+    for msg := range ch.Receive() {
+        o.inbox <- msg
+    }
+}
+
+// routeIncoming processes messages
+func (o *Orchestrator) routeIncoming() {
+    for msg := range o.inbox {
+        o.handleMessage(msg)
+    }
+}
+```
+
+Messages flow through:
+1. **Channel** receives message (Telegram poll, MQTT subscription)
+2. **Inbox** buffers the message (capacity: 1000)
+3. **Agent selector** picks the right agent
+4. **Model selector** picks the right model based on complexity
+5. **LLM provider** processes the request
+6. **Outbox** queues the response
+7. **Channel** delivers the response
+
+## Agent Selection
+
+Currently uses simple routing (first available agent). Future plans include:
+
+- Content-based routing (keywords → specialist agent)
+- Load balancing across agents
+- Capability matching (skills → agent)
+- User affinity (preferred agent per user)
+
+```go
+func (o *Orchestrator) selectAgent(msg Message) string {
+    // TODO: Smart routing based on message content,
+    // agent capabilities, and load balancing
+    for id := range o.agents {
+        return id
+    }
+    return ""
+}
+```
+
+## Model Selection
+
+The model router supports:
+
+- **Complexity-based routing**: Simple → cheap model, Complex → powerful model, Critical → best
+- **Fallback chains**: If primary model fails, try alternatives
+- **Cost tracking**: Every request's token usage and cost is recorded
+
+```go
+// Model selection flow
+func (r *Router) Chat(ctx context.Context, modelID string, req ChatRequest, fallback []string) (*ChatResponse, error) {
+    // Try primary
+    resp, err := r.chatSingle(ctx, modelID, req)
+    if err == nil {
+        return resp, nil
+    }
+    // Try fallback chain
+    for _, fb := range fallback {
+        resp, err = r.chatSingle(ctx, fb, req)
+        if err == nil {
+            return resp, nil
+        }
+    }
+    return nil, fmt.Errorf("all models failed")
+}
+```
+
+## State Persistence
+
+All state is stored as JSON files in the data directory:
+
+```
+data/
+├── agents/           # Agent state snapshots
+│   ├── assistant-1.json
+│   └── eth-trader.json
+├── memory/           # Conversation history
+│   └── assistant-1.json
+└── evolution/        # Strategy versions
+    └── eth-trader.json
+```
+
+State is saved:
+- On agent status changes
+- On memory updates
+- On strategy mutations
+- On graceful shutdown (all state flushed)
+
+## Graceful Shutdown
+
+```go
+func waitForShutdown(app *App) error {
+    sigCh := make(chan os.Signal, 1)
+    signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+    <-sigCh
+
+    // Save all state
+    app.Registry.SaveAll()
+    app.MemoryStore.SaveAll()
+
+    // Stop orchestrator (stops channels)
+    app.Orchestrator.Stop()
+    return nil
+}
+```
+
+## HTTP API
+
+The API server provides REST endpoints and the embedded web dashboard:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/status` | GET | System status and uptime |
+| `/api/agents` | GET | List all agents |
+| `/api/agents/{id}` | GET | Agent details |
+| `/api/agents/{id}/metrics` | GET | Agent performance metrics |
+| `/api/agents/{id}/memory` | GET | Conversation history |
+| `/api/agents/{id}/memory` | DELETE | Clear conversation history |
+| `/api/agents/{id}/evolve` | POST | Trigger evolution |
+| `/api/agents/{id}/evolution` | GET | Evolution strategy data |
+| `/api/models` | GET | List available models |
+| `/api/costs` | GET | Cost tracking per model |
+| `/api/dashboard` | GET | Aggregated dashboard metrics |
+| `/api/logs/stream` | GET | SSE real-time log stream |
+| `/` | GET | Web dashboard (embedded) |
+
+## Middleware
+
+- **CORS** — Allow all origins (development-friendly)
+- **Logging** — Request method, path, and duration
+- **Static files** — Embedded web dashboard served from `/`
+
+## Key Packages
+
+### `internal/orchestrator`
+
+Core coordination logic:
+- `Orchestrator` — Main struct, manages channels/providers/agents
+- `AgentState` — Runtime state per agent
+- `AgentMetrics` — Performance metrics per agent
+- `Channel` interface — Abstraction for messaging channels
+- `ModelProvider` interface — Abstraction for LLM providers
+
+### `internal/agents`
+
+Agent lifecycle:
+- `Registry` — CRUD for agents, health checking, metric updates
+- `Agent` — Agent state with thread-safe snapshots
+- `Metrics` — Token usage, cost, success rate
+- `MemoryStore` — Conversation history with token counting
+
+### `internal/models`
+
+LLM management:
+- `Router` — Model selection, fallback chains
+- `CostTracker` — Per-model cost tracking
+- Provider implementations: Anthropic, OpenAI, Ollama
+
+### `internal/evolution`
+
+Strategy evolution:
+- `Engine` — Fitness evaluation, mutation, reversion
+- `Strategy` — Evolvable parameters (temperature, model, custom params)
+
+## See Also
+
+- [Architecture Overview](overview.md)
+- [Edge Agent](edge-agent.md)
+- [Evolution Engine](evolution.md)
+- [REST API Reference](../api/rest-api.md)
+
+
+========================================
+FILE: docs/architecture/edge-agent.md
+========================================
+
+# Rust Edge Agent Deep Dive
+
+The edge agent is a lightweight, self-contained binary written in Rust. It runs on constrained hardware and communicates with the orchestrator via MQTT.
+
+## Overview
+
+- **Binary size**: ~3.2MB (release build with LTO + strip)
+- **Language**: Rust 2021 edition
+- **Runtime**: Tokio async
+- **Communication**: MQTT (rumqttc)
+- **Target platforms**: Linux x86_64, ARM64, ARMv7, macOS, Windows
+
+## Build Profile
+
+The release build is optimized for size:
+
+```toml
+[profile.release]
+opt-level = "s"        # Optimize for size (not speed)
+lto = true             # Link-time optimization
+codegen-units = 1      # Better optimization, slower compile
+strip = true           # Strip debug symbols
+panic = "abort"        # Smaller binary (no unwinding)
+```
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph "Edge Agent"
+        Main[Main Loop]
+        Config[Config Parser<br/>TOML]
+        MQTT[MQTT Client]
+        Agent[Agent Core]
+        Trading[Trading Module]
+        Monitor[Monitor Module]
+        Strategy[Strategy Engine]
+        Evolution[Local Evolution]
+        Metrics[Metrics Collector]
+    end
+
+    Config --> Main
+    Main --> Agent
+    Agent --> MQTT
+    Agent --> Trading
+    Agent --> Monitor
+    Agent --> Strategy
+    Agent --> Evolution
+    Agent --> Metrics
+
+    MQTT <--> Orchestrator[Go Orchestrator]
+    Trading <--> HL[Hyperliquid API]
+```
+
+## Module Structure
+
+### `config.rs` — Configuration
+
+Parses TOML configuration:
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    pub agent_id: String,
+    pub agent_type: String,   // "trader", "monitor", "sensor"
+    pub mqtt: MqttConfig,
+    pub orchestrator: OrchestratorConfig,
+    pub trading: Option<TradingConfig>,
+    pub monitor: Option<MonitorConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TradingConfig {
+    pub hyperliquid_api: String,
+    pub wallet_address: String,
+    pub private_key_path: String,
+    pub max_position_size_usd: f64,
+    pub max_leverage: f64,
+}
+```
+
+### `mqtt.rs` — Communication
+
+MQTT client for orchestrator communication:
+
+```
+Topics:
+  evoclaw/agents/{id}/commands  ← orchestrator sends commands
+  evoclaw/agents/{id}/reports   → agent sends reports
+  evoclaw/agents/{id}/status    → agent sends heartbeats
+  evoclaw/broadcast             ← orchestrator broadcasts
+```
+
+### `trading.rs` — Hyperliquid Client
+
+Full Hyperliquid perpetual futures integration:
+
+- **Market data**: Get all mid prices (`allMids`)
+- **Account state**: Positions, margin, P&L (`clearinghouseState`)
+- **Order placement**: Limit orders with EIP-712 signing
+- **Funding rates**: Real-time funding rate monitoring
+
+```rust
+pub struct HyperliquidClient {
+    config: TradingConfig,
+    client: Client,  // reqwest HTTP client
+}
+
+impl HyperliquidClient {
+    pub async fn get_all_mids(&self) -> Result<AllMidsResponse>;
+    pub async fn get_positions(&self) -> Result<ClearinghouseState>;
+    pub async fn place_order(&self, order: OrderRequest) -> Result<OrderResponse>;
+}
+```
+
+### `strategy.rs` — Trading Strategies
+
+Built-in strategies:
+
+| Strategy | Description | Key Parameters |
+|----------|-------------|----------------|
+| `FundingArbitrage` | Exploits funding rate discrepancies | `min_rate_threshold`, `position_size` |
+| `MeanReversion` | Mean reversion on price deviations | `lookback_period`, `std_dev_threshold` |
+
+```rust
+pub trait Strategy: Send + Sync {
+    fn name(&self) -> &str;
+    fn evaluate(&self, market_data: &MarketData) -> Option<Signal>;
+    fn parameters(&self) -> HashMap<String, f64>;
+    fn set_parameters(&mut self, params: HashMap<String, f64>);
+}
+```
+
+### `evolution.rs` — Local Evolution
+
+The edge agent tracks its own fitness locally:
+
+```rust
+pub struct LocalEvolution {
+    fitness: f64,
+    eval_count: u32,
+    parameters: HashMap<String, f64>,
+    history: Vec<EvolutionSnapshot>,
+}
+```
+
+Key behaviors:
+- Tracks strategy performance metrics
+- Computes local fitness score
+- Reports fitness to orchestrator via MQTT
+- Applies parameter mutations received from orchestrator
+
+### `monitor.rs` — Market Monitoring
+
+Real-time monitoring capabilities:
+
+- Price movement alerts (configurable threshold %)
+- Funding rate alerts
+- Position P&L monitoring
+- Custom metric tracking
+
+### `metrics.rs` — Metrics Collection
+
+Tracks:
+- Total trades (win/loss count)
+- P&L (realized + unrealized)
+- Sharpe ratio
+- Max drawdown
+- Average hold time
+- Strategy-specific custom metrics
+
+## Configuration Example
+
+```toml
+agent_id = "hl-trader-1"
+agent_type = "trader"
+
+[mqtt]
+broker = "localhost"
+port = 1883
+keep_alive_secs = 30
+
+[orchestrator]
+url = "http://localhost:8420"
+
+[trading]
+hyperliquid_api = "https://api.hyperliquid.xyz"
+wallet_address = "0xYOUR_ADDRESS"
+private_key_path = "keys/private.key"
+max_position_size_usd = 5000.0
+max_leverage = 5.0
+```
+
+## Cross-Compilation
+
+```bash
+# ARM64 (Raspberry Pi 4, phones)
+rustup target add aarch64-unknown-linux-gnu
+cargo build --release --target aarch64-unknown-linux-gnu
+
+# ARMv7 (Raspberry Pi Zero, older devices)
+rustup target add armv7-unknown-linux-gnueabihf
+cargo build --release --target armv7-unknown-linux-gnueabihf
+
+# Check binary size
+ls -la target/release/evoclaw-agent
+# ~3.2MB
+```
+
+## Running
+
+```bash
+cd edge-agent
+
+# Development
+cargo run -- --config agent.toml
+
+# Production
+cargo build --release
+./target/release/evoclaw-agent --config agent.toml
+```
+
+## See Also
+
+- [Architecture Overview](overview.md)
+- [Orchestrator](orchestrator.md)
+- [Evolution Engine](evolution.md)
+- [MQTT Protocol](../api/mqtt-protocol.md)
+- [Trading Agent Guide](../guides/trading-agent.md)
+
+
+========================================
+FILE: docs/architecture/evolution.md
+========================================
+
+# Evolution Engine
+
+The evolution engine is EvoClaw's core differentiator — agents don't just run, they improve over time.
+
+## Overview
+
+Evolution in EvoClaw is a continuous process:
+
+1. **Observe** — Track agent performance metrics
+2. **Evaluate** — Compute a fitness score
+3. **Decide** — Is the agent performing well enough?
+4. **Mutate** — If not, modify its strategy parameters
+5. **Test** — Run the new strategy
+6. **Revert** — Roll back if the new strategy is worse
+
+```mermaid
+graph LR
+    A[Track Metrics] --> B[Evaluate Fitness]
+    B --> C{Fitness OK?}
+    C -->|Yes| A
+    C -->|No| D[Mutate Strategy]
+    D --> E[Test New Strategy]
+    E --> F{Better?}
+    F -->|Yes| A
+    F -->|No| G[Revert]
+    G --> A
+```
+
+## Strategy
+
+A strategy is the evolvable "genome" of an agent:
+
+```go
+type Strategy struct {
+    ID             string             // "agent-id-v3"
+    AgentID        string             // Owner agent
+    Version        int                // Increments on mutation
+    SystemPrompt   string             // LLM system prompt
+    PreferredModel string             // Primary model
+    FallbackModel  string             // Fallback model
+    Temperature    float64            // LLM temperature (0.0-2.0)
+    MaxTokens      int                // Max response tokens
+    Params         map[string]float64 // Custom parameters
+    Fitness        float64            // Current fitness score
+    EvalCount      int                // Number of evaluations
+}
+```
+
+### Evolvable Parameters
+
+| Parameter | Range | Description |
+|-----------|-------|-------------|
+| `Temperature` | 0.0–2.0 | LLM creativity/randomness |
+| `MaxTokens` | — | Response length limit |
+| `PreferredModel` | — | Model selection preference |
+| Custom params | -1000–1000 | Strategy-specific (e.g., trading thresholds) |
+
+## Fitness Function
+
+Fitness is calculated from a weighted combination of metrics:
+
+```go
+func computeFitness(metrics map[string]float64) float64 {
+    successRate    := metrics["successRate"]          // 0.0-1.0
+    costEfficiency := 1.0 / (1.0 + metrics["costUSD"])
+    speedScore     := 1.0 / (1.0 + metrics["avgResponseMs"]/1000.0)
+    profitScore    := max(0, metrics["profitLoss"]+1.0)
+
+    // Weighted fitness
+    fitness := 0.4*successRate +
+               0.2*costEfficiency +
+               0.1*speedScore +
+               0.3*profitScore
+
+    return fitness
+}
+```
+
+### Weights
+
+| Component | Weight | Rationale |
+|-----------|--------|-----------|
+| Success Rate | 40% | Primary measure of effectiveness |
+| Profit/Loss | 30% | Critical for trading agents |
+| Cost Efficiency | 20% | Optimize API spending |
+| Speed | 10% | User experience |
+
+### Exponential Moving Average
+
+Fitness uses EMA to smooth out variance:
+
+```go
+alpha := 0.3  // Weight of new observation
+if s.EvalCount == 0 {
+    s.Fitness = fitness
+} else {
+    s.Fitness = alpha*fitness + (1-alpha)*s.Fitness
+}
+```
+
+This prevents a single bad evaluation from triggering unnecessary mutation.
+
+## Mutation
+
+When fitness drops below threshold (default: 0.6), the engine mutates:
+
+```go
+func mutateFloat(value, rate, min, max float64) float64 {
+    delta := value * rate * 0.1  // 10% of value × mutation rate
+    // Random direction
+    if time.Now().UnixNano()%2 == 0 {
+        delta = -delta
+    }
+    result := value + delta
+    // Clamp to bounds
+    return clamp(result, min, max)
+}
+```
+
+### Mutation Process
+
+1. **Archive** current strategy to history
+2. **Create** new strategy with incremented version
+3. **Mutate** each parameter by `value × mutationRate × 10%`
+4. **Reset** fitness and eval count
+5. **Deploy** new strategy
+
+### Configuration
+
+```json
+{
+  "evolution": {
+    "enabled": true,
+    "evalIntervalSec": 3600,      // Evaluate every hour
+    "minSamplesForEval": 10,      // Need 10+ actions first
+    "maxMutationRate": 0.2        // Max 20% parameter change
+  }
+}
+```
+
+## Reversion
+
+If a mutated strategy performs worse, the engine can revert:
+
+```go
+func (e *Engine) Revert(agentID string) error {
+    prev := e.history[agentID][len-1]
+    e.strategies[agentID] = prev
+    return nil
+}
+```
+
+The full history is preserved, allowing rollback to any previous version.
+
+## Trading-Specific Evolution
+
+For trading agents, additional metrics feed the fitness function:
+
+```go
+type TradeMetrics struct {
+    TotalTrades int
+    WinRate     float64
+    ProfitLoss  float64
+    SharpeRatio float64
+    MaxDrawdown float64
+    AvgHoldTime float64
+}
+```
+
+Trading-specific parameters that evolve:
+- Position sizing thresholds
+- Entry/exit timing
+- Risk limits
+- Strategy weights (when running multiple strategies)
+
+## Persistence
+
+Strategies are persisted to disk:
+
+```
+data/evolution/
+├── assistant-1.json    # Current strategy
+└── eth-trader.json     # Current strategy + history in memory
+```
+
+Each file contains the current strategy state:
+
+```json
+{
+  "id": "eth-trader-v3",
+  "agentId": "eth-trader",
+  "version": 3,
+  "createdAt": "2026-02-06T10:30:00Z",
+  "temperature": 0.65,
+  "maxTokens": 4096,
+  "params": {
+    "minFundingRate": 0.0015,
+    "positionSizePct": 0.12,
+    "stopLossPct": 0.03
+  },
+  "fitness": 0.72,
+  "evalCount": 24
+}
+```
+
+## Future Improvements
+
+- **Prompt mutation** — Use an LLM to improve system prompts
+- **Genetic algorithms** — Tournament selection across multiple strategy variants
+- **Multi-objective optimization** — Pareto frontiers for competing metrics
+- **Transfer learning** — Share successful strategies between similar agents
+- **A/B testing** — Run old vs new strategy simultaneously
+
+## See Also
+
+- [Architecture Overview](overview.md)
+- [Orchestrator](orchestrator.md)
+- [Genome Format](../reference/genome-format.md)
+- [Metrics Reference](../reference/metrics.md)
+
+
+========================================
+FILE: docs/architecture/communication.md
+========================================
+
+# Communication Protocol
+
+EvoClaw uses multiple communication channels. The primary protocols are MQTT (for agent mesh) and HTTP (for API access).
+
+## MQTT (Agent Mesh)
+
+MQTT is the backbone for orchestrator ↔ edge agent communication. It's lightweight, supports QoS levels, and works well on constrained networks.
+
+### Topic Structure
+
+```
+evoclaw/
+├── agents/
+│   └── {agent_id}/
+│       ├── commands     # Orchestrator → Agent (commands/instructions)
+│       ├── reports      # Agent → Orchestrator (results/updates)
+│       └── status       # Agent → Orchestrator (heartbeats)
+└── broadcast            # Orchestrator → All Agents
+```
+
+### Message Format
+
+All MQTT messages use JSON:
+
+#### Heartbeat (status)
+
+```json
+{
+  "type": "heartbeat",
+  "agent_id": "hl-trader-1",
+  "timestamp": "2026-02-06T10:30:00Z",
+  "status": "running",
+  "metrics": {
+    "total_actions": 156,
+    "successful_actions": 142,
+    "tokens_used": 45000,
+    "cost_usd": 0.234
+  }
+}
+```
+
+#### Command (orchestrator → agent)
+
+```json
+{
+  "type": "command",
+  "id": "cmd-uuid-123",
+  "action": "execute_strategy",
+  "params": {
+    "strategy": "FundingArbitrage",
+    "asset": "ETH-PERP",
+    "max_size_usd": 5000
+  },
+  "timestamp": "2026-02-06T10:30:00Z"
+}
+```
+
+#### Report (agent → orchestrator)
+
+```json
+{
+  "type": "report",
+  "agent_id": "hl-trader-1",
+  "command_id": "cmd-uuid-123",
+  "status": "completed",
+  "result": {
+    "action": "placed_order",
+    "asset": "ETH-PERP",
+    "side": "buy",
+    "size": 2.5,
+    "price": 3245.50
+  },
+  "timestamp": "2026-02-06T10:30:01Z"
+}
+```
+
+#### Evolution Update (orchestrator → agent)
+
+```json
+{
+  "type": "evolution_update",
+  "agent_id": "hl-trader-1",
+  "strategy_version": 4,
+  "params": {
+    "temperature": 0.65,
+    "minFundingRate": 0.0015,
+    "positionSizePct": 0.12
+  }
+}
+```
+
+#### Broadcast
+
+```json
+{
+  "type": "broadcast",
+  "action": "pause_trading",
+  "reason": "high volatility detected",
+  "timestamp": "2026-02-06T10:30:00Z"
+}
+```
+
+### QoS Levels
+
+| Topic | QoS | Rationale |
+|-------|-----|-----------|
+| `commands` | 1 (at least once) | Commands must be delivered |
+| `reports` | 1 (at least once) | Reports must be delivered |
+| `status` | 0 (at most once) | Heartbeats can be missed |
+| `broadcast` | 1 (at least once) | Broadcasts must be delivered |
+
+### Connection Settings
+
+```toml
+[mqtt]
+broker = "localhost"
+port = 1883
+keep_alive_secs = 30
+```
+
+The keep-alive interval doubles as the heartbeat frequency. If no heartbeat is received within `2 × keep_alive_secs`, the orchestrator marks the agent as unhealthy.
+
+## HTTP API
+
+The HTTP API is used for:
+- Dashboard access
+- External integrations
+- Agent management
+- Metrics querying
+
+See [REST API Reference](../api/rest-api.md) for full documentation.
+
+## Telegram
+
+Telegram integration uses HTTP long polling:
+
+```
+User → Telegram API → EvoClaw (poll) → Orchestrator → Agent → Response → Telegram API → User
+```
+
+- No webhook required (works behind NAT)
+- Polls every few seconds for new messages
+- Supports text messages and replies
+
+## Data Serialization
+
+All communication uses **JSON**. This keeps things simple and debuggable:
+
+- MQTT payloads: JSON
+- HTTP API: JSON (`Content-Type: application/json`)
+- Configuration: JSON (orchestrator) / TOML (edge agent)
+- State files: JSON
+
+## Security Considerations
+
+### Current State
+- MQTT: Username/password authentication (optional)
+- HTTP API: No authentication (bind to localhost in production)
+- CORS: Allow all origins (development mode)
+
+### Planned
+- MQTT: TLS encryption
+- HTTP API: API key or JWT authentication
+- Agent identity: Cryptographic agent attestation
+- Channel encryption: End-to-end encryption for messages
+
+## See Also
+
+- [MQTT Protocol Reference](../api/mqtt-protocol.md)
+- [REST API Reference](../api/rest-api.md)
+- [WebSocket/SSE Endpoints](../api/websocket.md)
+
+
+========================================
+FILE: docs/guides/trading-agent.md
+========================================
+
+# Set Up a Trading Agent
+
+This guide walks you through deploying an EvoClaw trading agent connected to Hyperliquid perpetual futures.
+
+> ⚠️ **Risk Warning**: Trading involves significant financial risk. Start with small position sizes and test thoroughly. EvoClaw provides the framework — you manage the risk.
+
+## Overview
+
+The trading agent architecture:
+
+```mermaid
+graph LR
+    Orch[Go Orchestrator] <-->|MQTT| Agent[Rust Edge Agent]
+    Agent <-->|HTTP| HL[Hyperliquid API]
+    Agent --> Strategy[Strategy Engine]
+    Strategy --> Signals[Trade Signals]
+    Agent --> Evolution[Local Evolution]
+```
+
+## Prerequisites
+
+- Running EvoClaw orchestrator
+- MQTT broker (Mosquitto)
+- Hyperliquid account with API access
+- Rust toolchain (to build edge agent)
+
+## Step 1: Configure the Orchestrator
+
+Add a trader agent definition to `evoclaw.json`:
+
+```json
+{
+  "agents": [
+    {
+      "id": "hl-trader-1",
+      "name": "ETH Funding Trader",
+      "type": "trader",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are a cautious crypto trader specializing in ETH perpetual futures on Hyperliquid. Focus on funding rate arbitrage and mean reversion strategies.",
+      "skills": ["trading"],
+      "config": {
+        "exchange": "hyperliquid",
+        "max_position_usd": "5000",
+        "max_leverage": "5"
+      }
+    }
+  ]
+}
+```
+
+## Step 2: Configure the Edge Agent
+
+```bash
+cd edge-agent
+cp agent.example.toml agent.toml
+```
+
+Edit `agent.toml`:
+
+```toml
+agent_id = "hl-trader-1"
+agent_type = "trader"
+
+[mqtt]
+broker = "localhost"
+port = 1883
+keep_alive_secs = 30
+
+[orchestrator]
+url = "http://localhost:8420"
+
+[trading]
+hyperliquid_api = "https://api.hyperliquid.xyz"
+wallet_address = "0xYOUR_WALLET_ADDRESS"
+private_key_path = "keys/private.key"
+max_position_size_usd = 5000.0
+max_leverage = 5.0
+```
+
+### Generate Keys
+
+```bash
+# Create keys directory
+mkdir -p keys
+
+# Generate a Hyperliquid-compatible private key
+# NEVER commit this file to git
+python3 scripts/hl_sign.py --generate
+```
+
+## Step 3: Build and Run the Edge Agent
+
+```bash
+cd edge-agent
+cargo build --release
+
+# Run
+./target/release/evoclaw-agent --config agent.toml
+```
+
+The agent will:
+1. Connect to the MQTT broker
+2. Register with the orchestrator
+3. Start monitoring markets
+4. Execute strategies based on signals
+
+## Step 4: Monitor
+
+### Dashboard
+
+Open [http://localhost:8420](http://localhost:8420) and navigate to:
+- **Trading** view — Positions, P&L, strategies
+- **Agents** → click your trader — Detailed metrics
+- **Evolution** — Strategy fitness and mutations
+
+### API
+
+```bash
+# Agent status
+curl http://localhost:8420/api/agents/hl-trader-1 | jq
+
+# Metrics
+curl http://localhost:8420/api/agents/hl-trader-1/metrics | jq
+
+# Evolution data
+curl http://localhost:8420/api/agents/hl-trader-1/evolution | jq
+```
+
+## Built-in Strategies
+
+### Funding Arbitrage
+
+Exploits funding rate discrepancies on Hyperliquid perpetual futures:
+
+- When funding rate is significantly positive → short (earn funding)
+- When funding rate is significantly negative → long (earn funding)
+- Exit when funding rate normalizes
+
+Key parameters:
+- `min_rate_threshold`: Minimum funding rate to trigger entry (default: 0.01%)
+- `position_size`: Fraction of max position to use
+- `exit_threshold`: Rate at which to exit
+
+### Mean Reversion
+
+Trades on the assumption that prices revert to their mean:
+
+- Track rolling average price
+- Enter when price deviates by X standard deviations
+- Exit when price returns to mean
+
+Key parameters:
+- `lookback_period`: Number of samples for rolling average
+- `std_dev_threshold`: Standard deviations for entry signal
+- `max_hold_time`: Maximum time to hold a position
+
+## Risk Management
+
+The edge agent enforces hard limits:
+
+| Limit | Config Key | Description |
+|-------|-----------|-------------|
+| Max position size | `max_position_size_usd` | Maximum USD value per position |
+| Max leverage | `max_leverage` | Maximum leverage multiplier |
+| Stop loss | Strategy-defined | Automatic exit on loss threshold |
+
+These limits are **hard boundaries** that the evolution engine cannot exceed.
+
+## Evolution
+
+The trading agent evolves its strategy parameters over time:
+
+1. Tracks win rate, P&L, Sharpe ratio, max drawdown
+2. Fitness score computed from weighted metrics
+3. If fitness drops below threshold, parameters mutate:
+   - Entry/exit thresholds adjust
+   - Position sizing changes
+   - Timing parameters shift
+4. New strategy is tested
+5. Reverted if worse than previous
+
+## Deploying to Raspberry Pi
+
+```bash
+# Cross-compile for ARM64
+rustup target add aarch64-unknown-linux-gnu
+cargo build --release --target aarch64-unknown-linux-gnu
+
+# Copy to Pi
+scp target/aarch64-unknown-linux-gnu/release/evoclaw-agent pi@raspberrypi:~/
+scp agent.toml pi@raspberrypi:~/
+
+# Run on Pi
+ssh pi@raspberrypi
+./evoclaw-agent --config agent.toml
+```
+
+## See Also
+
+- [Custom Strategy Guide](custom-strategy.md)
+- [Edge Agent Architecture](../architecture/edge-agent.md)
+- [Evolution Engine](../architecture/evolution.md)
+- [Genome Format](../reference/genome-format.md)
+
+
+========================================
+FILE: docs/guides/companion-agent.md
+========================================
+
+# Build a Companion Device Agent
+
+This guide covers creating a companion agent for devices like smart toys, home hubs, or elderly care devices.
+
+## The Vision
+
+> Put EvoClaw in a teddy bear → it becomes a companion.
+
+A companion agent:
+- Has a personality that evolves based on user interactions
+- Remembers conversations and preferences
+- Runs on minimal hardware (Raspberry Pi Zero: $5–$15)
+- Communicates via voice (with external STT/TTS)
+
+## Hardware Reference Design
+
+### Basic Companion (~$42 BOM)
+
+| Component | Part | Price |
+|-----------|------|-------|
+| Computer | Raspberry Pi Zero 2W | $15 |
+| Microphone | USB MEMS mic | $8 |
+| Speaker | 3W mini speaker + amp | $7 |
+| Power | USB-C power supply | $7 |
+| Enclosure | 3D printed case | $5 |
+
+### Home Hub (~$85 BOM)
+
+| Component | Part | Price |
+|-----------|------|-------|
+| Computer | Raspberry Pi 4 (2GB) | $35 |
+| Microphone | ReSpeaker 2-mic array | $12 |
+| Speaker | 5W stereo speakers | $15 |
+| Display | 3.5" LCD (optional) | $15 |
+| Power | USB-C power supply | $8 |
+
+## Step 1: Set Up the Orchestrator
+
+Define a companion agent:
+
+```json
+{
+  "agents": [
+    {
+      "id": "teddy-companion",
+      "name": "Teddy",
+      "type": "orchestrator",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are Teddy, a warm and friendly companion. You speak in a cheerful, encouraging way. You remember details about the person you're talking to and bring them up naturally. You tell stories, play word games, and always listen with empathy. Keep responses concise (2-3 sentences) for voice output.",
+      "skills": ["chat", "storytelling", "games"],
+      "config": {
+        "max_tokens": "150",
+        "voice_enabled": "true"
+      }
+    }
+  ]
+}
+```
+
+## Step 2: Configure the Edge Agent
+
+```toml
+agent_id = "teddy-companion"
+agent_type = "monitor"  # Uses monitor type for simple event loop
+
+[mqtt]
+broker = "192.168.1.100"  # Orchestrator IP
+port = 1883
+keep_alive_secs = 30
+
+[orchestrator]
+url = "http://192.168.1.100:8420"
+```
+
+## Step 3: Voice Pipeline
+
+The companion needs a voice pipeline. This runs alongside the edge agent:
+
+```
+Microphone → STT (cloud) → Text → MQTT → Orchestrator → LLM → MQTT → TTS (cloud) → Speaker
+```
+
+### Speech-to-Text Options
+
+| Service | Latency | Cost | Quality |
+|---------|---------|------|---------|
+| Whisper API (OpenAI) | ~1s | $0.006/min | Excellent |
+| Deepgram | ~300ms | $0.0043/min | Excellent |
+| Google Cloud STT | ~500ms | $0.006/min | Good |
+| Whisper.cpp (local) | ~2-5s on Pi 4 | Free | Good |
+
+### Text-to-Speech Options
+
+| Service | Latency | Cost | Quality |
+|---------|---------|------|---------|
+| ElevenLabs | ~1s | $0.30/1K chars | Excellent |
+| OpenAI TTS | ~500ms | $15/1M chars | Very good |
+| Piper (local) | ~200ms on Pi 4 | Free | Good |
+
+### Example Voice Script (Python)
+
+```python
+#!/usr/bin/env python3
+"""Simple voice pipeline for EvoClaw companion."""
+
+import sounddevice as sd
+import numpy as np
+import requests
+import paho.mqtt.client as mqtt
+import json
+
+AGENT_ID = "teddy-companion"
+ORCHESTRATOR = "http://localhost:8420"
+MQTT_BROKER = "localhost"
+
+def record_audio(duration=5, samplerate=16000):
+    """Record audio from microphone."""
+    audio = sd.rec(int(duration * samplerate), samplerate=samplerate,
+                   channels=1, dtype='int16')
+    sd.wait()
+    return audio
+
+def transcribe(audio_data):
+    """Send audio to Whisper API for transcription."""
+    # Save to temp file, send to API
+    # Returns transcribed text
+    pass
+
+def speak(text):
+    """Convert text to speech and play."""
+    # Send to TTS API, get audio back, play through speaker
+    pass
+
+def on_message(client, userdata, msg):
+    """Handle MQTT response from orchestrator."""
+    data = json.loads(msg.payload)
+    if data.get("type") == "response":
+        speak(data["content"])
+
+# Main loop
+client = mqtt.Client()
+client.connect(MQTT_BROKER, 1883)
+client.subscribe(f"evoclaw/agents/{AGENT_ID}/reports")
+client.on_message = on_message
+client.loop_start()
+
+while True:
+    audio = record_audio()
+    text = transcribe(audio)
+    if text:
+        # Send to orchestrator via MQTT
+        client.publish(
+            f"evoclaw/agents/{AGENT_ID}/commands",
+            json.dumps({"type": "message", "content": text})
+        )
+```
+
+## Step 4: Personality Evolution
+
+The companion agent evolves its personality over time:
+
+- **Remembers preferences** — "You mentioned you like dinosaurs last time!"
+- **Adjusts tone** — More energetic for playful interactions, calmer for bedtime
+- **Learns timing** — Knows when the user is typically active
+- **Adapts vocabulary** — Matches the user's language level
+
+The evolution engine tracks:
+- Conversation length (engagement)
+- User sentiment (positive/negative responses)
+- Topic preferences (what the user talks about most)
+
+## Step 5: Deploy to Device
+
+```bash
+# Cross-compile for Pi Zero (ARMv7)
+cd edge-agent
+rustup target add armv7-unknown-linux-gnueabihf
+cargo build --release --target armv7-unknown-linux-gnueabihf
+
+# Copy to Pi
+scp target/armv7-unknown-linux-gnueabihf/release/evoclaw-agent pi@teddy-pi:~/
+scp agent.toml pi@teddy-pi:~/
+scp voice_pipeline.py pi@teddy-pi:~/
+
+# Set up as systemd service
+ssh pi@teddy-pi
+sudo cat > /etc/systemd/system/evoclaw-companion.service << EOF
+[Unit]
+Description=EvoClaw Companion Agent
+After=network.target
+
+[Service]
+ExecStart=/home/pi/evoclaw-agent --config /home/pi/agent.toml
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl enable evoclaw-companion
+sudo systemctl start evoclaw-companion
+```
+
+## Safety Boundaries
+
+For companion agents, especially those interacting with children or elderly:
+
+- **Content filtering** — Block inappropriate content in system prompt
+- **Time limits** — Configurable session duration limits
+- **Volume limits** — Keep audio output at safe levels
+- **Emergency contacts** — Notify caregivers if distress detected
+- **Privacy** — Conversations are stored locally, never shared
+
+## See Also
+
+- [Architecture Overview](../architecture/overview.md)
+- [Edge Agent](../architecture/edge-agent.md)
+- [Deployment Guide](deployment.md)
+- [Philosophy](https://github.com/clawinfra/evoclaw/blob/main/docs/PHILOSOPHY.md)
+
+
+========================================
+FILE: docs/guides/custom-strategy.md
+========================================
+
+# Write Custom Trading Strategies
+
+This guide covers implementing custom trading strategies for the EvoClaw edge agent.
+
+## Strategy Interface
+
+All strategies implement the `Strategy` trait:
+
+```rust
+pub trait Strategy: Send + Sync {
+    /// Strategy name
+    fn name(&self) -> &str;
+
+    /// Evaluate market data and optionally return a trade signal
+    fn evaluate(&self, market_data: &MarketData) -> Option<Signal>;
+
+    /// Get current parameters (for evolution)
+    fn parameters(&self) -> HashMap<String, f64>;
+
+    /// Set parameters (from evolution engine)
+    fn set_parameters(&mut self, params: HashMap<String, f64>);
+}
+
+pub struct MarketData {
+    pub prices: HashMap<String, f64>,      // Asset → mid price
+    pub funding_rates: HashMap<String, f64>, // Asset → funding rate
+    pub positions: Vec<Position>,           // Current positions
+    pub timestamp: u64,
+}
+
+pub struct Signal {
+    pub asset: String,
+    pub action: Action,  // Buy, Sell, Close
+    pub size: f64,       // Position size in USD
+    pub price: f64,      // Limit price
+    pub reason: String,  // Human-readable reason
+}
+
+pub enum Action {
+    Buy,
+    Sell,
+    Close,
+}
+```
+
+## Example: Momentum Breakout Strategy
+
+```rust
+use std::collections::HashMap;
+
+pub struct MomentumBreakout {
+    lookback: usize,
+    breakout_threshold: f64,
+    position_size_pct: f64,
+    price_history: Vec<f64>,
+}
+
+impl MomentumBreakout {
+    pub fn new() -> Self {
+        Self {
+            lookback: 20,
+            breakout_threshold: 2.0,  // Standard deviations
+            position_size_pct: 0.1,
+            price_history: Vec::new(),
+        }
+    }
+
+    fn mean(&self) -> f64 {
+        let sum: f64 = self.price_history.iter().sum();
+        sum / self.price_history.len() as f64
+    }
+
+    fn std_dev(&self) -> f64 {
+        let mean = self.mean();
+        let variance: f64 = self.price_history.iter()
+            .map(|p| (p - mean).powi(2))
+            .sum::<f64>() / self.price_history.len() as f64;
+        variance.sqrt()
+    }
+}
+
+impl Strategy for MomentumBreakout {
+    fn name(&self) -> &str {
+        "MomentumBreakout"
+    }
+
+    fn evaluate(&self, data: &MarketData) -> Option<Signal> {
+        let price = *data.prices.get("ETH")?;
+
+        // Need enough history
+        if self.price_history.len() < self.lookback {
+            return None;
+        }
+
+        let mean = self.mean();
+        let std = self.std_dev();
+        let z_score = (price - mean) / std;
+
+        if z_score > self.breakout_threshold {
+            // Breakout up → buy
+            Some(Signal {
+                asset: "ETH-PERP".to_string(),
+                action: Action::Buy,
+                size: 5000.0 * self.position_size_pct,
+                price,
+                reason: format!("Momentum breakout: z={:.2}", z_score),
+            })
+        } else if z_score < -self.breakout_threshold {
+            // Breakout down → sell
+            Some(Signal {
+                asset: "ETH-PERP".to_string(),
+                action: Action::Sell,
+                size: 5000.0 * self.position_size_pct,
+                price,
+                reason: format!("Momentum breakdown: z={:.2}", z_score),
+            })
+        } else {
+            None
+        }
+    }
+
+    fn parameters(&self) -> HashMap<String, f64> {
+        let mut params = HashMap::new();
+        params.insert("lookback".to_string(), self.lookback as f64);
+        params.insert("breakout_threshold".to_string(), self.breakout_threshold);
+        params.insert("position_size_pct".to_string(), self.position_size_pct);
+        params
+    }
+
+    fn set_parameters(&mut self, params: HashMap<String, f64>) {
+        if let Some(&v) = params.get("lookback") {
+            self.lookback = v.max(5.0) as usize;
+        }
+        if let Some(&v) = params.get("breakout_threshold") {
+            self.breakout_threshold = v.clamp(0.5, 5.0);
+        }
+        if let Some(&v) = params.get("position_size_pct") {
+            self.position_size_pct = v.clamp(0.01, 0.5);
+        }
+    }
+}
+```
+
+## Registering Your Strategy
+
+Add your strategy to the agent's strategy engine in `src/strategy.rs`:
+
+```rust
+pub fn create_strategies(config: &Config) -> Vec<Box<dyn Strategy>> {
+    let mut strategies: Vec<Box<dyn Strategy>> = Vec::new();
+
+    // Built-in strategies
+    strategies.push(Box::new(FundingArbitrage::new()));
+    strategies.push(Box::new(MeanReversion::new()));
+
+    // Your custom strategy
+    strategies.push(Box::new(MomentumBreakout::new()));
+
+    strategies
+}
+```
+
+## Evolution-Friendly Design
+
+For your strategy to evolve well:
+
+1. **Use named parameters** — Each tunable value should be in the `parameters()` map
+2. **Set reasonable bounds** — Use `clamp()` in `set_parameters()` to prevent extreme values
+3. **Keep parameters continuous** — The mutation engine works with float values
+4. **Document defaults** — What works well before evolution starts?
+
+### Parameter Design Tips
+
+| Good | Bad | Why |
+|------|-----|-----|
+| `threshold: f64` | `use_threshold: bool` | Booleans can't be gradually mutated |
+| `lookback: 20.0` | `lookback: 1000000.0` | Keep scale reasonable |
+| Bounded: `0.01..0.5` | Unbounded | Prevents degenerate strategies |
+
+## Testing Strategies
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_momentum_breakout_signal() {
+        let mut strategy = MomentumBreakout::new();
+        strategy.lookback = 5;
+        strategy.breakout_threshold = 1.5;
+
+        // Build price history: stable around 3000
+        strategy.price_history = vec![3000.0, 3010.0, 2990.0, 3005.0, 2995.0];
+
+        let mut prices = HashMap::new();
+        prices.insert("ETH".to_string(), 3100.0); // Big breakout
+
+        let data = MarketData {
+            prices,
+            funding_rates: HashMap::new(),
+            positions: vec![],
+            timestamp: 0,
+        };
+
+        let signal = strategy.evaluate(&data);
+        assert!(signal.is_some());
+        assert!(matches!(signal.unwrap().action, Action::Buy));
+    }
+}
+```
+
+## See Also
+
+- [Trading Agent Guide](trading-agent.md)
+- [Edge Agent Architecture](../architecture/edge-agent.md)
+- [Evolution Engine](../architecture/evolution.md)
+- [Genome Format](../reference/genome-format.md)
+
+
+========================================
+FILE: docs/guides/model-routing.md
+========================================
+
+# Configure Model Providers & Routing
+
+EvoClaw's model router intelligently selects LLM providers based on task complexity, with automatic fallback chains.
+
+## Overview
+
+```mermaid
+graph LR
+    Request[Chat Request] --> Classify[Classify Complexity]
+    Classify -->|Simple| Cheap[Ollama/Local]
+    Classify -->|Complex| Mid[Claude Sonnet]
+    Classify -->|Critical| Best[Claude Opus]
+
+    Cheap -->|Fail| Mid
+    Mid -->|Fail| Best
+    Best -->|Fail| Error[Return Error]
+```
+
+## Provider Configuration
+
+### Anthropic (Claude)
+
+```json
+{
+  "models": {
+    "providers": {
+      "anthropic": {
+        "apiKey": "sk-ant-api03-YOUR_KEY",
+        "models": [
+          {
+            "id": "claude-sonnet-4-20250514",
+            "name": "Claude Sonnet 4",
+            "contextWindow": 200000,
+            "costInput": 3.0,
+            "costOutput": 15.0,
+            "capabilities": ["reasoning", "code", "vision"]
+          },
+          {
+            "id": "claude-haiku-3-20250722",
+            "name": "Claude Haiku 3",
+            "contextWindow": 200000,
+            "costInput": 0.25,
+            "costOutput": 1.25,
+            "capabilities": ["reasoning", "code"]
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+### OpenAI
+
+```json
+{
+  "openai": {
+    "apiKey": "sk-YOUR_KEY",
+    "models": [
+      {
+        "id": "gpt-4o",
+        "name": "GPT-4o",
+        "contextWindow": 128000,
+        "costInput": 2.5,
+        "costOutput": 10.0,
+        "capabilities": ["reasoning", "code", "vision"]
+      },
+      {
+        "id": "gpt-4o-mini",
+        "name": "GPT-4o Mini",
+        "contextWindow": 128000,
+        "costInput": 0.15,
+        "costOutput": 0.6,
+        "capabilities": ["reasoning", "code"]
+      }
+    ]
+  }
+}
+```
+
+### Ollama (Local)
+
+```json
+{
+  "ollama": {
+    "baseUrl": "http://localhost:11434",
+    "models": [
+      {
+        "id": "llama3.2:3b",
+        "name": "Llama 3.2 3B",
+        "contextWindow": 128000,
+        "costInput": 0.0,
+        "costOutput": 0.0,
+        "capabilities": ["reasoning"]
+      },
+      {
+        "id": "qwen2.5-coder:7b",
+        "name": "Qwen 2.5 Coder 7B",
+        "contextWindow": 32768,
+        "costInput": 0.0,
+        "costOutput": 0.0,
+        "capabilities": ["code"]
+      }
+    ]
+  }
+}
+```
+
+### OpenRouter
+
+```json
+{
+  "openrouter": {
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "apiKey": "sk-or-YOUR_KEY",
+    "models": [
+      {
+        "id": "anthropic/claude-sonnet-4",
+        "name": "Claude Sonnet 4 (via OpenRouter)",
+        "contextWindow": 200000,
+        "costInput": 3.0,
+        "costOutput": 15.0,
+        "capabilities": ["reasoning", "code"]
+      }
+    ]
+  }
+}
+```
+
+### Custom OpenAI-Compatible Provider
+
+Any provider with an OpenAI-compatible API works:
+
+```json
+{
+  "my-provider": {
+    "baseUrl": "https://my-llm-api.example.com/v1",
+    "apiKey": "my-api-key",
+    "models": [
+      {
+        "id": "my-model",
+        "name": "My Custom Model",
+        "contextWindow": 32768,
+        "costInput": 1.0,
+        "costOutput": 2.0,
+        "capabilities": ["reasoning"]
+      }
+    ]
+  }
+}
+```
+
+## Routing Rules
+
+Configure which model handles which task complexity:
+
+```json
+{
+  "models": {
+    "routing": {
+      "simple": "ollama/llama3.2:3b",
+      "complex": "anthropic/claude-sonnet-4-20250514",
+      "critical": "anthropic/claude-sonnet-4-20250514"
+    }
+  }
+}
+```
+
+### Complexity Levels
+
+| Level | Use Case | Recommended |
+|-------|----------|-------------|
+| `simple` | Casual chat, simple questions | Local model (free) |
+| `complex` | Code generation, analysis, reasoning | Mid-tier cloud model |
+| `critical` | Trading decisions, financial, safety-critical | Best available model |
+
+### Cost Optimization Strategy
+
+**Budget-conscious setup:**
+```json
+{
+  "simple": "ollama/llama3.2:3b",
+  "complex": "openai/gpt-4o-mini",
+  "critical": "anthropic/claude-sonnet-4-20250514"
+}
+```
+
+**Performance-first setup:**
+```json
+{
+  "simple": "anthropic/claude-haiku-3-20250722",
+  "complex": "anthropic/claude-sonnet-4-20250514",
+  "critical": "anthropic/claude-sonnet-4-20250514"
+}
+```
+
+**All-local setup:**
+```json
+{
+  "simple": "ollama/llama3.2:3b",
+  "complex": "ollama/llama3.1:70b",
+  "critical": "ollama/llama3.1:70b"
+}
+```
+
+## Fallback Chains
+
+The router automatically tries fallback models when the primary fails:
+
+```go
+// Internally, the router does:
+resp, err := router.Chat(ctx, primaryModel, request, []string{
+    "anthropic/claude-sonnet-4-20250514",  // Fallback 1
+    "openai/gpt-4o",                       // Fallback 2
+    "ollama/llama3.2:3b",                  // Fallback 3 (local)
+})
+```
+
+Fallback is automatic — if Anthropic is down, it tries OpenAI, then local.
+
+## Cost Tracking
+
+Every request is tracked:
+
+```bash
+curl http://localhost:8420/api/costs | jq
+```
+
+```json
+{
+  "anthropic/claude-sonnet-4-20250514": {
+    "TotalRequests": 156,
+    "TotalTokensIn": 234567,
+    "TotalTokensOut": 89012,
+    "TotalCostUSD": 2.34
+  },
+  "ollama/llama3.2:3b": {
+    "TotalRequests": 892,
+    "TotalTokensIn": 456789,
+    "TotalTokensOut": 123456,
+    "TotalCostUSD": 0.0
+  }
+}
+```
+
+Monitor costs in the [Models dashboard view](http://localhost:8420/#models).
+
+## Per-Agent Model Override
+
+Each agent can specify its preferred model:
+
+```json
+{
+  "agents": [
+    {
+      "id": "trader",
+      "model": "anthropic/claude-sonnet-4-20250514"
+    },
+    {
+      "id": "chatbot",
+      "model": "ollama/llama3.2:3b"
+    }
+  ]
+}
+```
+
+If the agent's model isn't available, the routing config is used as fallback.
+
+## See Also
+
+- [Configuration](../getting-started/configuration.md)
+- [Orchestrator Architecture](../architecture/orchestrator.md)
+- [REST API](../api/rest-api.md)
+
+
+========================================
+FILE: docs/guides/deployment.md
+========================================
+
+# Production Deployment Guide
+
+This guide covers deploying EvoClaw in production environments.
+
+## Architecture Options
+
+### Single Machine
+
+For small deployments (1-5 agents):
+
+```
+┌──────────────────────────────────┐
+│  Single Server / Raspberry Pi    │
+│  ┌───────────────────────────┐   │
+│  │  Orchestrator (:8420)     │   │
+│  │  + Mosquitto (:1883)      │   │
+│  │  + Edge Agent(s)          │   │
+│  └───────────────────────────┘   │
+└──────────────────────────────────┘
+```
+
+### Distributed
+
+For larger deployments:
+
+```
+┌─────────────────┐    ┌─────────────────┐
+│  Cloud Server    │    │  Edge Devices    │
+│  Orchestrator    │◄──►│  Agent 1 (Pi)    │
+│  MQTT Broker     │    │  Agent 2 (Phone) │
+│  Dashboard       │    │  Agent 3 (IoT)   │
+└─────────────────┘    └─────────────────┘
+```
+
+## Docker Compose (Recommended)
+
+```bash
+# Start the full stack
+docker compose up -d
+
+# View logs
+docker compose logs -f orchestrator
+
+# Scale agents
+docker compose up -d --scale edge-agent=3
+```
+
+### Production docker-compose.yml
+
+```yaml
+version: '3.8'
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - mosquitto-data:/mosquitto/data
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: unless-stopped
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.orchestrator
+    ports:
+      - "8420:8420"
+    volumes:
+      - evoclaw-data:/app/data
+      - ./evoclaw.json:/app/evoclaw.json:ro
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+    environment:
+      - EVOCLAW_LOG_LEVEL=info
+
+  edge-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    volumes:
+      - ./edge-agent/agent.toml:/app/agent.toml:ro
+      - ./keys:/app/keys:ro
+    depends_on:
+      - mosquitto
+      - orchestrator
+    restart: unless-stopped
+
+volumes:
+  mosquitto-data:
+  evoclaw-data:
+```
+
+## Systemd Service
+
+For bare-metal deployments:
+
+### Orchestrator Service
+
+```ini
+# /etc/systemd/system/evoclaw.service
+[Unit]
+Description=EvoClaw Orchestrator
+After=network.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=simple
+User=evoclaw
+Group=evoclaw
+WorkingDirectory=/opt/evoclaw
+ExecStart=/opt/evoclaw/evoclaw --config /opt/evoclaw/evoclaw.json
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/evoclaw/data
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Edge Agent Service
+
+```ini
+# /etc/systemd/system/evoclaw-agent.service
+[Unit]
+Description=EvoClaw Edge Agent
+After=network.target
+
+[Service]
+Type=simple
+User=evoclaw
+WorkingDirectory=/opt/evoclaw-agent
+ExecStart=/opt/evoclaw-agent/evoclaw-agent --config /opt/evoclaw-agent/agent.toml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Setup
+
+```bash
+# Create user
+sudo useradd -r -s /bin/false evoclaw
+
+# Install
+sudo mkdir -p /opt/evoclaw
+sudo cp evoclaw /opt/evoclaw/
+sudo cp evoclaw.json /opt/evoclaw/
+sudo chown -R evoclaw:evoclaw /opt/evoclaw
+
+# Enable and start
+sudo systemctl daemon-reload
+sudo systemctl enable evoclaw
+sudo systemctl start evoclaw
+
+# Check status
+sudo systemctl status evoclaw
+journalctl -u evoclaw -f
+```
+
+## Reverse Proxy (nginx)
+
+For HTTPS and domain name:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name evoclaw.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/evoclaw.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/evoclaw.example.com/privkey.pem;
+
+    # Dashboard and API
+    location / {
+        proxy_pass http://127.0.0.1:8420;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # SSE log streaming
+    location /api/logs/stream {
+        proxy_pass http://127.0.0.1:8420;
+        proxy_set_header Connection '';
+        proxy_http_version 1.1;
+        chunked_transfer_encoding off;
+        proxy_buffering off;
+        proxy_cache off;
+    }
+}
+```
+
+## Security Checklist
+
+- [ ] **Bind to localhost** — Don't expose API to public internet without auth
+- [ ] **Use TLS** — HTTPS for API, TLS for MQTT
+- [ ] **Protect secrets** — API keys in environment variables, not config files
+- [ ] **Restrict MQTT** — Username/password authentication
+- [ ] **Firewall** — Only expose necessary ports (8420, 1883)
+- [ ] **Updates** — Keep Go, Rust, and dependencies up to date
+- [ ] **Backups** — Back up `data/` directory regularly
+- [ ] **Monitoring** — Set up health checks and alerting
+
+## Monitoring
+
+### Health Check
+
+```bash
+# Simple health check
+curl -f http://localhost:8420/api/status || echo "UNHEALTHY"
+```
+
+### Prometheus Metrics (Planned)
+
+Future versions will expose `/metrics` in Prometheus format.
+
+### Log Aggregation
+
+Forward logs to your logging stack:
+
+```bash
+# journald → stdout → your log aggregator
+journalctl -u evoclaw -f --output=json | your-log-shipper
+```
+
+## Backup & Restore
+
+### Backup
+
+```bash
+# Backup all state
+tar czf evoclaw-backup-$(date +%Y%m%d).tar.gz /opt/evoclaw/data/
+```
+
+### Restore
+
+```bash
+# Stop service
+sudo systemctl stop evoclaw
+
+# Restore
+tar xzf evoclaw-backup-20260206.tar.gz -C /
+
+# Start service
+sudo systemctl start evoclaw
+```
+
+## Resource Requirements
+
+| Component | CPU | RAM | Disk | Notes |
+|-----------|-----|-----|------|-------|
+| Orchestrator | 1 core | 128MB | 100MB | Lightweight Go binary |
+| Edge Agent | 0.5 core | 32MB | 10MB | Minimal Rust binary |
+| MQTT Broker | 0.5 core | 64MB | 50MB | Mosquitto |
+| Dashboard | — | — | — | Served from orchestrator |
+
+## See Also
+
+- [Installation](../getting-started/installation.md)
+- [Configuration](../getting-started/configuration.md)
+- [Architecture](../architecture/overview.md)
+
+
+========================================
+FILE: docs/api/rest-api.md
+========================================
+
+# REST API Reference
+
+The EvoClaw HTTP API runs on port 8420 (configurable). All responses are JSON.
+
+## Base URL
+
+```
+http://localhost:8420
+```
+
+## Endpoints
+
+### System
+
+#### `GET /api/status`
+
+Returns system status and aggregated metrics.
+
+**Response:**
+```json
+{
+  "version": "0.1.0",
+  "uptime": -1234567890,
+  "agents": 3,
+  "models": 5,
+  "memory": {
+    "total_entries": 12,
+    "total_tokens": 45000
+  },
+  "total_cost": 2.3456
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | string | EvoClaw version |
+| `uptime` | int | Uptime in nanoseconds (Go duration) |
+| `agents` | int | Number of registered agents |
+| `models` | int | Number of available models |
+| `memory` | object | Memory store statistics |
+| `total_cost` | float | Total API cost in USD |
+
+#### `GET /api/dashboard`
+
+Aggregated dashboard metrics.
+
+**Response:**
+```json
+{
+  "version": "0.1.0",
+  "agents": 3,
+  "models": 5,
+  "evolving_agents": 1,
+  "total_cost": 2.3456,
+  "total_requests": 156,
+  "total_tokens_in": 234567,
+  "total_tokens_out": 89012,
+  "total_messages": 42,
+  "total_errors": 3,
+  "total_actions": 39,
+  "success_rate": 0.923,
+  "timestamp": "2026-02-06T10:30:00Z"
+}
+```
+
+---
+
+### Agents
+
+#### `GET /api/agents`
+
+List all registered agents.
+
+**Response:**
+```json
+[
+  {
+    "id": "assistant-1",
+    "def": {
+      "id": "assistant-1",
+      "name": "General Assistant",
+      "type": "orchestrator",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are a helpful assistant.",
+      "skills": ["chat"],
+      "config": {},
+      "container": { "enabled": false }
+    },
+    "status": "idle",
+    "started_at": "2026-02-06T08:00:00Z",
+    "last_active": "2026-02-06T10:25:00Z",
+    "last_heartbeat": "2026-02-06T10:29:30Z",
+    "message_count": 42,
+    "error_count": 3,
+    "metrics": {
+      "total_actions": 39,
+      "successful_actions": 36,
+      "failed_actions": 3,
+      "avg_response_ms": 1234.5,
+      "tokens_used": 45000,
+      "cost_usd": 0.234
+    }
+  }
+]
+```
+
+#### `GET /api/agents/{id}`
+
+Get details for a specific agent.
+
+**Parameters:**
+| Param | Location | Description |
+|-------|----------|-------------|
+| `id` | path | Agent ID |
+
+**Response:** Same schema as individual agent in list above.
+
+**Error:** `404 Not Found` if agent doesn't exist.
+
+#### `GET /api/agents/{id}/metrics`
+
+Get performance metrics for an agent.
+
+**Response:**
+```json
+{
+  "agent_id": "assistant-1",
+  "metrics": {
+    "total_actions": 39,
+    "successful_actions": 36,
+    "failed_actions": 3,
+    "avg_response_ms": 1234.5,
+    "tokens_used": 45000,
+    "cost_usd": 0.234,
+    "custom": {
+      "profitLoss": 127.40
+    }
+  },
+  "status": "idle",
+  "uptime": 9000.5
+}
+```
+
+#### `GET /api/agents/{id}/memory`
+
+Get conversation memory for an agent.
+
+**Response:**
+```json
+{
+  "agent_id": "assistant-1",
+  "message_count": 24,
+  "total_tokens": 12000,
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is EvoClaw?"
+    },
+    {
+      "role": "assistant",
+      "content": "EvoClaw is a self-evolving agent framework..."
+    }
+  ]
+}
+```
+
+#### `DELETE /api/agents/{id}/memory`
+
+Clear conversation memory for an agent.
+
+**Response:**
+```json
+{
+  "message": "memory cleared",
+  "agent_id": "assistant-1"
+}
+```
+
+#### `POST /api/agents/{id}/evolve`
+
+Trigger evolution (strategy mutation) for an agent.
+
+**Response:**
+```json
+{
+  "message": "evolution triggered",
+  "agent_id": "assistant-1"
+}
+```
+
+#### `GET /api/agents/{id}/evolution`
+
+Get evolution/strategy data for an agent.
+
+**Response:**
+```json
+{
+  "agent_id": "assistant-1",
+  "version": 3,
+  "fitness": 0.72,
+  "evalCount": 24,
+  "temperature": 0.65,
+  "params": {
+    "minFundingRate": 0.0015,
+    "positionSizePct": 0.12
+  }
+}
+```
+
+---
+
+### Models
+
+#### `GET /api/models`
+
+List all available models.
+
+**Response:**
+```json
+[
+  {
+    "ID": "anthropic/claude-sonnet-4-20250514",
+    "Provider": "anthropic",
+    "Config": {
+      "id": "claude-sonnet-4-20250514",
+      "name": "Claude Sonnet 4",
+      "contextWindow": 200000,
+      "costInput": 3.0,
+      "costOutput": 15.0,
+      "capabilities": ["reasoning", "code", "vision"]
+    }
+  }
+]
+```
+
+#### `GET /api/costs`
+
+Get cost tracking data for all models.
+
+**Response:**
+```json
+{
+  "anthropic/claude-sonnet-4-20250514": {
+    "TotalRequests": 156,
+    "TotalTokensIn": 234567,
+    "TotalTokensOut": 89012,
+    "TotalCostUSD": 2.34,
+    "LastRequestTime": 0
+  }
+}
+```
+
+---
+
+### Real-Time
+
+#### `GET /api/logs/stream`
+
+Server-Sent Events (SSE) endpoint for real-time log streaming.
+
+**Headers:**
+```
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+```
+
+**Events:**
+```
+data: {"time":"10:30:05","level":"info","component":"api","message":"HTTP request completed"}
+
+data: {"time":"10:30:10","level":"info","component":"system","message":"heartbeat: 3 agents online"}
+```
+
+See [WebSocket/SSE endpoints](websocket.md) for details.
+
+---
+
+### Web Dashboard
+
+#### `GET /`
+
+Serves the embedded web dashboard (HTML/CSS/JS).
+
+The dashboard is a single-page application that uses all the above API endpoints.
+
+---
+
+## CORS
+
+All endpoints include CORS headers:
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Authorization
+```
+
+## Error Responses
+
+Errors return plain text with appropriate HTTP status codes:
+
+| Status | Meaning |
+|--------|---------|
+| `400 Bad Request` | Invalid request parameters |
+| `404 Not Found` | Agent or resource not found |
+| `405 Method Not Allowed` | Wrong HTTP method |
+| `500 Internal Server Error` | Server error |
+
+## See Also
+
+- [MQTT Protocol](mqtt-protocol.md)
+- [WebSocket/SSE](websocket.md)
+- [Configuration](../getting-started/configuration.md)
+
+
+========================================
+FILE: docs/api/mqtt-protocol.md
+========================================
+
+# MQTT Protocol Reference
+
+MQTT is the primary communication protocol between the orchestrator and edge agents. EvoClaw uses standard MQTT v3.1.1.
+
+## Connection
+
+### Broker Settings
+
+Default: `localhost:1883`
+
+```toml
+# Edge agent config
+[mqtt]
+broker = "localhost"
+port = 1883
+keep_alive_secs = 30
+```
+
+```json
+// Orchestrator config
+{
+  "mqtt": {
+    "host": "0.0.0.0",
+    "port": 1883,
+    "username": "",
+    "password": ""
+  }
+}
+```
+
+### Client IDs
+
+- Orchestrator: `evoclaw-orchestrator`
+- Edge agents: `evoclaw-agent-{agent_id}`
+
+## Topic Hierarchy
+
+```
+evoclaw/
+├── agents/
+│   └── {agent_id}/
+│       ├── commands     # Orchestrator → Agent
+│       ├── reports      # Agent → Orchestrator
+│       └── status       # Agent → Orchestrator (heartbeats)
+└── broadcast            # Orchestrator → All Agents
+```
+
+## Message Types
+
+### Heartbeat
+
+**Topic:** `evoclaw/agents/{agent_id}/status`
+**Direction:** Agent → Orchestrator
+**QoS:** 0 (at most once)
+**Frequency:** Every `keep_alive_secs` seconds
+
+```json
+{
+  "type": "heartbeat",
+  "agent_id": "hl-trader-1",
+  "timestamp": "2026-02-06T10:30:00Z",
+  "status": "running",
+  "uptime_secs": 3600,
+  "metrics": {
+    "total_actions": 156,
+    "successful_actions": 142,
+    "failed_actions": 14,
+    "tokens_used": 45000,
+    "cost_usd": 0.234,
+    "custom": {
+      "totalTrades": 12,
+      "winRate": 0.667,
+      "profitLoss": 127.40
+    }
+  }
+}
+```
+
+### Command
+
+**Topic:** `evoclaw/agents/{agent_id}/commands`
+**Direction:** Orchestrator → Agent
+**QoS:** 1 (at least once)
+
+#### Execute Strategy
+
+```json
+{
+  "type": "command",
+  "id": "cmd-550e8400-e29b",
+  "action": "execute_strategy",
+  "params": {
+    "strategy": "FundingArbitrage",
+    "asset": "ETH-PERP",
+    "max_size_usd": 5000
+  },
+  "timestamp": "2026-02-06T10:30:00Z"
+}
+```
+
+#### Update Parameters
+
+```json
+{
+  "type": "command",
+  "id": "cmd-550e8400-e29c",
+  "action": "update_params",
+  "params": {
+    "temperature": 0.65,
+    "minFundingRate": 0.0015,
+    "positionSizePct": 0.12
+  },
+  "timestamp": "2026-02-06T10:30:00Z"
+}
+```
+
+#### Evolution Update
+
+```json
+{
+  "type": "command",
+  "id": "cmd-550e8400-e29d",
+  "action": "evolution_update",
+  "params": {
+    "strategy_version": 4,
+    "temperature": 0.65,
+    "maxTokens": 4096,
+    "custom_params": {
+      "minFundingRate": 0.0015,
+      "positionSizePct": 0.12
+    }
+  },
+  "timestamp": "2026-02-06T10:30:00Z"
+}
+```
+
+#### Pause/Resume
+
+```json
+{
+  "type": "command",
+  "id": "cmd-550e8400-e29e",
+  "action": "pause",
+  "timestamp": "2026-02-06T10:30:00Z"
+}
+```
+
+```json
+{
+  "type": "command",
+  "id": "cmd-550e8400-e29f",
+  "action": "resume",
+  "timestamp": "2026-02-06T10:30:00Z"
+}
+```
+
+### Report
+
+**Topic:** `evoclaw/agents/{agent_id}/reports`
+**Direction:** Agent → Orchestrator
+**QoS:** 1 (at least once)
+
+#### Command Result
+
+```json
+{
+  "type": "report",
+  "agent_id": "hl-trader-1",
+  "command_id": "cmd-550e8400-e29b",
+  "status": "completed",
+  "result": {
+    "action": "placed_order",
+    "asset": "ETH-PERP",
+    "side": "buy",
+    "size": 2.5,
+    "price": 3245.50,
+    "order_id": "0x1234..."
+  },
+  "timestamp": "2026-02-06T10:30:01Z"
+}
+```
+
+#### Error Report
+
+```json
+{
+  "type": "report",
+  "agent_id": "hl-trader-1",
+  "command_id": "cmd-550e8400-e29b",
+  "status": "error",
+  "error": "insufficient margin for order",
+  "timestamp": "2026-02-06T10:30:01Z"
+}
+```
+
+#### Market Alert
+
+```json
+{
+  "type": "report",
+  "agent_id": "hl-trader-1",
+  "status": "alert",
+  "result": {
+    "alert_type": "price_movement",
+    "asset": "ETH",
+    "change_pct": 5.2,
+    "current_price": 3245.50,
+    "message": "ETH moved +5.2% in the last hour"
+  },
+  "timestamp": "2026-02-06T10:30:00Z"
+}
+```
+
+### Broadcast
+
+**Topic:** `evoclaw/broadcast`
+**Direction:** Orchestrator → All Agents
+**QoS:** 1 (at least once)
+
+```json
+{
+  "type": "broadcast",
+  "action": "pause_trading",
+  "reason": "high volatility detected",
+  "timestamp": "2026-02-06T10:30:00Z"
+}
+```
+
+## Subscription Patterns
+
+### Orchestrator Subscribes To:
+
+```
+evoclaw/agents/+/reports    # All agent reports
+evoclaw/agents/+/status     # All agent heartbeats
+```
+
+### Agent Subscribes To:
+
+```
+evoclaw/agents/{my_id}/commands  # My commands
+evoclaw/broadcast                 # Global broadcasts
+```
+
+## QoS Summary
+
+| Message Type | QoS | Retained | Rationale |
+|-------------|-----|----------|-----------|
+| Heartbeat | 0 | No | Missing one is OK |
+| Command | 1 | No | Must be delivered |
+| Report | 1 | No | Must be delivered |
+| Broadcast | 1 | No | Must reach all agents |
+
+## See Also
+
+- [Communication Architecture](../architecture/communication.md)
+- [REST API](rest-api.md)
+- [Edge Agent](../architecture/edge-agent.md)
+
+
+========================================
+FILE: docs/api/websocket.md
+========================================
+
+# WebSocket & SSE Endpoints
+
+EvoClaw provides real-time data streaming via Server-Sent Events (SSE).
+
+## Server-Sent Events (SSE)
+
+### Log Stream
+
+**Endpoint:** `GET /api/logs/stream`
+
+Streams real-time log entries as SSE events.
+
+#### Connection
+
+```javascript
+const source = new EventSource('http://localhost:8420/api/logs/stream');
+
+source.onmessage = (event) => {
+    const log = JSON.parse(event.data);
+    console.log(`[${log.level}] ${log.component}: ${log.message}`);
+};
+
+source.onerror = (error) => {
+    console.error('SSE connection error:', error);
+};
+```
+
+#### Event Format
+
+```
+data: {"time":"10:30:05","level":"info","component":"api","message":"HTTP request completed"}
+
+data: {"time":"10:30:10","level":"info","component":"system","message":"heartbeat: 3 agents online"}
+```
+
+#### Event Schema
+
+```json
+{
+  "time": "10:30:05",
+  "level": "info",
+  "component": "api",
+  "message": "HTTP request completed"
+}
+```
+
+| Field | Type | Values |
+|-------|------|--------|
+| `time` | string | HH:MM:SS format |
+| `level` | string | `debug`, `info`, `warn`, `error` |
+| `component` | string | `api`, `orchestrator`, `model-router`, `registry`, `evolution`, `mqtt`, `telegram`, `system` |
+| `message` | string | Human-readable log message |
+
+#### Headers
+
+The server sets these response headers:
+
+```
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+Access-Control-Allow-Origin: *
+```
+
+#### Heartbeat
+
+The server sends periodic heartbeat events (every 5 seconds) to keep the connection alive:
+
+```
+data: {"time":"10:30:10","level":"info","component":"system","message":"heartbeat: 3 agents online"}
+```
+
+#### Client Example (curl)
+
+```bash
+curl -N http://localhost:8420/api/logs/stream
+```
+
+#### Client Example (Python)
+
+```python
+import requests
+import json
+
+response = requests.get(
+    'http://localhost:8420/api/logs/stream',
+    stream=True
+)
+
+for line in response.iter_lines():
+    if line:
+        line = line.decode('utf-8')
+        if line.startswith('data: '):
+            data = json.loads(line[6:])
+            print(f"[{data['level'].upper()}] {data['component']}: {data['message']}")
+```
+
+## Dashboard Integration
+
+The web dashboard uses SSE for the Logs view:
+
+```javascript
+// From app.js
+startLogStream() {
+    this.logEventSource = new EventSource('/api/logs/stream');
+    this.logStreaming = true;
+
+    this.logEventSource.onmessage = (event) => {
+        const log = JSON.parse(event.data);
+        this.logs.push(log);
+        // Keep last 1000 entries
+        if (this.logs.length > 1000) {
+            this.logs = this.logs.slice(-1000);
+        }
+    };
+}
+```
+
+## Polling Fallback
+
+For environments where SSE isn't available, use polling:
+
+```javascript
+// Poll /api/status every 30 seconds
+setInterval(async () => {
+    const response = await fetch('/api/status');
+    const data = await response.json();
+    updateDashboard(data);
+}, 30000);
+```
+
+The dashboard automatically falls back to polling if SSE fails.
+
+## Future: WebSocket Support
+
+WebSocket support for bidirectional real-time communication is planned:
+
+- Agent command/control channel
+- Live metric streaming
+- Interactive trading controls
+
+## Reverse Proxy Configuration
+
+When running behind nginx or similar:
+
+```nginx
+# SSE endpoint needs special proxy settings
+location /api/logs/stream {
+    proxy_pass http://127.0.0.1:8420;
+    proxy_set_header Connection '';
+    proxy_http_version 1.1;
+    chunked_transfer_encoding off;
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 86400;  # Keep alive for 24h
+}
+```
+
+## See Also
+
+- [REST API Reference](rest-api.md)
+- [MQTT Protocol](mqtt-protocol.md)
+- [Deployment Guide](../guides/deployment.md)
+
+
+========================================
+FILE: docs/reference/config-schema.md
+========================================
+
+# Complete Config Schema
+
+Full JSON schema reference for `evoclaw.json`.
+
+## Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EvoClaw Configuration",
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "object",
+      "properties": {
+        "port": {
+          "type": "integer",
+          "default": 8420,
+          "description": "HTTP API and dashboard port"
+        },
+        "dataDir": {
+          "type": "string",
+          "default": "./data",
+          "description": "Directory for persistent state"
+        },
+        "logLevel": {
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error"],
+          "default": "info",
+          "description": "Logging verbosity"
+        }
+      }
+    },
+    "mqtt": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "MQTT broker host"
+        },
+        "port": {
+          "type": "integer",
+          "default": 1883,
+          "description": "MQTT broker port"
+        },
+        "username": {
+          "type": "string",
+          "default": "",
+          "description": "MQTT auth username"
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "MQTT auth password"
+        }
+      }
+    },
+    "channels": {
+      "type": "object",
+      "properties": {
+        "telegram": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "botToken": { "type": "string", "description": "Telegram Bot API token" }
+          }
+        },
+        "whatsapp": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "allowFrom": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Allowed phone numbers"
+            }
+          }
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "properties": {
+        "providers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "baseUrl": { "type": "string" },
+              "apiKey": { "type": "string" },
+              "models": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" },
+                    "contextWindow": { "type": "integer" },
+                    "costInput": { "type": "number", "description": "USD per million input tokens" },
+                    "costOutput": { "type": "number", "description": "USD per million output tokens" },
+                    "capabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": ["reasoning", "code", "vision"]
+                      }
+                    }
+                  },
+                  "required": ["id", "name"]
+                }
+              }
+            }
+          }
+        },
+        "routing": {
+          "type": "object",
+          "properties": {
+            "simple": { "type": "string", "description": "Model for simple tasks (provider/model-id)" },
+            "complex": { "type": "string", "description": "Model for complex tasks" },
+            "critical": { "type": "string", "description": "Model for critical tasks" }
+          }
+        }
+      }
+    },
+    "evolution": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "evalIntervalSec": { "type": "integer", "default": 3600, "description": "Evaluation interval in seconds" },
+        "minSamplesForEval": { "type": "integer", "default": 10, "description": "Min actions before first eval" },
+        "maxMutationRate": { "type": "number", "default": 0.2, "minimum": 0, "maximum": 1, "description": "Max parameter mutation rate" }
+      }
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Unique agent identifier" },
+          "name": { "type": "string", "description": "Display name" },
+          "type": {
+            "type": "string",
+            "enum": ["orchestrator", "trader", "monitor", "governance"],
+            "description": "Agent type"
+          },
+          "model": { "type": "string", "description": "Default model (provider/model-id)" },
+          "systemPrompt": { "type": "string", "description": "LLM system prompt" },
+          "skills": { "type": "array", "items": { "type": "string" } },
+          "config": { "type": "object", "additionalProperties": { "type": "string" } },
+          "container": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean", "default": false },
+              "image": { "type": "string" },
+              "memoryMb": { "type": "integer", "default": 512 },
+              "cpuShares": { "type": "integer", "default": 256 },
+              "allowNet": { "type": "boolean", "default": true },
+              "allowTools": { "type": "array", "items": { "type": "string" } },
+              "mounts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "hostPath": { "type": "string" },
+                    "containerPath": { "type": "string" },
+                    "readOnly": { "type": "boolean", "default": false }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": ["id", "type"]
+      }
+    }
+  }
+}
+```
+
+## Defaults
+
+When no config file exists, EvoClaw creates this default:
+
+```json
+{
+  "server": {
+    "port": 8420,
+    "dataDir": "./data",
+    "logLevel": "info"
+  },
+  "mqtt": {
+    "host": "0.0.0.0",
+    "port": 1883
+  },
+  "evolution": {
+    "enabled": true,
+    "evalIntervalSec": 3600,
+    "minSamplesForEval": 10,
+    "maxMutationRate": 0.2
+  },
+  "models": {
+    "routing": {
+      "simple": "local/small",
+      "complex": "anthropic/claude-sonnet",
+      "critical": "anthropic/claude-opus"
+    }
+  }
+}
+```
+
+## See Also
+
+- [Configuration Guide](../getting-started/configuration.md)
+- [Environment Variables](environment.md)
+- [Genome Format](genome-format.md)
+
+
+========================================
+FILE: docs/reference/genome-format.md
+========================================
+
+# Genome / Strategy Format
+
+The "genome" defines an agent's evolvable strategy — the parameters that the evolution engine can mutate to improve performance.
+
+## Orchestrator Strategy (JSON)
+
+Stored in `data/evolution/{agent_id}.json`:
+
+```json
+{
+  "id": "eth-trader-v3",
+  "agentId": "eth-trader",
+  "version": 3,
+  "createdAt": "2026-02-06T10:30:00Z",
+  "systemPrompt": "You are a cautious crypto trader...",
+  "preferredModel": "anthropic/claude-sonnet-4-20250514",
+  "fallbackModel": "openai/gpt-4o",
+  "temperature": 0.65,
+  "maxTokens": 4096,
+  "params": {
+    "minFundingRate": 0.0015,
+    "positionSizePct": 0.12,
+    "stopLossPct": 0.03,
+    "takeProfitPct": 0.05,
+    "maxHoldTimeSec": 3600
+  },
+  "fitness": 0.72,
+  "evalCount": 24
+}
+```
+
+### Fields
+
+| Field | Type | Evolvable | Description |
+|-------|------|-----------|-------------|
+| `id` | string | No | Strategy ID (format: `{agentId}-v{version}`) |
+| `agentId` | string | No | Owning agent |
+| `version` | int | No | Increments on mutation |
+| `createdAt` | string | No | ISO 8601 timestamp |
+| `systemPrompt` | string | Future | LLM system prompt |
+| `preferredModel` | string | Future | Primary model preference |
+| `fallbackModel` | string | Future | Fallback model |
+| `temperature` | float | **Yes** | LLM temperature (0.0–2.0) |
+| `maxTokens` | int | No | Response length limit |
+| `params` | map | **Yes** | Custom evolvable parameters |
+| `fitness` | float | No | Current fitness score (0.0–1.0) |
+| `evalCount` | int | No | Number of evaluations |
+
+### Custom Parameters
+
+The `params` map holds strategy-specific evolvable values. These are the primary targets for mutation.
+
+#### Trading Agent Parameters
+
+| Parameter | Default | Range | Description |
+|-----------|---------|-------|-------------|
+| `minFundingRate` | 0.001 | 0.0001–0.01 | Min funding rate for entry |
+| `positionSizePct` | 0.1 | 0.01–0.5 | Fraction of max position |
+| `stopLossPct` | 0.03 | 0.01–0.1 | Stop loss threshold |
+| `takeProfitPct` | 0.05 | 0.02–0.2 | Take profit threshold |
+| `maxHoldTimeSec` | 3600 | 300–86400 | Maximum position hold time |
+| `lookbackPeriod` | 20 | 5–100 | Rolling average window |
+| `stdDevThreshold` | 2.0 | 0.5–5.0 | Entry signal threshold |
+
+#### Orchestrator Agent Parameters
+
+| Parameter | Default | Range | Description |
+|-----------|---------|-------|-------------|
+| `verbosity` | 0.5 | 0.1–1.0 | Response verbosity preference |
+| `creativityBias` | 0.5 | 0.0–1.0 | Creative vs factual balance |
+
+## Edge Agent Style (TOML)
+
+Edge agents can define their trading style in a TOML file:
+
+```toml
+# style.toml - Trading personality genome
+
+[identity]
+name = "Cautious Ethena"
+strategy_family = "funding_arbitrage"
+risk_profile = "conservative"
+
+[parameters]
+# Entry conditions
+min_funding_rate = 0.001
+entry_confidence_threshold = 0.7
+
+# Position sizing
+max_position_pct = 0.1        # 10% of max allowed
+scale_in_steps = 3             # Enter in 3 tranches
+
+# Exit conditions
+stop_loss_pct = 0.03           # 3% stop loss
+take_profit_pct = 0.05         # 5% take profit
+max_hold_time_hours = 24       # Close after 24h regardless
+trailing_stop_pct = 0.02       # 2% trailing stop
+
+# Timing
+check_interval_secs = 60       # Check market every 60s
+cooldown_after_loss_secs = 300  # Wait 5min after a loss
+
+[evolution]
+# Boundaries that cannot be exceeded
+max_leverage = 5.0
+max_position_usd = 5000.0
+min_balance_usd = 100.0        # Never trade below this
+
+[personality]
+# These affect how the agent communicates about its trades
+reporting_verbosity = "concise"
+risk_commentary = true
+```
+
+## Version History
+
+The evolution engine maintains a history of strategies:
+
+```
+Version 1: Initial strategy (default parameters)
+Version 2: Temperature reduced from 0.7 → 0.65 (fitness improved)
+Version 3: positionSizePct increased 0.10 → 0.12 (more aggressive)
+Version 4: Reverted to v3 (v4 performed worse)
+```
+
+History is stored in memory and used for reversion decisions.
+
+## Evolution Constraints
+
+Hard boundaries that evolution cannot exceed:
+
+1. **Temperature**: 0.0–2.0
+2. **Custom params**: -1000 to 1000 (general bounds)
+3. **Strategy-specific**: Defined in `style.toml` or agent config
+4. **Risk limits**: `max_leverage`, `max_position_usd` are immutable
+
+## See Also
+
+- [Evolution Engine](../architecture/evolution.md)
+- [Custom Strategy Guide](../guides/custom-strategy.md)
+- [Metrics Reference](metrics.md)
+
+
+========================================
+FILE: docs/reference/metrics.md
+========================================
+
+# Metrics Reference
+
+EvoClaw tracks comprehensive metrics for monitoring, evolution, and optimization.
+
+## Agent Metrics
+
+Tracked in `internal/agents/registry.go`:
+
+```go
+type Metrics struct {
+    TotalActions      int64              `json:"total_actions"`
+    SuccessfulActions int64              `json:"successful_actions"`
+    FailedActions     int64              `json:"failed_actions"`
+    AvgResponseMs     float64            `json:"avg_response_ms"`
+    TokensUsed        int64              `json:"tokens_used"`
+    CostUSD           float64            `json:"cost_usd"`
+    Custom            map[string]float64 `json:"custom,omitempty"`
+}
+```
+
+### Core Metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `total_actions` | counter | Total LLM requests made |
+| `successful_actions` | counter | Successful completions |
+| `failed_actions` | counter | Failed requests (errors, timeouts) |
+| `avg_response_ms` | gauge | Running average response time (ms) |
+| `tokens_used` | counter | Total tokens consumed (input + output) |
+| `cost_usd` | counter | Total API cost in USD |
+
+### Derived Metrics
+
+| Metric | Formula | Description |
+|--------|---------|-------------|
+| Success Rate | `successful / total` | Fraction of successful actions |
+| Error Rate | `failed / total` | Fraction of failed actions |
+| Cost per Action | `cost_usd / total` | Average cost per request |
+| Tokens per Action | `tokens_used / total` | Average tokens per request |
+
+### Custom Metrics
+
+Agent-specific metrics stored in the `custom` map:
+
+#### Trading Agents
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `totalTrades` | counter | Total trades executed |
+| `winRate` | gauge | Fraction of profitable trades |
+| `profitLoss` | gauge | Cumulative P&L in USD |
+| `sharpeRatio` | gauge | Risk-adjusted return measure |
+| `maxDrawdown` | gauge | Maximum peak-to-trough decline |
+| `avgHoldTimeSec` | gauge | Average position hold time |
+
+#### Monitor Agents
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `alertsTriggered` | counter | Total alerts sent |
+| `checksPerformed` | counter | Total monitoring checks |
+
+## Model Cost Metrics
+
+Tracked in `internal/models/router.go`:
+
+```go
+type ModelCost struct {
+    TotalRequests   int64   // Total API calls
+    TotalTokensIn   int64   // Total input tokens
+    TotalTokensOut  int64   // Total output tokens
+    TotalCostUSD    float64 // Total cost in USD
+    LastRequestTime int64   // Unix timestamp of last request
+}
+```
+
+| Metric | Description |
+|--------|-------------|
+| `TotalRequests` | Number of API calls to this model |
+| `TotalTokensIn` | Input tokens consumed |
+| `TotalTokensOut` | Output tokens generated |
+| `TotalCostUSD` | `(tokensIn × costInput + tokensOut × costOutput) / 1M` |
+
+## Evolution Metrics
+
+Used by the fitness function (`internal/evolution/engine.go`):
+
+| Input Metric | Weight | Direction | Description |
+|-------------|--------|-----------|-------------|
+| `successRate` | 40% | Higher = better | Primary effectiveness measure |
+| `profitLoss` | 30% | Higher = better | Trading performance (normalized) |
+| `costUSD` | 20% | Lower = better | API cost efficiency |
+| `avgResponseMs` | 10% | Lower = better | Response speed |
+
+### Fitness Score
+
+```
+fitness = 0.4 × successRate
+        + 0.3 × max(0, profitLoss + 1.0)
+        + 0.2 × (1 / (1 + costUSD))
+        + 0.1 × (1 / (1 + avgResponseMs/1000))
+```
+
+Score range: 0.0 (terrible) → ~1.0 (excellent)
+
+Threshold for evolution trigger: **0.6** (configurable)
+
+### Fitness Smoothing
+
+Fitness uses Exponential Moving Average (EMA):
+
+```
+new_fitness = 0.3 × raw_fitness + 0.7 × previous_fitness
+```
+
+This prevents a single bad evaluation from triggering unnecessary mutation.
+
+## Accessing Metrics
+
+### REST API
+
+```bash
+# Agent metrics
+curl http://localhost:8420/api/agents/{id}/metrics
+
+# Model costs
+curl http://localhost:8420/api/costs
+
+# Dashboard aggregates
+curl http://localhost:8420/api/dashboard
+```
+
+### Web Dashboard
+
+The dashboard displays metrics in several views:
+- **Overview** — Aggregated system metrics
+- **Agent Detail** — Per-agent metrics with charts
+- **Models** — Cost breakdown by model
+- **Evolution** — Fitness scores and trends
+
+### MQTT Heartbeat
+
+Edge agents report metrics via MQTT heartbeat:
+
+```json
+{
+  "type": "heartbeat",
+  "metrics": {
+    "total_actions": 156,
+    "successful_actions": 142,
+    "cost_usd": 0.234,
+    "custom": {
+      "totalTrades": 12,
+      "winRate": 0.667,
+      "profitLoss": 127.40
+    }
+  }
+}
+```
+
+## See Also
+
+- [Evolution Engine](../architecture/evolution.md)
+- [REST API](../api/rest-api.md)
+- [Genome Format](genome-format.md)
+
+
+========================================
+FILE: docs/reference/environment.md
+========================================
+
+# Environment Variables
+
+EvoClaw supports configuration via environment variables for deployment flexibility.
+
+## Orchestrator Environment Variables
+
+| Variable | Config Key | Default | Description |
+|----------|-----------|---------|-------------|
+| `EVOCLAW_PORT` | `server.port` | `8420` | HTTP API port |
+| `EVOCLAW_DATA_DIR` | `server.dataDir` | `./data` | Data directory |
+| `EVOCLAW_LOG_LEVEL` | `server.logLevel` | `info` | Log level |
+| `EVOCLAW_MQTT_HOST` | `mqtt.host` | `0.0.0.0` | MQTT broker host |
+| `EVOCLAW_MQTT_PORT` | `mqtt.port` | `1883` | MQTT broker port |
+| `EVOCLAW_MQTT_USERNAME` | `mqtt.username` | — | MQTT auth user |
+| `EVOCLAW_MQTT_PASSWORD` | `mqtt.password` | — | MQTT auth password |
+| `ANTHROPIC_API_KEY` | `models.providers.anthropic.apiKey` | — | Anthropic API key |
+| `OPENAI_API_KEY` | `models.providers.openai.apiKey` | — | OpenAI API key |
+| `OPENROUTER_API_KEY` | `models.providers.openrouter.apiKey` | — | OpenRouter API key |
+| `TELEGRAM_BOT_TOKEN` | `channels.telegram.botToken` | — | Telegram bot token |
+
+## Edge Agent Environment Variables
+
+| Variable | Config Key | Default | Description |
+|----------|-----------|---------|-------------|
+| `EVOCLAW_AGENT_ID` | `agent_id` | — | Agent identifier |
+| `EVOCLAW_AGENT_TYPE` | `agent_type` | — | Agent type |
+| `EVOCLAW_MQTT_BROKER` | `mqtt.broker` | `localhost` | MQTT broker |
+| `EVOCLAW_MQTT_PORT` | `mqtt.port` | `1883` | MQTT port |
+| `EVOCLAW_ORCHESTRATOR_URL` | `orchestrator.url` | `http://localhost:8420` | Orchestrator API URL |
+| `HL_API_URL` | `trading.hyperliquid_api` | `https://api.hyperliquid.xyz` | Hyperliquid API |
+| `HL_WALLET_ADDRESS` | `trading.wallet_address` | — | Wallet address |
+| `HL_PRIVATE_KEY_PATH` | `trading.private_key_path` | — | Private key file path |
+
+## Usage
+
+### Docker Compose
+
+```yaml
+services:
+  orchestrator:
+    environment:
+      - EVOCLAW_LOG_LEVEL=debug
+      - ANTHROPIC_API_KEY=sk-ant-your-key
+      - TELEGRAM_BOT_TOKEN=your-token
+```
+
+### Shell
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-your-key"
+export EVOCLAW_LOG_LEVEL="debug"
+./evoclaw --config evoclaw.json
+```
+
+### systemd
+
+```ini
+[Service]
+Environment=EVOCLAW_LOG_LEVEL=info
+Environment=ANTHROPIC_API_KEY=sk-ant-your-key
+EnvironmentFile=/opt/evoclaw/.env
+```
+
+### .env File
+
+```bash
+# /opt/evoclaw/.env
+ANTHROPIC_API_KEY=sk-ant-your-key
+OPENAI_API_KEY=sk-your-key
+TELEGRAM_BOT_TOKEN=your-token
+EVOCLAW_LOG_LEVEL=info
+```
+
+> ⚠️ Never commit `.env` files to version control. The `.gitignore` already excludes them.
+
+## Priority
+
+Configuration priority (highest first):
+
+1. Environment variables
+2. Config file (`evoclaw.json`)
+3. Default values
+
+## See Also
+
+- [Configuration Guide](../getting-started/configuration.md)
+- [Config Schema](config-schema.md)
+- [Deployment Guide](../guides/deployment.md)
+
+
+========================================
+FILE: docs/contributing/CONTRIBUTING.md
+========================================
+
+# Contributing to EvoClaw
+
+Thanks for your interest in contributing to EvoClaw! 🧬
+
+## Ways to Contribute
+
+- **Bug reports** — Found a bug? Open an issue
+- **Feature requests** — Have an idea? Open a discussion
+- **Code** — Fix bugs, add features, improve tests
+- **Documentation** — Fix typos, add examples, improve clarity
+- **Testing** — Run on different platforms, report edge cases
+
+## Getting Started
+
+1. Fork the repository
+2. Set up your development environment (see [Development Setup](development.md))
+3. Create a feature branch: `git checkout -b feat/my-feature`
+4. Make your changes
+5. Run tests: `go test ./...` and `cd edge-agent && cargo test`
+6. Commit with a descriptive message
+7. Push and open a Pull Request
+
+## Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat: add new strategy type for grid trading
+fix: handle nil pointer in agent metrics
+docs: add deployment guide for Raspberry Pi
+test: add integration test for MQTT reconnect
+refactor: extract model selection into separate function
+chore: update dependencies
+```
+
+## Code Style
+
+### Go
+
+- Follow standard Go conventions (`gofmt`, `go vet`)
+- Use `slog` for logging (structured logging)
+- Keep packages focused and small
+- Write table-driven tests
+
+### Rust
+
+- Follow `rustfmt` formatting
+- Use `clippy` for linting: `cargo clippy`
+- Prefer `Result` over panicking
+- Write unit tests in the same file (`#[cfg(test)]`)
+
+## Pull Request Guidelines
+
+1. **One feature per PR** — Keep PRs focused
+2. **Tests required** — New code needs tests
+3. **Documentation** — Update docs if behavior changes
+4. **No breaking changes** — Unless discussed first
+5. **CI must pass** — All tests green before merge
+
+## Architecture
+
+Before making significant changes, understand the [architecture](../architecture/overview.md) and read the [Architecture Decision Records](architecture-decisions.md).
+
+## Testing
+
+```bash
+# Go tests
+go test ./...
+
+# Go tests with coverage
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+
+# Rust tests
+cd edge-agent
+cargo test
+
+# Rust tests with coverage
+cargo llvm-cov
+```
+
+Current coverage targets: Go ≥85%, Rust ≥90%.
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.
+
+## Code of Conduct
+
+Be kind. Be respectful. We're all here to build something cool.
+
+## Questions?
+
+Open a Discussion on GitHub or reach out to the maintainers.
+
+
+========================================
+FILE: docs/contributing/development.md
+========================================
+
+# Development Environment Setup
+
+## Prerequisites
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Go | 1.23+ | Orchestrator |
+| Rust | 1.75+ | Edge agent |
+| Mosquitto | 2.x | MQTT broker (optional) |
+| Docker | 24+ | Container builds (optional) |
+| jq | 1.6+ | JSON processing (optional) |
+
+## Setup
+
+### Clone
+
+```bash
+git clone https://github.com/clawinfra/evoclaw.git
+cd evoclaw
+```
+
+### Go Orchestrator
+
+```bash
+# Verify Go installation
+go version  # Should be 1.23+
+
+# Download dependencies
+go mod download
+
+# Build
+go build -o evoclaw ./cmd/evoclaw
+
+# Run tests
+go test ./...
+
+# Run with race detection
+go test -race ./...
+
+# Coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
+```
+
+### Rust Edge Agent
+
+```bash
+cd edge-agent
+
+# Verify Rust installation
+rustc --version  # Should be 1.75+
+cargo --version
+
+# Build
+cargo build
+
+# Run tests
+cargo test
+
+# Clippy (linter)
+cargo clippy -- -W clippy::all
+
+# Format
+cargo fmt
+
+# Coverage (requires cargo-llvm-cov)
+cargo install cargo-llvm-cov
+cargo llvm-cov --html
+```
+
+### MQTT Broker
+
+```bash
+# Install Mosquitto
+# macOS
+brew install mosquitto
+
+# Ubuntu/Debian
+sudo apt install mosquitto mosquitto-clients
+
+# Start
+mosquitto -v  # Verbose mode
+
+# Test
+mosquitto_pub -t "test" -m "hello"
+mosquitto_sub -t "test"
+```
+
+## Project Structure
+
+```
+evoclaw/
+├── cmd/evoclaw/           # Main entry point
+│   ├── main.go            # App setup, startup, shutdown
+│   ├── main_test.go       # Integration tests
+│   └── web/               # Embedded dashboard (copied from web/)
+├── internal/
+│   ├── api/               # HTTP API server
+│   │   ├── server.go      # Routes, middleware, handlers
+│   │   ├── dashboard.go   # Dashboard + evolution + SSE endpoints
+│   │   └── server_test.go
+│   ├── agents/            # Agent management
+│   │   ├── registry.go    # Agent CRUD, health checks
+│   │   ├── memory.go      # Conversation memory
+│   │   └── *_test.go
+│   ├── channels/          # Communication adapters
+│   │   ├── telegram.go    # Telegram bot
+│   │   ├── mqtt.go        # MQTT client
+│   │   └── *_test.go
+│   ├── config/            # Configuration
+│   │   ├── config.go      # Structs, load/save
+│   │   └── config_test.go
+│   ├── evolution/         # Evolution engine
+│   │   ├── engine.go      # Fitness, mutation, revert
+│   │   └── engine_test.go
+│   ├── models/            # LLM providers
+│   │   ├── router.go      # Model selection, fallback
+│   │   ├── anthropic.go   # Claude API client
+│   │   ├── openai.go      # OpenAI/compatible client
+│   │   ├── ollama.go      # Ollama client
+│   │   └── *_test.go
+│   └── orchestrator/      # Core orchestration
+│       ├── orchestrator.go # Message routing, agent coordination
+│       └── orchestrator_test.go
+├── edge-agent/            # Rust edge agent
+│   ├── src/
+│   │   ├── main.rs        # Entry point
+│   │   ├── lib.rs         # Module declarations
+│   │   ├── agent.rs       # Agent core loop
+│   │   ├── config.rs      # TOML config parser
+│   │   ├── mqtt.rs        # MQTT communication
+│   │   ├── trading.rs     # Hyperliquid client
+│   │   ├── strategy.rs    # Strategy engine
+│   │   ├── evolution.rs   # Local evolution
+│   │   ├── monitor.rs     # Market monitoring
+│   │   ├── metrics.rs     # Metric collection
+│   │   └── commands.rs    # Command handling
+│   ├── tests/
+│   │   └── integration_test.rs
+│   ├── Cargo.toml
+│   └── agent.example.toml
+├── web/                   # Dashboard source
+│   ├── index.html         # SPA entry point
+│   ├── style.css          # Dark theme styles
+│   └── app.js             # Alpine.js application
+├── docs/                  # Documentation
+├── docker-compose.yml
+└── evoclaw.example.json   # Example config
+```
+
+## Development Workflow
+
+### 1. Create a feature branch
+
+```bash
+git checkout -b feat/my-feature
+```
+
+### 2. Make changes
+
+Edit code, add tests.
+
+### 3. Run tests
+
+```bash
+# Go
+go test ./...
+
+# Rust
+cd edge-agent && cargo test
+```
+
+### 4. Update dashboard (if API changed)
+
+```bash
+# Edit web/ files
+# Copy to embed location
+cp web/* cmd/evoclaw/web/
+
+# Rebuild
+go build ./cmd/evoclaw/
+```
+
+### 5. Commit and push
+
+```bash
+git add .
+git commit -m "feat: my new feature"
+git push origin feat/my-feature
+```
+
+### 6. Open PR
+
+Open a Pull Request on GitHub.
+
+## Running Locally
+
+### Full Stack
+
+```bash
+# Terminal 1: MQTT broker
+mosquitto -v
+
+# Terminal 2: Orchestrator
+./evoclaw --config evoclaw.json
+
+# Terminal 3: Edge agent
+cd edge-agent
+cargo run -- --config agent.toml
+
+# Terminal 4: Watch logs
+curl -N http://localhost:8420/api/logs/stream
+```
+
+### Docker
+
+```bash
+docker compose up -d
+docker compose logs -f
+```
+
+## IDE Setup
+
+### VS Code
+
+Recommended extensions:
+- `golang.go` — Go support
+- `rust-lang.rust-analyzer` — Rust support
+- `tamasfe.even-better-toml` — TOML support
+
+### GoLand / RustRover
+
+JetBrains IDEs work out of the box with the standard project structure.
+
+## See Also
+
+- [Contributing Guide](CONTRIBUTING.md)
+- [Architecture Overview](../architecture/overview.md)
+- [Architecture Decisions](architecture-decisions.md)
+
+
+========================================
+FILE: docs/contributing/architecture-decisions.md
+========================================
+
+# Architecture Decision Records
+
+Key technical decisions made during EvoClaw development.
+
+---
+
+## ADR-001: Go + Rust Split Architecture
+
+**Date:** 2026-01-15
+**Status:** Accepted
+
+### Context
+
+Need a framework that runs on both cloud servers and tiny edge devices.
+
+### Decision
+
+- **Go** for the orchestrator — simple, fast compilation, great stdlib, easy to deploy
+- **Rust** for edge agents — tiny binaries, no runtime, memory safe, cross-compilation
+
+### Consequences
+
+- Two codebases to maintain
+- MQTT bridge needed for communication
+- Can optimize each component for its environment
+- Go orchestrator: 6.9MB, Rust agent: 3.2MB
+
+---
+
+## ADR-002: MQTT for Agent Communication
+
+**Date:** 2026-01-16
+**Status:** Accepted
+
+### Context
+
+Need reliable, lightweight messaging between orchestrator and edge agents, potentially over unreliable networks.
+
+### Decision
+
+Use MQTT v3.1.1 with Mosquitto broker.
+
+### Alternatives Considered
+
+- **gRPC** — Too heavy for constrained devices, requires HTTP/2
+- **WebSocket** — Good but MQTT has better IoT tooling and QoS levels
+- **Redis Pub/Sub** — Requires Redis server, less suited for edge networks
+- **NATS** — Great but less mature on embedded targets
+
+### Consequences
+
+- Lightweight protocol (small header overhead)
+- QoS levels for reliability
+- Wide client library support (Go, Rust, C, Python)
+- Requires MQTT broker deployment
+
+---
+
+## ADR-003: JSON for All Serialization
+
+**Date:** 2026-01-17
+**Status:** Accepted
+
+### Context
+
+Need a serialization format for config, state, API responses, and MQTT messages.
+
+### Decision
+
+Use JSON everywhere.
+
+### Alternatives Considered
+
+- **Protobuf** — More efficient but harder to debug, requires schema files
+- **MessagePack** — Binary, smaller but not human-readable
+- **CBOR** — Similar to MessagePack
+
+### Consequences
+
+- Human-readable (great for debugging)
+- Universal support
+- Slightly larger than binary formats
+- Edge agent uses TOML for config (more human-friendly for hand-editing)
+
+---
+
+## ADR-004: Embedded Web Dashboard
+
+**Date:** 2026-02-06
+**Status:** Accepted
+
+### Context
+
+Need a monitoring dashboard without requiring a separate frontend build step or deployment.
+
+### Decision
+
+Single-page app using Alpine.js + Chart.js, embedded in the Go binary via `embed` package.
+
+### Alternatives Considered
+
+- **React/Vue SPA** — Requires Node.js build step, larger bundle
+- **htmx** — Good for simple CRUD, less ideal for real-time dashboards
+- **Server-side templates** — Would need Go template engine, harder to make interactive
+
+### Consequences
+
+- Zero build step (vanilla JS)
+- Single binary deployment (dashboard included)
+- CDN dependency for Alpine.js and Chart.js (could be vendored)
+- ~70KB total frontend code
+
+---
+
+## ADR-005: Evolution via Parameter Mutation
+
+**Date:** 2026-01-20
+**Status:** Accepted
+
+### Context
+
+Need agents to improve over time without human intervention.
+
+### Decision
+
+Simple parameter mutation with fitness-based evaluation. Start with EMA-smoothed fitness scoring and gaussian-like parameter perturbation.
+
+### Alternatives Considered
+
+- **Genetic algorithms** — Tournament selection, crossover — more complex, planned for future
+- **Bayesian optimization** — Better for small parameter spaces, complex implementation
+- **Reinforcement learning** — Requires training infrastructure, too heavy for v1
+- **LLM-powered mutation** — Use an LLM to improve prompts — planned for future
+
+### Consequences
+
+- Simple and predictable
+- Works for continuous parameters
+- History + reversion provides safety
+- Limited: can't evolve discrete choices (model selection, prompt text) yet
+
+---
+
+## ADR-006: Multi-Provider Model Router
+
+**Date:** 2026-01-22
+**Status:** Accepted
+
+### Context
+
+Don't want to be locked into a single LLM provider. Need resilience and cost optimization.
+
+### Decision
+
+Model router with complexity-based selection and automatic fallback chains.
+
+### Consequences
+
+- Provider-agnostic agent definitions
+- Automatic failover if a provider goes down
+- Cost tracking per model
+- Easy to add new providers (implement `ModelProvider` interface)
+
+---
+
+## ADR-007: File-Based State Persistence
+
+**Date:** 2026-01-18
+**Status:** Accepted
+
+### Context
+
+Need to persist agent state, conversation memory, and evolution strategies across restarts.
+
+### Decision
+
+JSON files in the data directory. No database.
+
+### Alternatives Considered
+
+- **SQLite** — More structured but overkill for current scale
+- **bbolt/BoltDB** — Key-value store, more complex
+- **Redis** — Requires separate server
+
+### Consequences
+
+- Simple to backup (tar the data dir)
+- Human-readable state files
+- Easy to debug
+- Won't scale past ~1000 agents on a single machine
+- May migrate to SQLite in future if needed
+
+
+========================================
+SOURCE: evoclaw.example.json (if exists)
+========================================
+
+```json
+{
+  "_comment": "EvoClaw Configuration — Copy to evoclaw.json and fill in your values",
+
+  "server": {
+    "_comment": "HTTP API server settings",
+    "port": 8420,
+    "dataDir": "./data",
+    "logLevel": "info"
+  },
+
+  "mqtt": {
+    "_comment": "MQTT broker for orchestrator ↔ edge-agent communication. Use localhost for docker-compose, or your broker's address.",
+    "port": 1883,
+    "host": "localhost",
+    "username": "",
+    "password": ""
+  },
+
+  "channels": {
+    "telegram": {
+      "_comment": "Telegram bot for human ↔ orchestrator interaction. Create a bot via @BotFather.",
+      "enabled": false,
+      "botToken": "YOUR_TELEGRAM_BOT_TOKEN"
+    }
+  },
+
+  "models": {
+    "_comment": "LLM provider configuration. Add API keys for providers you want to use.",
+    "providers": {
+      "anthropic": {
+        "baseUrl": "https://api.anthropic.com",
+        "apiKey": "sk-ant-REPLACE_WITH_YOUR_ANTHROPIC_API_KEY",
+        "models": [
+          {
+            "id": "claude-opus-4-20250514",
+            "name": "Claude Opus 4",
+            "contextWindow": 200000,
+            "costInput": 15.0,
+            "costOutput": 75.0,
+            "capabilities": ["reasoning", "code", "vision"]
+          },
+          {
+            "id": "claude-sonnet-4-20250514",
+            "name": "Claude Sonnet 4",
+            "contextWindow": 200000,
+            "costInput": 3.0,
+            "costOutput": 15.0,
+            "capabilities": ["reasoning", "code", "vision"]
+          }
+        ]
+      },
+      "openai": {
+        "baseUrl": "https://api.openai.com/v1",
+        "apiKey": "sk-REPLACE_WITH_YOUR_OPENAI_API_KEY",
+        "models": [
+          {
+            "id": "gpt-4o",
+            "name": "GPT-4o",
+            "contextWindow": 128000,
+            "costInput": 2.5,
+            "costOutput": 10.0,
+            "capabilities": ["reasoning", "code", "vision"]
+          }
+        ]
+      },
+      "ollama": {
+        "_comment": "Local model via Ollama — free, no API key needed. Run: ollama pull llama3.2:3b",
+        "baseUrl": "http://localhost:11434",
+        "apiKey": "",
+        "models": [
+          {
+            "id": "llama3.2:3b",
+            "name": "Llama 3.2 3B",
+            "contextWindow": 8192,
+            "costInput": 0.0,
+            "costOutput": 0.0,
+            "capabilities": ["reasoning"]
+          }
+        ]
+      }
+    },
+    "routing": {
+      "_comment": "Model selection by task complexity. Format: provider/model-id",
+      "simple": "ollama/llama3.2:3b",
+      "complex": "anthropic/claude-sonnet-4-20250514",
+      "critical": "anthropic/claude-opus-4-20250514"
+    }
+  },
+
+  "evolution": {
+    "_comment": "Evolution engine — agents self-improve based on performance metrics",
+    "enabled": true,
+    "evalIntervalSec": 3600,
+    "minSamplesForEval": 10,
+    "maxMutationRate": 0.2
+  },
+
+  "agents": [
+    {
+      "_comment": "General-purpose assistant agent — handles chat, search, analysis",
+      "id": "assistant-1",
+      "name": "General Assistant",
+      "type": "orchestrator",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are a helpful AI assistant. Be concise, accurate, and friendly.",
+      "skills": ["chat", "search", "analysis"],
+      "container": {
+        "enabled": false,
+        "memoryMb": 512,
+        "cpuShares": 512,
+        "allowNet": true
+      }
+    },
+    {
+      "_comment": "Hyperliquid trading agent — runs on edge device, executes strategies. Configure the edge-agent's TOML config separately (see edge-agent/README.md).",
+      "id": "hl-trader-1",
+      "name": "Hyperliquid Trader",
+      "type": "trader",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "systemPrompt": "You are a quantitative trading agent on Hyperliquid. Analyze funding rates, order flow, and price action. Be cautious with position sizing.",
+      "skills": ["trading", "analysis", "risk-management"],
+      "config": {
+        "_comment_exchange": "Hyperliquid perpetual futures exchange",
+        "exchange": "hyperliquid",
+        "api_url": "https://api.hyperliquid.xyz",
+        "wallet_address": "0xYOUR_WALLET_ADDRESS_HERE",
+        "max_position_size_usd": "5000",
+        "max_leverage": "5",
+        "default_assets": "BTC,ETH,SOL,ARB"
+      },
+      "container": {
+        "enabled": false,
+        "memoryMb": 256,
+        "cpuShares": 256,
+        "allowNet": true
+      }
+    },
+    {
+      "_comment": "Market monitor agent — watches prices, funding rates, triggers alerts",
+      "id": "market-monitor-1",
+      "name": "Market Monitor",
+      "type": "monitor",
+      "model": "ollama/llama3.2:3b",
+      "systemPrompt": "You are a market monitoring agent. Track price movements, funding rates, and open interest. Alert on significant changes.",
+      "skills": ["monitoring", "alerts"],
+      "config": {
+        "check_interval_secs": "60",
+        "price_alert_threshold_pct": "5.0",
+        "funding_rate_threshold_pct": "0.1",
+        "watched_assets": "BTC,ETH,SOL,ARB,DOGE"
+      },
+      "container": {
+        "enabled": false,
+        "memoryMb": 128,
+        "cpuShares": 128,
+        "allowNet": true
+      }
+    }
+  ]
+}
+```
+
+========================================
+SOURCE: edge-agent/agent.example.toml
+========================================
+
+```toml
+# EvoClaw Edge Agent Configuration
+# Copy to agent.toml and fill in your values.
+#
+# This configures a Rust edge agent that connects to the Go orchestrator
+# via MQTT and executes trading/monitoring strategies on edge devices.
+
+# ─── Agent Identity ───────────────────────────────────────────────
+# Unique agent ID — must match the agent ID registered in the orchestrator
+agent_id = "hl-trader-1"
+
+# Agent type: "trader", "monitor", "sensor", "governance"
+agent_type = "trader"
+
+# ─── MQTT Broker ──────────────────────────────────────────────────
+# Connection to the MQTT broker (shared with orchestrator)
+[mqtt]
+broker = "localhost"       # Use "mosquitto" if running in docker-compose
+port = 1883
+keep_alive_secs = 30       # Heartbeat interval to maintain connection
+
+# ─── Orchestrator API ─────────────────────────────────────────────
+# HTTP API endpoint of the Go orchestrator (for direct REST calls)
+[orchestrator]
+url = "http://localhost:8420"
+
+# ─── Trading Configuration (trader agents only) ──────────────────
+# Hyperliquid perpetual futures exchange settings.
+# IMPORTANT: Never commit real private keys! Use a path to a key file.
+[trading]
+hyperliquid_api = "https://api.hyperliquid.xyz"
+
+# Your Hyperliquid wallet address (0x...)
+wallet_address = "0xYOUR_WALLET_ADDRESS_HERE"
+
+# Path to your private key file (NOT the key itself!)
+# Generate with: python3 edge-agent/scripts/hl_sign.py --generate
+private_key_path = "keys/private.key"
+
+# Risk management limits
+max_position_size_usd = 5000.0   # Maximum position size in USD
+max_leverage = 5.0                # Maximum leverage multiplier
+
+# ─── Monitor Configuration (monitor agents only) ─────────────────
+# Uncomment this section and comment out [trading] for monitor agents.
+#
+# [monitor]
+# price_alert_threshold_pct = 5.0     # Alert on >5% price moves
+# funding_rate_threshold_pct = 0.1    # Alert on >0.1% funding rate
+# check_interval_secs = 60            # Check every 60 seconds
+```

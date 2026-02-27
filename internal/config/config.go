@@ -47,6 +47,20 @@ type Config struct {
 
 	// Agent definitions
 	Agents []AgentDef `json:"agents"`
+
+	// E2B cloud sandbox settings
+	Cloud CloudConfig `json:"cloud,omitempty"`
+}
+
+type CloudConfig struct {
+	Enabled                bool    `json:"enabled"`
+	E2BAPIKey              string  `json:"e2bApiKey,omitempty"`
+	DefaultTemplate        string  `json:"defaultTemplate"`
+	DefaultTimeoutSec      int     `json:"defaultTimeoutSec"`
+	MaxAgents              int     `json:"maxAgents"`
+	HealthCheckIntervalSec int     `json:"healthCheckIntervalSec"`
+	KeepAliveIntervalSec   int     `json:"keepAliveIntervalSec"`
+	CreditBudgetUSD        float64 `json:"creditBudgetUsd"`
 }
 
 type ServerConfig struct {
@@ -229,8 +243,10 @@ type TUIConfig struct {
 }
 
 type TelegramConfig struct {
-	Enabled  bool   `json:"enabled"`
-	BotToken string `json:"botToken"`
+	Enabled      bool    `json:"enabled"`
+	BotToken     string  `json:"botToken"`
+	AllowedUsers []int64 `json:"allowedUsers,omitempty"` // empty = allow all
+	DefaultAgent string  `json:"defaultAgent,omitempty"` // which agent handles messages
 }
 
 type ModelsConfig struct {

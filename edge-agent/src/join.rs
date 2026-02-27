@@ -1,0 +1,615 @@
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+use tracing::info;
+
+use crate::config::{Config, MonitorConfig, MqttConfig, OrchestratorConfig};
+
+/// Options for the `join` command
+#[derive(Debug, Clone)]
+pub struct JoinOptions {
+    pub hub: String,
+    pub id: Option<String>,
+    pub agent_type: String,
+    pub port: u16,
+    pub mqtt_port: u16,
+    pub config_dir: PathBuf,
+    pub no_start: bool,
+}
+
+/// Hub status response from GET /api/status
+#[derive(Debug, Deserialize)]
+pub struct HubStatus {
+    pub version: Option<String>,
+    pub agents: Option<u32>,
+}
+
+/// Registration request body for POST /api/agents/register
+#[derive(Debug, Serialize)]
+pub struct RegisterRequest {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub agent_type: String,
+    pub host: String,
+}
+
+/// Registration response from POST /api/agents/register
+#[derive(Debug, Deserialize)]
+pub struct RegisterResponse {
+    pub status: String,
+    pub id: String,
+    pub mqtt_broker: Option<String>,
+    pub mqtt_port: Option<u16>,
+}
+
+/// Result of the join operation
+#[derive(Debug)]
+pub struct JoinResult {
+    pub hub_version: String,
+    pub hub_agents: u32,
+    pub agent_id: String,
+    pub agent_type: String,
+    pub config_path: PathBuf,
+    pub mqtt_broker: String,
+    pub mqtt_port: u16,
+}
+
+/// Generate an agent ID from hostname + random hex suffix
+pub fn generate_agent_id() -> String {
+    let hostname = gethostname().unwrap_or_else(|| "agent".to_string());
+    let random_suffix = generate_hex_suffix();
+    format!("{}-{}", hostname, random_suffix)
+}
+
+/// Get the system hostname (simplified, no external crate)
+fn gethostname() -> Option<String> {
+    // Read from /etc/hostname on Linux
+    if let Ok(name) = std::fs::read_to_string("/etc/hostname") {
+        let trimmed = name.trim().to_string();
+        if !trimmed.is_empty() {
+            return Some(trimmed);
+        }
+    }
+    // Fallback: HOSTNAME env var
+    std::env::var("HOSTNAME").ok()
+}
+
+/// Generate a 4-character hex suffix
+fn generate_hex_suffix() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let seed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .subsec_nanos();
+    format!("{:04x}", seed & 0xFFFF)
+}
+
+/// Get the local IP address (best-effort)
+fn get_local_ip() -> String {
+    // Try to connect to a remote address to discover local IP
+    if let Ok(socket) = std::net::UdpSocket::bind("0.0.0.0:0") {
+        if socket.connect("8.8.8.8:80").is_ok() {
+            if let Ok(addr) = socket.local_addr() {
+                return addr.ip().to_string();
+            }
+        }
+    }
+    "127.0.0.1".to_string()
+}
+
+/// Verify the hub is reachable and return its status
+pub async fn verify_hub(
+    client: &reqwest::Client,
+    hub: &str,
+    port: u16,
+) -> Result<HubStatus, Box<dyn std::error::Error>> {
+    let url = format!("http://{}:{}/api/status", hub, port);
+    let resp = client
+        .get(&url)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("cannot reach hub at {}:{} — {}", hub, port, e))?;
+
+    if !resp.status().is_success() {
+        return Err(format!(
+            "hub returned HTTP {} — is EvoClaw running?",
+            resp.status()
+        )
+        .into());
+    }
+
+    let status: HubStatus = resp
+        .json()
+        .await
+        .map_err(|e| format!("invalid hub response: {}", e))?;
+
+    Ok(status)
+}
+
+/// Register this agent with the orchestrator
+pub async fn register_with_hub(
+    client: &reqwest::Client,
+    hub: &str,
+    port: u16,
+    agent_id: &str,
+    agent_type: &str,
+) -> Result<RegisterResponse, Box<dyn std::error::Error>> {
+    let url = format!("http://{}:{}/api/agents/register", hub, port);
+    let local_ip = get_local_ip();
+
+    let req = RegisterRequest {
+        id: agent_id.to_string(),
+        agent_type: agent_type.to_string(),
+        host: local_ip,
+    };
+
+    let resp = client
+        .post(&url)
+        .json(&req)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("registration failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("registration failed (HTTP {}): {}", status, body).into());
+    }
+
+    let reg_resp: RegisterResponse = resp.json().await?;
+    Ok(reg_resp)
+}
+
+/// Write the agent config file
+pub fn write_config(
+    config_dir: &Path,
+    hub: &str,
+    agent_id: &str,
+    agent_type: &str,
+    mqtt_broker: &str,
+    mqtt_port: u16,
+    orchestrator_port: u16,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    std::fs::create_dir_all(config_dir)?;
+
+    let config_path = config_dir.join("agent.toml");
+
+    let orchestrator_url = format!("http://{}:{}", hub, orchestrator_port);
+
+    let toml_content = format!(
+        r#"# EvoClaw Edge Agent Configuration
+# Generated by `evoclaw-agent join {hub}`
+
+agent_id = "{agent_id}"
+agent_type = "{agent_type}"
+
+[mqtt]
+broker = "{mqtt_broker}"
+port = {mqtt_port}
+keep_alive_secs = 30
+
+[orchestrator]
+url = "{orchestrator_url}"
+"#,
+        hub = hub,
+        agent_id = agent_id,
+        agent_type = agent_type,
+        mqtt_broker = mqtt_broker,
+        mqtt_port = mqtt_port,
+        orchestrator_url = orchestrator_url,
+    );
+
+    // Add type-specific config
+    let toml_content = match agent_type {
+        "monitor" => format!(
+            "{}\n[monitor]\nprice_alert_threshold_pct = 5.0\nfunding_rate_threshold_pct = 0.1\ncheck_interval_secs = 60\n",
+            toml_content
+        ),
+        _ => toml_content,
+    };
+
+    std::fs::write(&config_path, toml_content)?;
+    Ok(config_path)
+}
+
+/// Load a Config from the generated TOML file
+pub fn load_generated_config(config_path: &Path) -> Result<Config, Box<dyn std::error::Error>> {
+    Config::from_file(config_path)
+}
+
+/// Build a Config directly from join parameters (without file I/O)
+pub fn build_config(
+    hub: &str,
+    agent_id: &str,
+    agent_type: &str,
+    mqtt_broker: &str,
+    mqtt_port: u16,
+    orchestrator_port: u16,
+) -> Config {
+    let mut config = Config::default_for_type(agent_id.to_string(), agent_type.to_string());
+    config.mqtt = MqttConfig {
+        broker: mqtt_broker.to_string(),
+        port: mqtt_port,
+        keep_alive_secs: 30,
+    };
+    config.orchestrator = OrchestratorConfig {
+        url: format!("http://{}:{}", hub, orchestrator_port),
+    };
+
+    if agent_type == "monitor" && config.monitor.is_none() {
+        config.monitor = Some(MonitorConfig {
+            price_alert_threshold_pct: 5.0,
+            funding_rate_threshold_pct: 0.1,
+            check_interval_secs: 60,
+        });
+    }
+
+    config
+}
+
+/// Execute the full join flow
+pub async fn run_join(opts: &JoinOptions) -> Result<JoinResult, Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+
+    // Step 1: Verify hub is reachable
+    info!(hub = %opts.hub, port = opts.port, "verifying hub connectivity");
+    let hub_status = verify_hub(&client, &opts.hub, opts.port).await?;
+
+    let hub_version = hub_status.version.unwrap_or_else(|| "unknown".to_string());
+    let hub_agents = hub_status.agents.unwrap_or(0);
+
+    // Step 2: Generate or use provided agent ID
+    let agent_id = opts
+        .id
+        .clone()
+        .unwrap_or_else(generate_agent_id);
+
+    // Step 3: Register with hub
+    info!(agent_id = %agent_id, agent_type = %opts.agent_type, "registering with hub");
+    let reg_resp =
+        register_with_hub(&client, &opts.hub, opts.port, &agent_id, &opts.agent_type).await?;
+
+    let mqtt_broker = reg_resp
+        .mqtt_broker
+        .filter(|b| b != "0.0.0.0" && b != "localhost" && b != "127.0.0.1")
+        .unwrap_or_else(|| opts.hub.clone());
+    let mqtt_port = reg_resp.mqtt_port.unwrap_or(opts.mqtt_port);
+
+    // Step 4: Write config file
+    let config_path = write_config(
+        &opts.config_dir,
+        &opts.hub,
+        &agent_id,
+        &opts.agent_type,
+        &mqtt_broker,
+        mqtt_port,
+        opts.port,
+    )?;
+
+    info!(config = %config_path.display(), "config written");
+
+    Ok(JoinResult {
+        hub_version,
+        hub_agents,
+        agent_id,
+        agent_type: opts.agent_type.clone(),
+        config_path,
+        mqtt_broker,
+        mqtt_port,
+    })
+}
+
+/// Print the join result banner
+pub fn print_join_banner(result: &JoinResult, hub: &str, port: u16) {
+    println!();
+    println!("🧬 EvoClaw Agent Setup");
+    println!(
+        "  Hub: {}:{} ✓ (v{}, {} agent{} online)",
+        hub,
+        port,
+        result.hub_version,
+        result.hub_agents,
+        if result.hub_agents == 1 { "" } else { "s" }
+    );
+    println!(
+        "  MQTT: {}:{} ✓",
+        result.mqtt_broker, result.mqtt_port
+    );
+    println!("  Agent ID: {}", result.agent_id);
+    println!("  Type: {}", result.agent_type);
+    println!(
+        "  Config: {} ✓",
+        result.config_path.display()
+    );
+}
+
+/// Print the started banner
+pub fn print_started_banner(hub: &str, port: u16) {
+    println!();
+    println!("🚀 Agent started! Connected to hub.");
+    println!("  Dashboard: http://{}:{}", hub, port);
+    println!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_generate_agent_id_format() {
+        let id = generate_agent_id();
+        // Should be "{hostname}-{4 hex chars}"
+        assert!(id.contains('-'), "id should contain a dash: {}", id);
+        let parts: Vec<&str> = id.rsplitn(2, '-').collect();
+        assert_eq!(parts.len(), 2, "id should have at least two parts: {}", id);
+        let suffix = parts[0];
+        assert_eq!(suffix.len(), 4, "suffix should be 4 chars: {}", suffix);
+        // Suffix should be hex
+        assert!(
+            suffix.chars().all(|c| c.is_ascii_hexdigit()),
+            "suffix should be hex: {}",
+            suffix
+        );
+    }
+
+    #[test]
+    fn test_generate_hex_suffix() {
+        let suffix = generate_hex_suffix();
+        assert_eq!(suffix.len(), 4);
+        assert!(suffix.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_get_local_ip() {
+        let ip = get_local_ip();
+        assert!(!ip.is_empty());
+        // Should be a valid IP
+        assert!(ip.parse::<std::net::IpAddr>().is_ok(), "invalid IP: {}", ip);
+    }
+
+    #[test]
+    fn test_write_config_creates_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config_dir = tmp.path().join(".evoclaw");
+
+        let path = write_config(
+            &config_dir,
+            "192.168.1.100",
+            "test-agent-a1b2",
+            "monitor",
+            "192.168.1.100",
+            1883,
+            8420,
+        )
+        .unwrap();
+
+        assert!(path.exists(), "config file should exist");
+        assert_eq!(path, config_dir.join("agent.toml"));
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("agent_id = \"test-agent-a1b2\""));
+        assert!(content.contains("agent_type = \"monitor\""));
+        assert!(content.contains("broker = \"192.168.1.100\""));
+        assert!(content.contains("port = 1883"));
+        assert!(content.contains("http://192.168.1.100:8420"));
+        assert!(content.contains("[monitor]"));
+    }
+
+    #[test]
+    fn test_write_config_trader_no_monitor_section() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config_dir = tmp.path().join(".evoclaw");
+
+        let path = write_config(
+            &config_dir,
+            "10.0.0.1",
+            "trader-abc",
+            "trader",
+            "10.0.0.1",
+            1883,
+            8420,
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("agent_type = \"trader\""));
+        assert!(!content.contains("[monitor]"));
+    }
+
+    #[test]
+    fn test_write_config_creates_directories() {
+        let tmp = tempfile::tempdir().unwrap();
+        let nested_dir = tmp.path().join("deep").join("nested").join(".evoclaw");
+
+        let path = write_config(
+            &nested_dir,
+            "hub",
+            "agent-1",
+            "sensor",
+            "hub",
+            1883,
+            8420,
+        )
+        .unwrap();
+
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn test_build_config_monitor() {
+        let config = build_config("192.168.1.1", "test-mon", "monitor", "192.168.1.1", 1883, 8420);
+
+        assert_eq!(config.agent_id, "test-mon");
+        assert_eq!(config.agent_type, "monitor");
+        assert_eq!(config.mqtt.broker, "192.168.1.1");
+        assert_eq!(config.mqtt.port, 1883);
+        assert_eq!(config.orchestrator.url, "http://192.168.1.1:8420");
+        assert!(config.monitor.is_some());
+    }
+
+    #[test]
+    fn test_build_config_trader() {
+        let config = build_config("hub", "test-trader", "trader", "hub", 1883, 8420);
+
+        assert_eq!(config.agent_type, "trader");
+        assert!(config.trading.is_some());
+        assert!(config.monitor.is_none());
+    }
+
+    #[test]
+    fn test_build_config_sensor() {
+        let config = build_config("hub", "test-sensor", "sensor", "hub", 1883, 8420);
+
+        assert_eq!(config.agent_type, "sensor");
+        assert!(config.trading.is_none());
+        assert!(config.monitor.is_none());
+    }
+
+    #[test]
+    fn test_load_generated_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config_dir = tmp.path().join(".evoclaw");
+
+        let path = write_config(
+            &config_dir,
+            "192.168.99.44",
+            "rpi-a3f2",
+            "monitor",
+            "192.168.99.44",
+            1883,
+            8420,
+        )
+        .unwrap();
+
+        let config = load_generated_config(&path).unwrap();
+        assert_eq!(config.agent_id, "rpi-a3f2");
+        assert_eq!(config.agent_type, "monitor");
+        assert_eq!(config.mqtt.broker, "192.168.99.44");
+        assert_eq!(config.mqtt.port, 1883);
+    }
+
+    #[test]
+    fn test_join_options_defaults() {
+        let opts = JoinOptions {
+            hub: "192.168.1.1".to_string(),
+            id: None,
+            agent_type: "monitor".to_string(),
+            port: 8420,
+            mqtt_port: 1883,
+            config_dir: PathBuf::from("/home/pi/.evoclaw"),
+            no_start: false,
+        };
+
+        assert_eq!(opts.port, 8420);
+        assert_eq!(opts.mqtt_port, 1883);
+        assert!(!opts.no_start);
+    }
+
+    #[test]
+    fn test_join_options_custom_id() {
+        let opts = JoinOptions {
+            hub: "hub.local".to_string(),
+            id: Some("my-custom-agent".to_string()),
+            agent_type: "trader".to_string(),
+            port: 9000,
+            mqtt_port: 2883,
+            config_dir: PathBuf::from("/tmp/.evoclaw"),
+            no_start: true,
+        };
+
+        assert_eq!(opts.id, Some("my-custom-agent".to_string()));
+        assert!(opts.no_start);
+    }
+
+    #[test]
+    fn test_register_request_serialization() {
+        let req = RegisterRequest {
+            id: "test-abc".to_string(),
+            agent_type: "monitor".to_string(),
+            host: "192.168.1.5".to_string(),
+        };
+
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("\"id\":\"test-abc\""));
+        assert!(json.contains("\"type\":\"monitor\""));
+        assert!(json.contains("\"host\":\"192.168.1.5\""));
+    }
+
+    #[test]
+    fn test_register_response_deserialization() {
+        let json = r#"{"status":"registered","id":"test-abc","mqtt_broker":"192.168.1.1","mqtt_port":1883}"#;
+        let resp: RegisterResponse = serde_json::from_str(json).unwrap();
+
+        assert_eq!(resp.status, "registered");
+        assert_eq!(resp.id, "test-abc");
+        assert_eq!(resp.mqtt_broker, Some("192.168.1.1".to_string()));
+        assert_eq!(resp.mqtt_port, Some(1883));
+    }
+
+    #[test]
+    fn test_register_response_deserialization_minimal() {
+        let json = r#"{"status":"registered","id":"x"}"#;
+        let resp: RegisterResponse = serde_json::from_str(json).unwrap();
+
+        assert_eq!(resp.status, "registered");
+        assert!(resp.mqtt_broker.is_none());
+        assert!(resp.mqtt_port.is_none());
+    }
+
+    #[test]
+    fn test_hub_status_deserialization() {
+        let json = r#"{"version":"0.1.0","agents":3}"#;
+        let status: HubStatus = serde_json::from_str(json).unwrap();
+
+        assert_eq!(status.version, Some("0.1.0".to_string()));
+        assert_eq!(status.agents, Some(3));
+    }
+
+    #[test]
+    fn test_hub_status_deserialization_extra_fields() {
+        // Hub may return extra fields we don't care about
+        let json = r#"{"version":"0.1.0","agents":1,"models":5,"total_cost":0.0,"uptime":"-1ns","memory":{"total_tokens":0}}"#;
+        let status: HubStatus = serde_json::from_str(json).unwrap();
+
+        assert_eq!(status.version, Some("0.1.0".to_string()));
+        assert_eq!(status.agents, Some(1));
+    }
+
+    #[test]
+    fn test_print_join_banner_singular() {
+        // Just verify it doesn't panic
+        let result = JoinResult {
+            hub_version: "0.1.0".to_string(),
+            hub_agents: 1,
+            agent_id: "pi-a3f2".to_string(),
+            agent_type: "monitor".to_string(),
+            config_path: PathBuf::from("/home/pi/.evoclaw/agent.toml"),
+            mqtt_broker: "192.168.99.44".to_string(),
+            mqtt_port: 1883,
+        };
+        print_join_banner(&result, "192.168.99.44", 8420);
+    }
+
+    #[test]
+    fn test_print_join_banner_plural() {
+        let result = JoinResult {
+            hub_version: "0.2.0".to_string(),
+            hub_agents: 5,
+            agent_id: "pi-beef".to_string(),
+            agent_type: "trader".to_string(),
+            config_path: PathBuf::from("/tmp/.evoclaw/agent.toml"),
+            mqtt_broker: "10.0.0.1".to_string(),
+            mqtt_port: 2883,
+        };
+        print_join_banner(&result, "10.0.0.1", 9000);
+    }
+
+    #[test]
+    fn test_print_started_banner() {
+        // Just verify it doesn't panic
+        print_started_banner("192.168.99.44", 8420);
+    }
+}

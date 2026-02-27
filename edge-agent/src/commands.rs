@@ -5,7 +5,9 @@ use tracing::{info, warn};
 use crate::agent::EdgeAgent;
 use crate::evolution::TradeRecord;
 use crate::mqtt::AgentCommand;
+use crate::risk::RiskDecision;
 use crate::strategy::{FundingArbitrage, MeanReversion};
+use crate::trading::{CancelOrderRequest, ModifyOrderRequest, PlaceOrderRequest, TimeInForce};
 
 /// Command handler result
 pub type CommandResult = Result<Value, Box<dyn std::error::Error>>;
@@ -30,6 +32,9 @@ impl EdgeAgent {
             "update_genome" => self.handle_update_genome(&cmd).await,
             "get_metrics" => self.handle_get_metrics(&cmd).await,
             "evolution" => self.handle_evolution(&cmd).await,
+            "trade" => self.handle_trade(&cmd).await,
+            "risk" => self.handle_risk(&cmd).await,
+            "skill" => self.handle_skill(&cmd).await,
             "shutdown" => self.handle_shutdown(&cmd).await,
             _ => {
                 warn!(command = %cmd.command, "unknown command");
@@ -81,30 +86,16 @@ impl EdgeAgent {
                             }))
                         }
                         Some("place_order") => {
-                            let asset =
-                                cmd.payload
-                                    .get("asset")
-                                    .and_then(|v| v.as_u64())
-                                    .ok_or("missing asset")? as u32;
-                            let is_buy = cmd
-                                .payload
-                                .get("is_buy")
-                                .and_then(|v| v.as_bool())
-                                .ok_or("missing is_buy")?;
-                            let price = cmd
-                                .payload
-                                .get("price")
-                                .and_then(|v| v.as_f64())
-                                .ok_or("missing price")?;
-                            let size = cmd
-                                .payload
-                                .get("size")
-                                .and_then(|v| v.as_f64())
-                                .ok_or("missing size")?;
+                            let coin = cmd.payload.get("coin").and_then(|v| v.as_str()).ok_or("missing coin")?;
+                            let is_buy = cmd.payload.get("is_buy").and_then(|v| v.as_bool()).ok_or("missing is_buy")?;
+                            let price = cmd.payload.get("price").and_then(|v| v.as_str()).ok_or("missing price")?;
+                            let size = cmd.payload.get("size").and_then(|v| v.as_str()).ok_or("missing size")?;
 
-                            let response = client
-                                .place_limit_order(asset, is_buy, price, size, false)
-                                .await?;
+                            let req = PlaceOrderRequest {
+                                coin: coin.to_string(), is_buy, price: price.to_string(), size: size.to_string(),
+                                reduce_only: false, tif: TimeInForce::Gtc, cloid: None,
+                            };
+                            let response = client.place_order(&req).await?;
                             Ok(serde_json::json!({
                                 "status": "success",
                                 "order_response": response
@@ -829,7 +820,7 @@ impl EdgeAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Config, MonitorConfig, TradingConfig};
+    use crate::config::{Config, MonitorConfig, TradingConfig, RiskConfig};
     use crate::mqtt::AgentCommand;
 
     fn create_test_agent_config(agent_type: &str) -> Config {
@@ -842,7 +833,11 @@ mod tests {
                 private_key_path: "test.key".to_string(),
                 max_position_size_usd: 1000.0,
                 max_leverage: 3.0,
+                network_mode: crate::config::NetworkMode::Testnet,
+                trading_mode: crate::config::TradingMode::Paper,
+                paper_log_path: "/tmp/evoclaw_test_paper.jsonl".to_string(),
             });
+            config.risk = Some(RiskConfig::default());
         } else if agent_type == "monitor" {
             config.monitor = Some(MonitorConfig {
                 price_alert_threshold_pct: 5.0,
@@ -1592,5 +1587,110 @@ mod tests {
 
         let result = agent.handle_evolution(&cmd).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_skill_list() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "skill".to_string(),
+            payload: serde_json::json!({
+                "action": "list"
+            }),
+            request_id: "req_skill_list".to_string(),
+        };
+        
+        let result = agent.handle_skill(&cmd).await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response["status"], "success");
+        assert!(response.get("skills").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_handle_skill_missing_fields() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "skill".to_string(),
+            payload: serde_json::json!({}),
+            request_id: "req_skill_bad".to_string(),
+        };
+        
+        let result = agent.handle_skill(&cmd).await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response["status"], "error");
+    }
+
+    #[tokio::test]
+    async fn test_handle_skill_nonexistent() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "skill".to_string(),
+            payload: serde_json::json!({
+                "skill": "nonexistent",
+                "action": "status"
+            }),
+            request_id: "req_skill_noexist".to_string(),
+        };
+        
+        let result = agent.handle_skill(&cmd).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_handle_skill_with_config() {
+        use crate::config::{SkillsConfig, SystemMonitorSkillConfig};
+        let mut config = create_test_agent_config("monitor");
+        config.skills = Some(SkillsConfig {
+            system_monitor: Some(SystemMonitorSkillConfig {
+                enabled: true,
+                tick_interval_secs: Some(30),
+            }),
+            gpio: None,
+            price_monitor: None,
+        });
+        
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        assert_eq!(agent.skill_registry.skill_count(), 1);
+        
+        let cmd = AgentCommand {
+            command: "skill".to_string(),
+            payload: serde_json::json!({
+                "skill": "system_monitor",
+                "action": "status"
+            }),
+            request_id: "req_skill_sysmon".to_string(),
+        };
+        
+        let result = agent.handle_skill(&cmd).await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response["status"], "success");
+        assert_eq!(response["skill"], "system_monitor");
+    }
+
+    #[tokio::test]
+    async fn test_handle_command_skill_integration() {
+        let config = create_test_agent_config("trader");
+        let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
+        
+        let cmd = AgentCommand {
+            command: "skill".to_string(),
+            payload: serde_json::json!({
+                "action": "list"
+            }),
+            request_id: "req_skill_cmd".to_string(),
+        };
+        
+        // Test that handle_command dispatches to skill handler
+        agent.handle_command(cmd).await;
+        assert_eq!(agent.metrics.actions_success, 1);
     }
 }

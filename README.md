@@ -1,4 +1,14 @@
-# 🧬 EvoClaw
+<p align="center">
+  <h1 align="center">🧬 EvoClaw</h1>
+  <p align="center"><strong>Self-Evolving Agent Framework — Edge to Cloud</strong></p>
+  <p align="center">
+    <a href="https://github.com/clawinfra/evoclaw/actions/workflows/ci.yml"><img src="https://github.com/clawinfra/evoclaw/actions/workflows/ci.yml/badge.svg?branch=beta" alt="CI"></a>
+    <a href="https://github.com/clawinfra/evoclaw"><img src="https://img.shields.io/badge/Status-Beta-orange" alt="Beta"></a>
+    <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.24-00ADD8?logo=go&logoColor=white" alt="Go"></a>
+    <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/Rust-stable-DEA584?logo=rust&logoColor=white" alt="Rust"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License"></a>
+  </p>
+</p>
 
 [![CI](https://github.com/clawinfra/evoclaw/actions/workflows/ci.yml/badge.svg)](https://github.com/clawinfra/evoclaw/actions/workflows/ci.yml)
 [![Go](https://img.shields.io/badge/Go-1.24-00ADD8?logo=go)](https://go.dev)
@@ -8,9 +18,9 @@
 
 **Self-Evolving Agent Framework for Edge Devices**
 
-EvoClaw is a lightweight, evolution-powered agent orchestration framework designed to run on resource-constrained edge devices. Every device becomes an agent. Every agent evolves.
+---
 
-## Features
+EvoClaw is a lightweight agent orchestration framework where agents **improve themselves** through evolutionary feedback loops. A Go orchestrator coordinates Rust edge agents across three deployment tiers — from a Raspberry Pi on your desk to a Firecracker microVM in the cloud.
 
 - **🦀 Rust Edge Agent** — 1.8MB binary, runs on Raspberry Pi, phones, IoT devices
 - **🐹 Go Orchestrator** — 6.9MB binary, coordinates agents and handles evolution
@@ -24,7 +34,7 @@ EvoClaw is a lightweight, evolution-powered agent orchestration framework design
 - **💬 Chat Interfaces** — HTTP API, web terminal, TUI for agent messaging
 - **💾 Config Backup** — Automated cloud backup for hardware recovery
 
-## Quick Start
+## ✨ Key Features
 
 ### One-Liner Install (Linux/macOS)
 
@@ -393,8 +403,11 @@ evoclaw/
 - [x] CI/CD pipeline
 - [x] Integration test suite
 - [ ] WhatsApp channel
-- [ ] Prompt mutation (LLM-powered strategy improvement)
-- [ ] Container isolation (Firecracker/gVisor)
+- [ ] TLS/mTLS for MQTT
+- [x] Agent self-registration via `join` command + `POST /api/agents/register`
+- [x] Hub setup wizard (`evoclaw setup hub`)
+- [x] Deployment profiles documentation (Solo, Hub & Spoke, Cloud Fleet)
+- [ ] Agent auto-discovery (mDNS)
 - [ ] Distributed agent mesh
 - [ ] Advanced evolution (genetic algorithms, tournament selection)
 - [ ] Web dashboard UI
@@ -415,9 +428,9 @@ data/
     └── assistant-1.json
 ```
 
-## License
+## 📄 License
 
-MIT
+[MIT](LICENSE)
 
 ## Foundations
 
@@ -430,4 +443,7 @@ For the best of [ClawChain](https://github.com/clawinfra) 🧬
 
 ---
 
-*Every device is an agent. Every agent evolves.*
+<p align="center">
+  <em>Every device is an agent. Every agent evolves.</em><br>
+  <a href="docs/getting-started/quickstart.md">Quickstart</a> · <a href="docs/architecture/overview.md">Architecture</a> · <a href="docs/guides/trading-agent.md">Trading</a> · <a href="docs/guides/cloud-deployment.md">Cloud</a> · <a href="docs/contributing/CONTRIBUTING.md">Contribute</a>
+</p>

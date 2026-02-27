@@ -1,0 +1,47 @@
+# EvoClaw — Go Orchestrator (Podman container)
+#
+# Install:
+#   sudo cp deploy/systemd/evoclaw-orchestrator.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now evoclaw-orchestrator
+#
+# Requires evoclaw-mosquitto.service to be running.
+
+[Unit]
+Description=EvoClaw Orchestrator (Go)
+Documentation=https://github.com/clawinfra/evoclaw
+Wants=network-online.target
+After=network-online.target evoclaw-mosquitto.service
+Requires=evoclaw-mosquitto.service
+
+[Service]
+Type=forking
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+Environment=PODMAN_SYSTEMD_UNIT=%n
+
+ExecStartPre=-/usr/bin/podman rm -f evoclaw-orchestrator
+ExecStart=/usr/bin/podman run -d \
+    --name evoclaw-orchestrator \
+    --replace \
+    -p 8420:8420 \
+    -v /opt/evoclaw/evoclaw.json:/app/evoclaw.json:ro,Z \
+    -v evoclaw-orchestrator-data:/app/data \
+    -e LOG_LEVEL=info \
+    --health-cmd="wget -qO- http://localhost:8420/api/status || exit 1" \
+    --health-interval=15s \
+    --health-timeout=5s \
+    --health-start-period=15s \
+    --health-retries=3 \
+    evoclaw-orchestrator
+
+ExecStop=/usr/bin/podman stop -t 15 evoclaw-orchestrator
+ExecStopPost=-/usr/bin/podman rm -f evoclaw-orchestrator
+
+PIDFile=%t/evoclaw-orchestrator.pid
+
+[Install]
+WantedBy=multi-user.target

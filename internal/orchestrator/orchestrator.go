@@ -111,6 +111,13 @@ type ChatResponse struct {
 }
 
 // Orchestrator is the core of EvoClaw
+// AgentReporter allows the orchestrator to report agent activity to external systems
+type AgentReporter interface {
+	RecordMessage(id string) error
+	RecordError(id string) error
+	UpdateMetrics(id string, tokensUsed int, costUSD float64, responseMs int64, success bool) error
+}
+
 type Orchestrator struct {
 	cfg       *config.Config
 	channels  map[string]Channel
@@ -190,6 +197,13 @@ func (o *Orchestrator) RegisterProvider(p ModelProvider) {
 }
 
 // SetEvolutionEngine sets the evolution engine
+func (o *Orchestrator) SetAgentReporter(r AgentReporter) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.reporter = r
+	o.logger.Info("agent reporter registered")
+}
+
 func (o *Orchestrator) SetEvolutionEngine(e EvolutionEngine) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -1509,6 +1523,11 @@ func (o *Orchestrator) evolveAgent(agent *AgentState, currentFitness float64) {
 			}
 		}()
 	}
+}
+
+// GetConfig returns the orchestrator's configuration
+func (o *Orchestrator) GetConfig() *config.Config {
+	return o.cfg
 }
 
 // GetAgentMetrics returns current metrics for an agent

@@ -42,8 +42,8 @@ tokio-test = "0.4"
 tempfile = "3"
 
 [profile.release]
-opt-level = "s"     # Optimize for size
-lto = true           # Link-time optimization
-codegen-units = 1    # Better optimization
-strip = true         # Strip debug symbols
-panic = "abort"      # Smaller binary
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

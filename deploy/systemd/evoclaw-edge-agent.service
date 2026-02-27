@@ -1,0 +1,41 @@
+# EvoClaw — Rust Edge Agent (Podman container)
+#
+# Install:
+#   sudo cp deploy/systemd/evoclaw-edge-agent.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now evoclaw-edge-agent
+#
+# Requires evoclaw-mosquitto.service and evoclaw-orchestrator.service.
+
+[Unit]
+Description=EvoClaw Edge Agent (Rust)
+Documentation=https://github.com/clawinfra/evoclaw
+Wants=network-online.target
+After=network-online.target evoclaw-orchestrator.service
+Requires=evoclaw-mosquitto.service evoclaw-orchestrator.service
+
+[Service]
+Type=forking
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=30
+TimeoutStopSec=30
+
+Environment=PODMAN_SYSTEMD_UNIT=%n
+
+ExecStartPre=-/usr/bin/podman rm -f evoclaw-edge-agent
+ExecStart=/usr/bin/podman run -d \
+    --name evoclaw-edge-agent \
+    --replace \
+    -v /opt/evoclaw/agent.toml:/app/agent.toml:ro,Z \
+    -v evoclaw-agent-keys:/app/keys \
+    -e RUST_LOG=info \
+    evoclaw-edge-agent
+
+ExecStop=/usr/bin/podman stop -t 10 evoclaw-edge-agent
+ExecStopPost=-/usr/bin/podman rm -f evoclaw-edge-agent
+
+PIDFile=%t/evoclaw-edge-agent.pid
+
+[Install]
+WantedBy=multi-user.target

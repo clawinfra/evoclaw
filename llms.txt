@@ -1,0 +1,92 @@
+# EvoClaw
+
+> Self-evolving agent framework for edge devices. Go orchestrator + Rust agents.
+
+## Overview
+
+EvoClaw deploys AI agents on resource-constrained edge devices (Raspberry Pi, phones, IoT). Agents evolve their strategies over time based on performance metrics.
+
+- Go orchestrator (6.9MB binary) — Coordinates agents, routes LLM requests, manages evolution
+- Rust edge agent (3.2MB binary) — Runs on constrained hardware, executes strategies
+- Evolution engine — Fitness-based parameter mutation with automatic reversion
+- Multi-model router — Anthropic, OpenAI, Ollama, OpenRouter with fallback chains
+- Trading agents — Hyperliquid perpetual futures integration
+- Multi-channel — Telegram, MQTT communication
+
+## Quick Start
+
+```bash
+git clone https://github.com/clawinfra/evoclaw.git
+cd evoclaw
+go build -ldflags="-s -w" -o evoclaw ./cmd/evoclaw
+cp evoclaw.example.json evoclaw.json  # Add your API keys
+./evoclaw --config evoclaw.json
+# Dashboard: http://localhost:8420
+```
+
+## API
+
+Base URL: `http://localhost:8420`
+
+- `GET /api/status` — System status, uptime, agent count, costs
+- `GET /api/agents` — List all agents with metrics
+- `GET /api/agents/{id}` — Agent details
+- `GET /api/agents/{id}/metrics` — Agent performance metrics
+- `GET /api/agents/{id}/memory` — Conversation history
+- `DELETE /api/agents/{id}/memory` — Clear memory
+- `POST /api/agents/{id}/evolve` — Trigger evolution
+- `GET /api/agents/{id}/evolution` — Evolution strategy data
+- `GET /api/models` — List available models
+- `GET /api/costs` — Cost tracking per model
+- `GET /api/dashboard` — Aggregated dashboard metrics
+- `GET /api/logs/stream` — SSE real-time log stream
+- `GET /` — Web dashboard
+
+## Configuration
+
+JSON config (`evoclaw.json`):
+- `server.port` (default: 8420) — API port
+- `server.dataDir` (default: "./data") — State directory
+- `server.logLevel` — debug/info/warn/error
+- `mqtt.host`, `mqtt.port` — MQTT broker
+- `models.providers` — Map of LLM providers with API keys and models
+- `models.routing.simple/complex/critical` — Model routing by complexity
+- `evolution.enabled`, `evolution.evalIntervalSec`, `evolution.maxMutationRate`
+- `agents[]` — Agent definitions (id, type, model, systemPrompt, skills)
+
+Edge agent uses TOML (`agent.toml`):
+- `agent_id`, `agent_type`
+- `mqtt.broker`, `mqtt.port`
+- `trading.hyperliquid_api`, `trading.wallet_address`, `trading.max_position_size_usd`
+
+## Architecture
+
+```
+Orchestrator (Go) ←MQTT→ Edge Agents (Rust)
+     ↓                        ↓
+ LLM Providers          Hyperliquid API
+ (Anthropic/OpenAI/     (Trading)
+  Ollama/OpenRouter)
+     ↓
+ Channels (Telegram/MQTT)
+     ↓
+ Users
+```
+
+Components: HTTP API, Agent Registry, Memory Store, Model Router, Evolution Engine, Channel Adapters (Telegram, MQTT).
+
+## MQTT Topics
+
+- `evoclaw/agents/{id}/commands` — Orchestrator → Agent
+- `evoclaw/agents/{id}/reports` — Agent → Orchestrator
+- `evoclaw/agents/{id}/status` — Heartbeats
+- `evoclaw/broadcast` — Orchestrator → All
+
+## Evolution
+
+Fitness = 0.4×successRate + 0.3×profitScore + 0.2×costEfficiency + 0.1×speedScore.
+When fitness < 0.6, parameters mutate. EMA smoothing prevents false triggers. Full history for reversion.
+
+## License
+
+MIT

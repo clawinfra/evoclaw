@@ -7,6 +7,9 @@ use crate::llm::LLMClient;
 use crate::metrics::Metrics;
 use crate::monitor::Monitor;
 use crate::mqtt::{parse_command, MqttClient};
+use crate::paper::PaperTrader;
+use crate::risk::RiskManager;
+use crate::skills::registry::SkillRegistry;
 use crate::strategy::StrategyEngine;
 use crate::tools::EdgeTools;
 use crate::trading::{HyperliquidClient, PnLTracker};
@@ -128,6 +131,8 @@ impl EdgeAgent {
 
         // Heartbeat timer
         let mut heartbeat_interval = tokio::time::interval(Duration::from_secs(30));
+        // Skill tick timer (check every 5 seconds)
+        let mut skill_tick_interval = tokio::time::interval(Duration::from_secs(5));
 
         loop {
             tokio::select! {
@@ -157,6 +162,16 @@ impl EdgeAgent {
                         warn!(error = %e, "failed to send heartbeat");
                     }
                 }
+                // Tick skills
+                _ = skill_tick_interval.tick() => {
+                    let reports = self.skill_registry.tick_all().await;
+                    for report in reports {
+                        let report_json = serde_json::to_value(&report).unwrap_or_default();
+                        if let Err(e) = self.mqtt.report("skill_report", report_json).await {
+                            warn!(skill = %report.skill, error = %e, "failed to send skill report");
+                        }
+                    }
+                }
             }
         }
     }
@@ -176,6 +191,8 @@ mod tests {
         assert_eq!(agent.config.agent_id, "test_agent");
         assert_eq!(agent.config.agent_type, "trader");
         assert_eq!(agent.metrics.actions_total, 0);
+        assert!(agent.paper_trader.is_some()); // Default paper mode
+        assert!(agent.risk_manager.is_some());
     }
 
     #[tokio::test]
@@ -214,6 +231,9 @@ mod tests {
             private_key_path: "test.key".to_string(),
             max_position_size_usd: 5000.0,
             max_leverage: 5.0,
+            network_mode: crate::config::NetworkMode::Testnet,
+            trading_mode: crate::config::TradingMode::Live,
+            paper_log_path: "test.jsonl".to_string(),
         });
 
         let result = EdgeAgent::new(config).await;
@@ -221,6 +241,7 @@ mod tests {
 
         let (agent, _) = result.unwrap();
         assert!(agent.trading_client.is_some());
+        assert!(agent.paper_trader.is_none()); // Live mode
         assert!(agent.monitor.is_none());
     }
 
