@@ -112,11 +112,7 @@ pub async fn verify_hub(
         .map_err(|e| format!("cannot reach hub at {}:{} — {}", hub, port, e))?;
 
     if !resp.status().is_success() {
-        return Err(format!(
-            "hub returned HTTP {} — is EvoClaw running?",
-            resp.status()
-        )
-        .into());
+        return Err(format!("hub returned HTTP {} — is EvoClaw running?", resp.status()).into());
     }
 
     let status: HubStatus = resp
@@ -261,10 +257,7 @@ pub async fn run_join(opts: &JoinOptions) -> Result<JoinResult, Box<dyn std::err
     let hub_agents = hub_status.agents.unwrap_or(0);
 
     // Step 2: Generate or use provided agent ID
-    let agent_id = opts
-        .id
-        .clone()
-        .unwrap_or_else(generate_agent_id);
+    let agent_id = opts.id.clone().unwrap_or_else(generate_agent_id);
 
     // Step 3: Register with hub
     info!(agent_id = %agent_id, agent_type = %opts.agent_type, "registering with hub");
@@ -313,16 +306,10 @@ pub fn print_join_banner(result: &JoinResult, hub: &str, port: u16) {
         result.hub_agents,
         if result.hub_agents == 1 { "" } else { "s" }
     );
-    println!(
-        "  MQTT: {}:{} ✓",
-        result.mqtt_broker, result.mqtt_port
-    );
+    println!("  MQTT: {}:{} ✓", result.mqtt_broker, result.mqtt_port);
     println!("  Agent ID: {}", result.agent_id);
     println!("  Type: {}", result.agent_type);
-    println!(
-        "  Config: {} ✓",
-        result.config_path.display()
-    );
+    println!("  Config: {} ✓", result.config_path.display());
 }
 
 /// Print the started banner
@@ -424,23 +411,22 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let nested_dir = tmp.path().join("deep").join("nested").join(".evoclaw");
 
-        let path = write_config(
-            &nested_dir,
-            "hub",
-            "agent-1",
-            "sensor",
-            "hub",
-            1883,
-            8420,
-        )
-        .unwrap();
+        let path =
+            write_config(&nested_dir, "hub", "agent-1", "sensor", "hub", 1883, 8420).unwrap();
 
         assert!(path.exists());
     }
 
     #[test]
     fn test_build_config_monitor() {
-        let config = build_config("192.168.1.1", "test-mon", "monitor", "192.168.1.1", 1883, 8420);
+        let config = build_config(
+            "192.168.1.1",
+            "test-mon",
+            "monitor",
+            "192.168.1.1",
+            1883,
+            8420,
+        );
 
         assert_eq!(config.agent_id, "test-mon");
         assert_eq!(config.agent_type, "monitor");

@@ -14,9 +14,9 @@ use tracing::info;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaperPosition {
     pub coin: String,
-    pub size: f64,         // Signed: positive = long, negative = short
-    pub entry_price: f64,  // Average entry price
-    pub notional: f64,     // Current notional value
+    pub size: f64,        // Signed: positive = long, negative = short
+    pub entry_price: f64, // Average entry price
+    pub notional: f64,    // Current notional value
     pub unrealized_pnl: f64,
 }
 
@@ -172,14 +172,11 @@ impl PaperTrader {
     /// Fill an order at the given price
     fn fill_order(&mut self, oid: u64, fill_price: f64) {
         // Extract order data first to avoid borrow conflicts
-        let order_data = self.orders.iter().find(|o| o.oid == oid).map(|o| {
-            (
-                o.status,
-                o.coin.clone(),
-                o.is_buy,
-                o.size,
-            )
-        });
+        let order_data = self
+            .orders
+            .iter()
+            .find(|o| o.oid == oid)
+            .map(|o| (o.status, o.coin.clone(), o.is_buy, o.size));
 
         let (_status, coin, is_buy, size) = match order_data {
             Some(data) if data.0 == PaperOrderStatus::Open => data,

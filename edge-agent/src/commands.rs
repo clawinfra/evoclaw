@@ -7,7 +7,7 @@ use crate::evolution::TradeRecord;
 use crate::mqtt::AgentCommand;
 use crate::risk::RiskDecision;
 use crate::strategy::{FundingArbitrage, MeanReversion};
-use crate::trading::{CancelOrderRequest, ModifyOrderRequest, PlaceOrderRequest, TimeInForce};
+use crate::trading::{PlaceOrderRequest, TimeInForce};
 
 /// Command handler result
 pub type CommandResult = Result<Value, Box<dyn std::error::Error>>;
@@ -86,14 +86,35 @@ impl EdgeAgent {
                             }))
                         }
                         Some("place_order") => {
-                            let coin = cmd.payload.get("coin").and_then(|v| v.as_str()).ok_or("missing coin")?;
-                            let is_buy = cmd.payload.get("is_buy").and_then(|v| v.as_bool()).ok_or("missing is_buy")?;
-                            let price = cmd.payload.get("price").and_then(|v| v.as_str()).ok_or("missing price")?;
-                            let size = cmd.payload.get("size").and_then(|v| v.as_str()).ok_or("missing size")?;
+                            let coin = cmd
+                                .payload
+                                .get("coin")
+                                .and_then(|v| v.as_str())
+                                .ok_or("missing coin")?;
+                            let is_buy = cmd
+                                .payload
+                                .get("is_buy")
+                                .and_then(|v| v.as_bool())
+                                .ok_or("missing is_buy")?;
+                            let price = cmd
+                                .payload
+                                .get("price")
+                                .and_then(|v| v.as_str())
+                                .ok_or("missing price")?;
+                            let size = cmd
+                                .payload
+                                .get("size")
+                                .and_then(|v| v.as_str())
+                                .ok_or("missing size")?;
 
                             let req = PlaceOrderRequest {
-                                coin: coin.to_string(), is_buy, price: price.to_string(), size: size.to_string(),
-                                reduce_only: false, tif: TimeInForce::Gtc, cloid: None,
+                                coin: coin.to_string(),
+                                is_buy,
+                                price: price.to_string(),
+                                size: size.to_string(),
+                                reduce_only: false,
+                                tif: TimeInForce::Gtc,
+                                cloid: None,
                             };
                             let response = client.place_order(&req).await?;
                             Ok(serde_json::json!({
@@ -609,6 +630,199 @@ impl EdgeAgent {
             "request_id": cmd.request_id
         }))
     }
+    /// Handle trade commands — delegates to paper or live trading
+    pub async fn handle_trade(&mut self, cmd: &AgentCommand) -> CommandResult {
+        let action = cmd
+            .payload
+            .get("action")
+            .and_then(|v| v.as_str())
+            .unwrap_or("status");
+
+        // Check risk before executing trades
+        if action == "place_order" {
+            if let Some(ref mut rm) = self.risk_manager {
+                let size_usd = cmd
+                    .payload
+                    .get("size_usd")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                let decision = rm.check_order(size_usd, true);
+                if !decision.is_allowed() {
+                    return Ok(serde_json::json!({
+                        "status": "rejected",
+                        "reason": format!("{:?}", decision),
+                        "request_id": cmd.request_id
+                    }));
+                }
+            }
+        }
+
+        // Delegate to paper trader if available
+        if let Some(ref mut pt) = self.paper_trader {
+            match action {
+                "place_order" => {
+                    let coin = cmd
+                        .payload
+                        .get("coin")
+                        .and_then(|v| v.as_str())
+                        .ok_or("missing coin")?;
+                    let is_buy = cmd
+                        .payload
+                        .get("is_buy")
+                        .and_then(|v| v.as_bool())
+                        .ok_or("missing is_buy")?;
+                    let price = cmd
+                        .payload
+                        .get("price")
+                        .and_then(|v| v.as_f64())
+                        .ok_or("missing price")?;
+                    let size = cmd
+                        .payload
+                        .get("size")
+                        .and_then(|v| v.as_f64())
+                        .ok_or("missing size")?;
+                    let oid = pt.place_order(coin, is_buy, price, size, false);
+                    Ok(serde_json::json!({
+                        "status": "success",
+                        "mode": "paper",
+                        "order_id": oid,
+                        "request_id": cmd.request_id
+                    }))
+                }
+                "positions" => {
+                    let positions = pt.get_positions();
+                    Ok(serde_json::json!({
+                        "status": "success",
+                        "mode": "paper",
+                        "positions": positions,
+                        "request_id": cmd.request_id
+                    }))
+                }
+                "balance" => Ok(serde_json::json!({
+                    "status": "success",
+                    "mode": "paper",
+                    "balance": pt.balance(),
+                    "request_id": cmd.request_id
+                })),
+                _ => Ok(serde_json::json!({
+                    "status": "success",
+                    "mode": "paper",
+                    "note": "specify action: place_order, positions, balance",
+                    "request_id": cmd.request_id
+                })),
+            }
+        } else if let Some(ref client) = self.trading_client {
+            // Live trading
+            match action {
+                "get_prices" => {
+                    let prices = client.get_prices().await?;
+                    Ok(serde_json::json!({ "status": "success", "mode": "live", "prices": prices }))
+                }
+                "get_positions" => {
+                    let positions = client.get_positions().await?;
+                    Ok(
+                        serde_json::json!({ "status": "success", "mode": "live", "positions": positions }),
+                    )
+                }
+                _ => Ok(serde_json::json!({
+                    "status": "error",
+                    "error": "unsupported live trade action",
+                    "request_id": cmd.request_id
+                })),
+            }
+        } else {
+            Err("no trading client or paper trader initialized".into())
+        }
+    }
+
+    /// Handle risk management commands
+    pub async fn handle_risk(&mut self, cmd: &AgentCommand) -> CommandResult {
+        let action = cmd
+            .payload
+            .get("action")
+            .and_then(|v| v.as_str())
+            .unwrap_or("status");
+
+        let rm = self
+            .risk_manager
+            .as_mut()
+            .ok_or("risk manager not initialized")?;
+
+        match action {
+            "status" => Ok(serde_json::json!({
+                "status": "success",
+                "daily_pnl": rm.daily_pnl(),
+                "consecutive_losses": rm.consecutive_losses(),
+                "emergency_stopped": rm.is_emergency_stopped(),
+                "request_id": cmd.request_id
+            })),
+            "emergency_stop" => {
+                rm.emergency_stop();
+                Ok(serde_json::json!({
+                    "status": "success",
+                    "action": "emergency_stop_activated",
+                    "request_id": cmd.request_id
+                }))
+            }
+            "reset_emergency" => {
+                rm.clear_emergency_stop();
+                Ok(serde_json::json!({
+                    "status": "success",
+                    "action": "emergency_stop_cleared",
+                    "request_id": cmd.request_id
+                }))
+            }
+            _ => Ok(serde_json::json!({
+                "status": "success",
+                "note": "specify action: status, emergency_stop, reset_emergency",
+                "request_id": cmd.request_id
+            })),
+        }
+    }
+
+    /// Handle skill management commands
+    pub async fn handle_skill(&mut self, cmd: &AgentCommand) -> CommandResult {
+        let action = cmd.payload.get("action").and_then(|v| v.as_str());
+        let skill_name = cmd.payload.get("skill").and_then(|v| v.as_str());
+
+        match action {
+            Some("list") => {
+                let skills = self.skill_registry.list_skills();
+                Ok(serde_json::json!({
+                    "status": "success",
+                    "skills": skills,
+                    "count": skills.len(),
+                    "request_id": cmd.request_id
+                }))
+            }
+            Some("status") => {
+                let name = skill_name.ok_or("missing skill name")?;
+                let skills = self.skill_registry.list_skills();
+                let info = skills
+                    .into_iter()
+                    .find(|s| s.name == name)
+                    .ok_or_else(|| format!("skill '{}' not found", name))?;
+                Ok(serde_json::json!({
+                    "status": "success",
+                    "skill": name,
+                    "info": info,
+                    "request_id": cmd.request_id
+                }))
+            }
+            None => Ok(serde_json::json!({
+                "status": "error",
+                "error": "missing action field",
+                "note": "specify action: list, status",
+                "request_id": cmd.request_id
+            })),
+            _ => Ok(serde_json::json!({
+                "status": "error",
+                "error": format!("unknown skill action: {}", action.unwrap_or("")),
+                "request_id": cmd.request_id
+            })),
+        }
+    }
+
     async fn handle_shutdown(&self, _cmd: &AgentCommand) -> CommandResult {
         warn!("shutdown command received");
         std::process::exit(0);
@@ -820,7 +1034,7 @@ impl EdgeAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Config, MonitorConfig, TradingConfig, RiskConfig};
+    use crate::config::{Config, MonitorConfig, RiskConfig, TradingConfig};
     use crate::mqtt::AgentCommand;
 
     fn create_test_agent_config(agent_type: &str) -> Config {
@@ -1593,7 +1807,7 @@ mod tests {
     async fn test_handle_skill_list() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "skill".to_string(),
             payload: serde_json::json!({
@@ -1601,7 +1815,7 @@ mod tests {
             }),
             request_id: "req_skill_list".to_string(),
         };
-        
+
         let result = agent.handle_skill(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -1613,13 +1827,13 @@ mod tests {
     async fn test_handle_skill_missing_fields() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "skill".to_string(),
             payload: serde_json::json!({}),
             request_id: "req_skill_bad".to_string(),
         };
-        
+
         let result = agent.handle_skill(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
@@ -1630,7 +1844,7 @@ mod tests {
     async fn test_handle_skill_nonexistent() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "skill".to_string(),
             payload: serde_json::json!({
@@ -1639,48 +1853,48 @@ mod tests {
             }),
             request_id: "req_skill_noexist".to_string(),
         };
-        
+
         let result = agent.handle_skill(&cmd).await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn test_handle_skill_with_config() {
-        use crate::config::{SkillsConfig, SystemMonitorSkillConfig};
+        use crate::config::{ClawChainSkillConfig, SkillsConfig};
         let mut config = create_test_agent_config("monitor");
         config.skills = Some(SkillsConfig {
-            system_monitor: Some(SystemMonitorSkillConfig {
+            clawchain: Some(ClawChainSkillConfig {
                 enabled: true,
-                tick_interval_secs: Some(30),
+                node_url: "http://localhost:9933".to_string(),
+                agent_did: None,
+                tick_interval_secs: 30,
             }),
-            gpio: None,
-            price_monitor: None,
         });
-        
+
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
         assert_eq!(agent.skill_registry.skill_count(), 1);
-        
+
         let cmd = AgentCommand {
             command: "skill".to_string(),
             payload: serde_json::json!({
-                "skill": "system_monitor",
+                "skill": "clawchain",
                 "action": "status"
             }),
-            request_id: "req_skill_sysmon".to_string(),
+            request_id: "req_skill_cc".to_string(),
         };
-        
+
         let result = agent.handle_skill(&cmd).await;
         assert!(result.is_ok());
         let response = result.unwrap();
         assert_eq!(response["status"], "success");
-        assert_eq!(response["skill"], "system_monitor");
+        assert_eq!(response["skill"], "clawchain");
     }
 
     #[tokio::test]
     async fn test_handle_command_skill_integration() {
         let config = create_test_agent_config("trader");
         let (mut agent, _) = EdgeAgent::new(config).await.unwrap();
-        
+
         let cmd = AgentCommand {
             command: "skill".to_string(),
             payload: serde_json::json!({
@@ -1688,7 +1902,7 @@ mod tests {
             }),
             request_id: "req_skill_cmd".to_string(),
         };
-        
+
         // Test that handle_command dispatches to skill handler
         agent.handle_command(cmd).await;
         assert_eq!(agent.metrics.actions_success, 1);

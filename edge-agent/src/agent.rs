@@ -25,6 +25,9 @@ pub struct EdgeAgent {
     pub evolution_tracker: EvolutionTracker,
     pub llm_client: Option<LLMClient>,
     pub tools: EdgeTools,
+    pub paper_trader: Option<PaperTrader>,
+    pub risk_manager: Option<RiskManager>,
+    pub skill_registry: SkillRegistry,
 }
 
 impl EdgeAgent {
@@ -65,6 +68,43 @@ impl EdgeAgent {
             "edge tools initialized"
         );
 
+        // Initialize paper trader if in paper mode
+        let paper_trader = config.trading.as_ref().and_then(|tc| {
+            if tc.trading_mode == crate::config::TradingMode::Paper {
+                Some(PaperTrader::new(10000.0, tc.paper_log_path.clone()))
+            } else {
+                None
+            }
+        });
+
+        // Initialize risk manager
+        let risk_manager = config.risk.clone().map(RiskManager::new).or_else(|| {
+            // Default risk manager for trader agents
+            if config.agent_type == "trader" {
+                Some(RiskManager::new(crate::config::RiskConfig::default()))
+            } else {
+                None
+            }
+        });
+
+        // Initialize skill registry
+        let mut skill_registry = SkillRegistry::new();
+
+        // Register skills from config
+        if let Some(ref skills_config) = config.skills {
+            if let Some(ref cc) = skills_config.clawchain {
+                if cc.enabled {
+                    use crate::skills::clawchain::ClawChainSkill;
+                    skill_registry.register(Box::new(ClawChainSkill::new(
+                        config.agent_id.clone(),
+                        cc.agent_did.clone(),
+                        cc.node_url.clone(),
+                        cc.tick_interval_secs,
+                    )));
+                }
+            }
+        }
+
         let agent = Self {
             config,
             mqtt,
@@ -76,6 +116,9 @@ impl EdgeAgent {
             evolution_tracker,
             llm_client,
             tools,
+            paper_trader,
+            risk_manager,
+            skill_registry,
         };
 
         Ok((agent, eventloop))

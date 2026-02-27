@@ -2,18 +2,23 @@ mod agent;
 mod commands;
 mod config;
 mod evolution;
+mod firewall;
 mod genome;
+mod join;
 mod llm;
 mod metrics;
 mod monitor;
 mod mqtt;
 mod paper;
 mod risk;
+mod security;
+mod session;
 mod signing;
 mod skills;
 mod strategy;
 mod tools;
 mod trading;
+mod wal;
 
 use std::path::PathBuf;
 
@@ -22,7 +27,7 @@ use tracing::info;
 
 use agent::EdgeAgent;
 use config::Config;
-use join::{JoinOptions, run_join, print_join_banner, print_started_banner};
+use join::{print_join_banner, print_started_banner, run_join, JoinOptions};
 
 /// EvoClaw Edge Agent - lightweight agent runtime for edge devices
 #[derive(Parser, Debug)]
@@ -110,9 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             no_start,
         }) => {
             // Resolve config directory
-            let config_dir = config_dir.unwrap_or_else(|| {
-                dirs_or_home().join(".evoclaw")
-            });
+            let config_dir = config_dir.unwrap_or_else(|| dirs_or_home().join(".evoclaw"));
 
             let opts = JoinOptions {
                 hub: hub.clone(),

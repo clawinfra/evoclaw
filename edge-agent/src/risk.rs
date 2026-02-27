@@ -67,11 +67,7 @@ impl RiskManager {
     }
 
     /// Check if a new order is allowed
-    pub fn check_order(
-        &mut self,
-        position_size_usd: f64,
-        is_new_position: bool,
-    ) -> RiskDecision {
+    pub fn check_order(&mut self, position_size_usd: f64, is_new_position: bool) -> RiskDecision {
         self.maybe_reset_daily();
 
         // Emergency stop
@@ -149,8 +145,7 @@ impl RiskManager {
 
             // Check if we need to enter cooldown
             if self.consecutive_losses >= self.config.consecutive_loss_limit {
-                let cooldown_duration =
-                    Duration::from_secs(self.config.cooldown_after_losses_secs);
+                let cooldown_duration = Duration::from_secs(self.config.cooldown_after_losses_secs);
                 self.cooldown_until = Some(Instant::now() + cooldown_duration);
                 let msg = format!(
                     "entering cooldown for {}s after {} consecutive losses",

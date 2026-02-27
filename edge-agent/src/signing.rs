@@ -345,9 +345,15 @@ mod tests {
     async fn test_sign_l1_action_invalid_key() {
         let action = serde_json::json!({"type": "order"});
 
-        let result =
-            sign_l1_action("not_a_valid_key", &action, None, 1000, None, NetworkMode::Testnet)
-                .await;
+        let result = sign_l1_action(
+            "not_a_valid_key",
+            &action,
+            None,
+            1000,
+            None,
+            NetworkMode::Testnet,
+        )
+        .await;
 
         assert!(result.is_err());
     }
