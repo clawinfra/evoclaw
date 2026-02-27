@@ -454,7 +454,7 @@ func (m *MQTTChannel) handleMessage(client mqtt.Client, mqttMsg mqtt.Message) {
 		SentAt   int64             `json:"sent_at"`
 	}
 
-	if err := json.Unmarshal(raw, &payload); err != nil {
+	if err := json.Unmarshal(mqttMsg.Payload(), &payload); err != nil {
 		m.logger.Error("failed to parse mqtt message", "error", err)
 		return
 	}

@@ -12,8 +12,11 @@ import (
 
 	"github.com/clawinfra/evoclaw/internal/agents"
 	"github.com/clawinfra/evoclaw/internal/channels"
+	"github.com/clawinfra/evoclaw/internal/cloud"
+	"github.com/clawinfra/evoclaw/internal/config"
 	"github.com/clawinfra/evoclaw/internal/models"
 	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/saas"
 	"github.com/clawinfra/evoclaw/internal/security"
 )
 
@@ -32,6 +35,8 @@ type Server struct {
 	httpChannel *channels.HTTPChannel // HTTP channel for request-response pairs
 	wsChannel   *channels.WSChannel   // WebSocket channel for terminal connections
 	wsTimeout   time.Duration         // timeout for WS chat responses (default 30 s)
+	cloudMgr    *cloud.Manager        // E2B cloud sandbox manager
+	saasSvc     *saas.Service         // Multi-tenant SaaS service
 }
 
 // NewServer creates a new API server
@@ -78,11 +83,6 @@ func (s *Server) SetWebFS(webFS fs.FS) {
 // SetEvolution sets the evolution engine interface
 func (s *Server) SetEvolution(evolution interface{}) {
 	s.evolution = evolution
-}
-
-// SetWebFS sets the embedded filesystem for the web dashboard
-func (s *Server) SetWebFS(webFS fs.FS) {
-	s.webFS = webFS
 }
 
 // Start starts the HTTP server
@@ -624,4 +624,9 @@ func (s *Server) respondJSON(w http.ResponseWriter, data interface{}) {
 		s.logger.Error("failed to encode JSON", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
+}
+
+// generateMessageID creates a unique message ID
+func generateMessageID() string {
+	return "msg_" + strings.ReplaceAll(time.Now().Format("20060102150405.000000"), ".", "_")
 }

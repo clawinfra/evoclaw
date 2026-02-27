@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/clawinfra/evoclaw/internal/types"
 )
 
 // ChatSyncRequest represents a synchronous chat request
@@ -188,4 +190,49 @@ func (o *Orchestrator) GetAgentInfo(agentID string) *AgentInfo {
 		Metrics:      agent.Metrics,
 	}
 	return info
+}
+
+// BotGetAgentInfo returns agent info as types.AgentInfo for the channels.AgentOrchestrator interface.
+func (o *Orchestrator) BotGetAgentInfo(agentID string) *types.AgentInfo {
+	info := o.GetAgentInfo(agentID)
+	if info == nil {
+		return nil
+	}
+	return &types.AgentInfo{
+		ID:           info.ID,
+		Name:         info.Def.Name,
+		Model:        info.Def.Model,
+		Status:       info.Status,
+		StartedAt:    info.StartedAt,
+		LastActive:   info.LastActive,
+		MessageCount: info.MessageCount,
+		ErrorCount:   info.ErrorCount,
+		Metrics: types.AgentMetrics{
+			TotalActions:      info.Metrics.TotalActions,
+			SuccessfulActions: info.Metrics.SuccessfulActions,
+			FailedActions:     info.Metrics.FailedActions,
+			TokensUsed:        info.Metrics.TokensUsed,
+			AvgResponseMs:     info.Metrics.AvgResponseMs,
+			CostUSD:           info.Metrics.CostUSD,
+		},
+	}
+}
+
+// BotChatSync wraps ChatSync for the channels.AgentOrchestrator interface.
+func (o *Orchestrator) BotChatSync(ctx context.Context, req types.BotChatSyncRequest) (*types.BotChatSyncResponse, error) {
+	resp, err := o.ChatSync(ctx, ChatSyncRequest{
+		AgentID:        req.AgentID,
+		UserID:         req.UserID,
+		Message:        req.Message,
+		ConversationID: req.ConversationID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &types.BotChatSyncResponse{
+		AgentID:   resp.AgentID,
+		Response:  resp.Response,
+		Model:     resp.Model,
+		ElapsedMs: resp.ElapsedMs,
+	}, nil
 }

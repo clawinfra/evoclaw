@@ -1,0 +1,107 @@
+{
+  "server": {
+    "port": 8420,
+    "dataDir": "./data",
+    "logLevel": "info"
+  },
+  "mqtt": {
+    "port": 1883,
+    "host": "0.0.0.0"
+  },
+  "channels": {},
+  "models": {
+    "providers": null,
+    "routing": {
+      "simple": "local/small",
+      "complex": "anthropic/claude-sonnet",
+      "critical": "anthropic/claude-opus"
+    },
+    "health": {
+      "persistPath": "",
+      "failureThreshold": 0,
+      "cooldownMinutes": 0
+    }
+  },
+  "evolution": {
+    "enabled": true,
+    "evalIntervalSec": 3600,
+    "minSamplesForEval": 10,
+    "maxMutationRate": 0.2
+  },
+  "onchain": {
+    "enabled": false,
+    "rpcUrl": "",
+    "contractAddress": "",
+    "chainId": 0
+  },
+  "clawchain": {
+    "autoDiscover": false,
+    "nodeUrl": ""
+  },
+  "cloudSync": {
+    "enabled": false,
+    "databaseUrl": "",
+    "authToken": "",
+    "heartbeatIntervalSeconds": 0,
+    "criticalSyncEnabled": false,
+    "warmSyncIntervalMinutes": 0,
+    "fullSyncIntervalHours": 0,
+    "fullSyncRequireWifi": false,
+    "maxOfflineQueueSize": 0
+  },
+  "memory": {
+    "enabled": false,
+    "tree": {
+      "maxNodes": 0,
+      "maxDepth": 0,
+      "maxSizeBytes": 0,
+      "rebuildIntervalDays": 0
+    },
+    "hot": {
+      "maxSizeBytes": 0,
+      "maxLessons": 0,
+      "maxActiveProjects": 0
+    },
+    "warm": {
+      "maxSizeKb": 0,
+      "retentionDays": 0,
+      "evictionThreshold": 0,
+      "backend": ""
+    },
+    "cold": {
+      "backend": "",
+      "databaseUrl": "",
+      "authToken": "",
+      "retentionYears": 0
+    },
+    "distillation": {
+      "aggression": 0,
+      "model": "",
+      "maxDistilledBytes": 0
+    },
+    "scoring": {
+      "halfLifeDays": 0,
+      "reinforcementBoost": 0
+    }
+  },
+  "scheduler": {
+    "enabled": false,
+    "jobs": null
+  },
+  "updates": {
+    "enabled": true,
+    "autoInstall": false,
+    "checkInterval": 86400,
+    "includePrereleases": false
+  },
+  "agents": null,
+  "cloud": {
+    "enabled": false,
+    "defaultTemplate": "",
+    "defaultTimeoutSec": 0,
+    "maxAgents": 0,
+    "healthCheckIntervalSec": 0,
+    "keepAliveIntervalSec": 0,
+    "creditBudgetUsd": 0
+  }
+}

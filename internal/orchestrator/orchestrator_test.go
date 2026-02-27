@@ -121,6 +121,12 @@ func (m *mockProvider) setResponse(model, response string) {
 	m.responses[model] = response
 }
 
+func (m *mockProvider) getCalls() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.calls
+}
+
 // Mock EvolutionEngine
 type mockEvolution struct {
 	strategies map[string]interface{}

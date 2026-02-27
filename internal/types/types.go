@@ -63,3 +63,19 @@ type AgentInfo struct {
 	ErrorCount   int64
 	Metrics      AgentMetrics
 }
+
+// BotChatSyncRequest is used by channels.TelegramBot to call orchestrator without import cycles.
+type BotChatSyncRequest struct {
+	AgentID        string
+	UserID         string
+	Message        string
+	ConversationID string
+}
+
+// BotChatSyncResponse is the response from a bot chat sync call.
+type BotChatSyncResponse struct {
+	AgentID   string
+	Response  string
+	Model     string
+	ElapsedMs int64
+}

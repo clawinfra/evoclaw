@@ -10,15 +10,20 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/clawinfra/evoclaw/internal/orchestrator"
+	"github.com/clawinfra/evoclaw/internal/types"
 )
 
+// AgentOrchestrator is the interface TelegramBot uses to avoid importing orchestrator.
+type AgentOrchestrator interface {
+	ListAgents() []types.AgentInfo
+	BotGetAgentInfo(agentID string) *types.AgentInfo
+	BotChatSync(ctx context.Context, req types.BotChatSyncRequest) (*types.BotChatSyncResponse, error)
+}
+
 // TelegramBot wraps TelegramChannel with bot command handling and LLM routing.
-// It intercepts incoming messages, handles /commands, and routes regular messages
-// to agents via ChatSync.
 type TelegramBot struct {
 	channel      *TelegramChannel
-	orch         *orchestrator.Orchestrator
+	orch         AgentOrchestrator
 	logger       *slog.Logger
 	defaultAgent string
 	allowedUsers []int64
@@ -33,7 +38,7 @@ type TelegramBot struct {
 // NewTelegramBot creates a new Telegram bot with command handling
 func NewTelegramBot(
 	channel *TelegramChannel,
-	orch *orchestrator.Orchestrator,
+	orch AgentOrchestrator,
 	defaultAgent string,
 	allowedUsers []int64,
 	logger *slog.Logger,
@@ -89,7 +94,7 @@ func (b *TelegramBot) processLoop() {
 }
 
 // handleMessage dispatches a message to the appropriate handler
-func (b *TelegramBot) handleMessage(msg orchestrator.Message) {
+func (b *TelegramBot) handleMessage(msg types.Message) {
 	// Check allowed users
 	if !b.isUserAllowed(msg.From) {
 		b.logger.Warn("message from unauthorized user", "user", msg.From, "username", msg.Metadata["username"])
@@ -158,7 +163,7 @@ func ParseCommand(text string) (command string, args string) {
 }
 
 // handleCommand processes bot commands
-func (b *TelegramBot) handleCommand(content, chatID string, msg orchestrator.Message) {
+func (b *TelegramBot) handleCommand(content, chatID string, msg types.Message) {
 	command, args := ParseCommand(content)
 
 	b.logger.Info("bot command received",
@@ -228,8 +233,8 @@ func (b *TelegramBot) handleStatusCommand(chatID string) {
 		case "running":
 			emoji = "🔵"
 		}
-		text += fmt.Sprintf("%s *%s* (%s)\n", emoji, a.ID, a.Def.Type)
-		text += fmt.Sprintf("   Model: `%s`\n", a.Def.Model)
+		text += fmt.Sprintf("%s *%s* (%s)\n", emoji, a.ID, a.Status)
+		text += fmt.Sprintf("   Model: `%s`\n", a.Model)
 		text += fmt.Sprintf("   Messages: %d | Errors: %d\n", a.MessageCount, a.ErrorCount)
 		if a.Metrics.TotalActions > 0 {
 			successRate := float64(a.Metrics.SuccessfulActions) / float64(a.Metrics.TotalActions) * 100
@@ -252,7 +257,7 @@ func (b *TelegramBot) handleAgentsCommand(chatID string) {
 
 	text := "🤖 *Available Agents:*\n\n"
 	for _, a := range agents {
-		text += fmt.Sprintf("• `%s` — %s (%s)\n", a.ID, a.Def.Name, a.Def.Type)
+		text += fmt.Sprintf("• `%s` — %s (%s)\n", a.ID, a.Name, a.Status)
 	}
 	text += fmt.Sprintf("\nUse /agent <id> to switch.\nCurrent: `%s`", b.defaultAgent)
 
@@ -267,7 +272,7 @@ func (b *TelegramBot) handleAgentSwitchCommand(chatID, agentID, userID string) {
 	}
 
 	// Verify agent exists
-	info := b.orch.GetAgentInfo(agentID)
+	info := b.orch.BotGetAgentInfo(agentID)
 	if info == nil {
 		b.sendText(chatID, fmt.Sprintf("❌ Agent not found: %s\nUse /agents to see available agents.", agentID))
 		return
@@ -277,7 +282,7 @@ func (b *TelegramBot) handleAgentSwitchCommand(chatID, agentID, userID string) {
 	b.userAgents[userID] = agentID
 	b.mu.Unlock()
 
-	b.sendMarkdown(chatID, fmt.Sprintf("✅ Switched to agent `%s` (%s)", agentID, info.Def.Type))
+	b.sendMarkdown(chatID, fmt.Sprintf("✅ Switched to agent `%s` (%s)", agentID, info.Status))
 }
 
 // handleSkillsCommand lists an agent's skills
@@ -286,26 +291,18 @@ func (b *TelegramBot) handleSkillsCommand(chatID, agentID string) {
 		agentID = b.defaultAgent
 	}
 
-	info := b.orch.GetAgentInfo(agentID)
+	info := b.orch.BotGetAgentInfo(agentID)
 	if info == nil {
 		b.sendText(chatID, fmt.Sprintf("❌ Agent not found: %s", agentID))
 		return
 	}
 
-	text := fmt.Sprintf("🎯 *Skills for %s:*\n\n", agentID)
-	if len(info.Def.Skills) == 0 {
-		text += "No skills configured."
-	} else {
-		for _, skill := range info.Def.Skills {
-			text += fmt.Sprintf("• `%s`\n", skill)
-		}
-	}
-
+	text := fmt.Sprintf("🎯 *Skills for %s:*\n\n(Skills managed by agent definition)", agentID)
 	b.sendMarkdown(chatID, text)
 }
 
 // handleChatMessage sends a regular message to an agent via ChatSync
-func (b *TelegramBot) handleChatMessage(content, chatID string, msg orchestrator.Message) {
+func (b *TelegramBot) handleChatMessage(content, chatID string, msg types.Message) {
 	// Determine which agent to use
 	agentID := b.getAgentForUser(msg.From)
 
@@ -316,13 +313,13 @@ func (b *TelegramBot) handleChatMessage(content, chatID string, msg orchestrator
 	)
 
 	// Call ChatSync
-	req := orchestrator.ChatSyncRequest{
+	req := types.BotChatSyncRequest{
 		AgentID: agentID,
 		UserID:  msg.From,
 		Message: content,
 	}
 
-	resp, err := b.orch.ChatSync(b.ctx, req)
+	resp, err := b.orch.BotChatSync(b.ctx, req)
 	if err != nil {
 		b.logger.Error("chat sync failed", "error", err)
 		b.sendText(chatID, fmt.Sprintf("❌ Error: %v", err))

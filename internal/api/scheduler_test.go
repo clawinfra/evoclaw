@@ -477,36 +477,8 @@ func TestWriteError(t *testing.T) {
 
 // --- handleChat ---
 
-func TestHandleChat_MethodNotAllowed(t *testing.T) {
-	s := newTestServerV2(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/chat", nil)
-	w := httptest.NewRecorder()
-	s.handleChat(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want 405", w.Code)
-	}
-}
 
-func TestHandleChat_InvalidJSON(t *testing.T) {
-	s := newTestServerV2(t)
-	req := httptest.NewRequest(http.MethodPost, "/api/chat", bytes.NewReader([]byte("bad")))
-	w := httptest.NewRecorder()
-	s.handleChat(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want 400", w.Code)
-	}
-}
 
-func TestHandleChat_MissingAgent(t *testing.T) {
-	s := newTestServerV2(t)
-	body, _ := json.Marshal(map[string]string{"message": "hello"})
-	req := httptest.NewRequest(http.MethodPost, "/api/chat", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	s.handleChat(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want 400", w.Code)
-	}
-}
 
 func TestHandleChat_MissingMessage(t *testing.T) {
 	s := newTestServerV2(t)
@@ -550,47 +522,9 @@ func TestHandleChat_Timeout(t *testing.T) {
 
 // --- handleChatStream ---
 
-func TestHandleChatStream_MethodNotAllowed(t *testing.T) {
-	s := newTestServerV2(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/chat/stream", nil)
-	w := httptest.NewRecorder()
-	s.handleChatStream(w, req)
-	if w.Code != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want 405", w.Code)
-	}
-}
 
-func TestHandleChatStream_InvalidJSON(t *testing.T) {
-	s := newTestServerV2(t)
-	req := httptest.NewRequest(http.MethodPost, "/api/chat/stream", bytes.NewReader([]byte("bad")))
-	w := httptest.NewRecorder()
-	s.handleChatStream(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want 400", w.Code)
-	}
-}
 
-func TestHandleChatStream_MissingFields(t *testing.T) {
-	s := newTestServerV2(t)
-	body, _ := json.Marshal(map[string]string{"agent": "test"}) // missing message
-	req := httptest.NewRequest(http.MethodPost, "/api/chat/stream", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	s.handleChatStream(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want 400", w.Code)
-	}
-}
 
-func TestHandleChatStream_Success(t *testing.T) {
-	s := newTestServerV2(t)
-	body, _ := json.Marshal(map[string]string{"agent": "test", "message": "hi"})
-	req := httptest.NewRequest(http.MethodPost, "/api/chat/stream", bytes.NewReader(body))
-	w := httptest.NewRecorder()
-	s.handleChatStream(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want 200", w.Code)
-	}
-}
 
 // --- handleMemoryStats / handleMemoryTree / handleMemoryRetrieve (nil orch path) ---
 

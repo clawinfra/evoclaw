@@ -155,6 +155,7 @@ type Orchestrator struct {
 	mqttChannel *channels.MQTTChannel
 	// Security policy for workspace sandboxing
 	securityPolicy *security.SecurityPolicy
+	reporter       AgentReporter
 }
 
 // New creates a new Orchestrator
