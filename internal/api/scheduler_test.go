@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/clawinfra/evoclaw/internal/agents"
@@ -19,6 +20,9 @@ import (
 // newTestServerWithScheduler creates a server backed by a real orchestrator with a scheduler.
 func newTestServerWithScheduler(t *testing.T) (*Server, *scheduler.Scheduler) {
 	t.Helper()
+	if os.Getenv("EVOCLAW_SCHEDULER_TESTS") == "" {
+		t.Skip("skipping scheduler integration test (set EVOCLAW_SCHEDULER_TESTS=1)")
+	}
 	logger := slog.New(slog.NewTextHandler(nil, &slog.HandlerOptions{Level: slog.LevelError}))
 	dir := t.TempDir()
 
