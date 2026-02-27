@@ -266,3 +266,79 @@ func TestChainAddOverride(t *testing.T) {
 		t.Errorf("ChainID = %d, want 97 from preset", chain.ChainID)
 	}
 }
+
+func TestChainStatus(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "evoclaw.json")
+
+	cfg := config.DefaultConfig()
+	cfg.AddChain("bsc-testnet", config.ChainConfig{
+		Enabled: true,
+		Type:    "evm",
+		Name:    "BSC Testnet",
+		RPCURL:  "http://127.0.0.1:19997", // unreachable — tests offline path
+	})
+	if err := cfg.Save(cfgPath); err != nil {
+		t.Fatalf("Failed to create config: %v", err)
+	}
+
+	args := []string{"status", "bsc-testnet"}
+	exitCode := ChainCommand(args, cfgPath)
+	// Should return 0 even when disconnected (just shows status)
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+}
+
+func TestChainStatusMissingID(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "evoclaw.json")
+	cfg := config.DefaultConfig()
+	if err := cfg.Save(cfgPath); err != nil {
+		t.Fatalf("Failed to create config: %v", err)
+	}
+
+	args := []string{"status"}
+	exitCode := ChainCommand(args, cfgPath)
+	if exitCode == 0 {
+		t.Error("Expected non-zero exit code for missing chain-id")
+	}
+}
+
+func TestChainStatusNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "evoclaw.json")
+	cfg := config.DefaultConfig()
+	if err := cfg.Save(cfgPath); err != nil {
+		t.Fatalf("Failed to create config: %v", err)
+	}
+
+	args := []string{"status", "does-not-exist"}
+	exitCode := ChainCommand(args, cfgPath)
+	if exitCode == 0 {
+		t.Error("Expected non-zero exit code for unknown chain")
+	}
+}
+
+func TestChainListNoCheck(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, "evoclaw.json")
+
+	cfg := config.DefaultConfig()
+	cfg.AddChain("polygon", config.ChainConfig{
+		Enabled: true,
+		Type:    "evm",
+		Name:    "Polygon",
+		RPCURL:  "https://polygon-rpc.com",
+	})
+	if err := cfg.Save(cfgPath); err != nil {
+		t.Fatalf("Failed to create config: %v", err)
+	}
+
+	// Use --no-check to avoid live network calls in tests
+	args := []string{"list", "--no-check"}
+	exitCode := ChainCommand(args, cfgPath)
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+}
