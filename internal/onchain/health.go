@@ -153,10 +153,7 @@ func substrateHTTPURL(rpc string) string {
 	return url
 }
 
-// substrateHeader is used to parse system_syncState result.
-type substrateHeader struct {
-	CurrentBlock uint64 `json:"currentBlock"`
-}
+
 
 func checkSubstrateHealth(ctx context.Context, cfg ChainConfig) HealthResult {
 	res := HealthResult{ChainID: cfg.ID, ChainName: cfg.Name}
