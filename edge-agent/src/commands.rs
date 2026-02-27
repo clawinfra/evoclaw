@@ -5,7 +5,6 @@ use tracing::{info, warn};
 use crate::agent::EdgeAgent;
 use crate::evolution::TradeRecord;
 use crate::mqtt::AgentCommand;
-use crate::risk::RiskDecision;
 use crate::strategy::{FundingArbitrage, MeanReversion};
 use crate::trading::{PlaceOrderRequest, TimeInForce};
 

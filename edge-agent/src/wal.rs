@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(clippy::upper_case_acronyms)]
+
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};

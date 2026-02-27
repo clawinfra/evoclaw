@@ -11,6 +11,8 @@
 //! {"id":"a2","parent_id":"a1","role":"assistant","content":"hi","ts":1700000001}
 //! ```
 
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};

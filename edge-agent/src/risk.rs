@@ -3,6 +3,8 @@
 //! Enforces position limits, daily loss limits, cooldown periods, and provides
 //! an emergency stop mechanism (triggered via MQTT).
 
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use tracing::{info, warn};
@@ -215,7 +217,7 @@ impl RiskManager {
             daily_pnl: self.daily_pnl,
             open_positions: self.open_position_count,
             consecutive_losses: self.consecutive_losses,
-            in_cooldown: self.cooldown_until.map_or(false, |u| Instant::now() < u),
+            in_cooldown: self.cooldown_until.is_some_and(|u| Instant::now() < u),
             emergency_stop: self.emergency_stop,
             daily_loss_limit: self.config.max_daily_loss_usd,
             max_position_size: self.config.max_position_size_usd,

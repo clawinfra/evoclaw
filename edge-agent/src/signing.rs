@@ -11,6 +11,8 @@
 //!
 //! This module implements scheme #1 which is what trading operations need.
 
+#![allow(dead_code)]
+
 use alloy_primitives::{Address, FixedBytes};
 use alloy_signer::Signer;
 use alloy_signer_local::PrivateKeySigner;

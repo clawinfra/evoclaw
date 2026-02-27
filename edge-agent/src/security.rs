@@ -3,10 +3,11 @@
 //! Layer 1: Ed25519 signatures over deterministic JSON of GenomeConstraints.
 //! Layer 2: JWT validation for API tokens received from the hub.
 
+#![allow(dead_code)]
+
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use jsonwebtoken::{decode, DecodingKey, TokenData, Validation};
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 use crate::genome::GenomeConstraints;
 

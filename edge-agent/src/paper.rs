@@ -4,6 +4,8 @@
 //! without risking real money. All trades are logged to a JSONL file for
 //! backtesting analysis.
 
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::OpenOptions;

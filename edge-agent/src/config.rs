@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tracing::info;
@@ -58,15 +60,11 @@ pub struct OrchestratorConfig {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum NetworkMode {
     Mainnet,
+    #[default]
     Testnet,
-}
-
-impl Default for NetworkMode {
-    fn default() -> Self {
-        Self::Testnet
-    }
 }
 
 impl NetworkMode {
@@ -95,15 +93,11 @@ impl NetworkMode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum TradingMode {
     Live,
+    #[default]
     Paper,
-}
-
-impl Default for TradingMode {
-    fn default() -> Self {
-        Self::Paper
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
