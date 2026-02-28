@@ -428,6 +428,74 @@ data/
     └── assistant-1.json
 ```
 
+## SkillBank
+
+SkillBank implements SKILLRL-inspired hierarchical skill learning for EvoClaw agents. Inspired by the [SKILLRL paper (arXiv:2602.08234)](https://arxiv.org/abs/2602.08234), it enables agents to distill reusable skills from past trajectories, retrieve relevant knowledge for new tasks, and recursively evolve their skill base over time.
+
+### Architecture
+
+```
+internal/skillbank/
+├── types.go      — Core types (Skill, CommonMistake, Trajectory) + interfaces
+├── store.go      — File-backed JSONL store (thread-safe, atomic writes)
+├── distiller.go  — LLM-based skill distillation from agent trajectories
+├── retriever.go  — Keyword (TemplateRetriever) and embedding (EmbeddingRetriever) retrieval
+├── injector.go   — Formats skills for system-prompt injection
+└── updater.go    — Recursive skill evolution, pruning, and confidence tracking
+```
+
+### How It Works
+
+1. **Distillation** — After each task cycle, trajectories are sent to an LLM (default: `anthropic-proxy-6/glm-4.7`) which extracts reusable `Skill` objects and `CommonMistake` patterns.
+
+2. **Storage** — Skills are persisted as JSONL files on disk. Reads/writes are thread-safe via `sync.RWMutex`; writes are atomic via temp-file-then-rename.
+
+3. **Retrieval** — Before executing a task, the agent retrieves relevant skills:
+   - `TemplateRetriever`: zero-cost keyword overlap scoring (always available)
+   - `EmbeddingRetriever`: cosine similarity via a local embedding endpoint, falls back to `TemplateRetriever` if unavailable
+
+4. **Injection** — Retrieved skills and common mistakes are formatted as a markdown block and prepended to the agent's system prompt.
+
+5. **Evolution** — The `SkillUpdater` closes the loop:
+   - Distills new skills from failure trajectories not covered by existing skills
+   - Tracks skill confidence via exponential moving average (α=0.1)
+   - Prunes stale skills (low success rate + sufficient usage) to `archived_skills.jsonl`
+
+### Quick Start
+
+```go
+// Create store
+store, _ := skillbank.NewFileStore("data/skills.jsonl")
+
+// Distill skills from trajectories
+distiller := skillbank.NewLLMDistiller(apiURL, apiKey, "")
+updater := skillbank.NewSkillUpdater(distiller, store, "data/")
+
+failures := []skillbank.Trajectory{...}
+newSkills, _ := updater.Update(ctx, failures, existingSkills)
+
+// Retrieve for a new task
+retriever := skillbank.NewRetriever(store, "") // keyword mode
+skills, _ := retriever.Retrieve(ctx, "handle API rate limits", 5)
+
+// Inject into system prompt
+injector := skillbank.NewInjector()
+mistakes, _ := store.ListMistakes("")
+enrichedPrompt := injector.InjectIntoPrompt(systemPrompt, skills, mistakes)
+
+// Track outcomes
+updater.BoostSkillConfidence(skill.ID, succeeded)
+
+// Prune stale skills periodically
+pruned, _ := updater.PruneStaleSkills(ctx, 0.4, 10)
+```
+
+### Coverage
+
+`go test ./internal/skillbank/... -cover` → **92.9%** statement coverage.
+
+---
+
 ## 📄 License
 
 [MIT](LICENSE)
