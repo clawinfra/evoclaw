@@ -181,7 +181,7 @@ func TestGetUserAgents_Empty(t *testing.T) {
 	store := NewTenantStore()
 
 	agents := store.GetUserAgents("nonexistent-user")
-	if agents != nil && len(agents) > 0 {
+	if len(agents) > 0 {
 		t.Error("expected nil/empty agents for nonexistent user")
 	}
 }

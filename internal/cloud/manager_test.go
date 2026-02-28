@@ -268,9 +268,7 @@ func TestManagerListAgents(t *testing.T) {
 	}
 
 	// The test server returns empty list
-	if sandboxes == nil {
-		// That's fine, empty is ok
-	}
+	// Note: nil check is fine here since we're testing the behavior
 }
 
 func TestManagerGetCosts(t *testing.T) {

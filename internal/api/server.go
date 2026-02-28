@@ -133,6 +133,12 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/agents/{id}/firewall/rollback", s.handleFirewallRollback)
 	mux.HandleFunc("/api/agents/{id}/firewall/reset", s.handleFirewallReset)
 
+	// Cloud API routes
+	s.registerCloudRoutes(mux)
+
+	// SaaS API routes
+	s.registerSaaSRoutes(mux)
+
 	// Serve embedded web dashboard
 	if s.webFS != nil {
 		fileServer := http.FileServer(http.FS(s.webFS))

@@ -139,7 +139,10 @@ func (c *CloudCLI) runSpawn(args []string) int {
 	}
 
 	var sandbox cloud.Sandbox
-	json.NewDecoder(resp.Body).Decode(&sandbox)
+	if err := json.NewDecoder(resp.Body).Decode(&sandbox); err != nil {
+		fmt.Printf("❌ Failed to decode response: %v\n", err)
+		return 1
+	}
 
 	fmt.Printf("✅ Cloud agent spawned\n")
 	fmt.Printf("   Sandbox ID:  %s\n", sandbox.SandboxID)
@@ -165,7 +168,10 @@ func (c *CloudCLI) runList() int {
 	}
 
 	var sandboxes []cloud.Sandbox
-	json.NewDecoder(resp.Body).Decode(&sandboxes)
+	if err := json.NewDecoder(resp.Body).Decode(&sandboxes); err != nil {
+		fmt.Printf("❌ Failed to decode response: %v\n", err)
+		return 1
+	}
 
 	if len(sandboxes) == 0 {
 		fmt.Println("No cloud agents running.")
@@ -238,7 +244,10 @@ func (c *CloudCLI) runLogs(args []string) int {
 	}
 
 	var status cloud.Status
-	json.NewDecoder(resp.Body).Decode(&status)
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		fmt.Printf("❌ Failed to decode response: %v\n", err)
+		return 1
+	}
 
 	fmt.Printf("📋 Agent Status: %s\n", sandboxID)
 	fmt.Printf("   Agent ID:    %s\n", status.AgentID)

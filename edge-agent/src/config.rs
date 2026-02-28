@@ -315,7 +315,7 @@ broker = "mqtt.example.com"
 port = 8883
 keep_alive_secs = 60
 [orchestrator]
-url = "http://orch:9000"
+url = "http://orchestrator.example.com:9000"
 [trading]
 hyperliquid_api = "https://api.test.com"
 wallet_address = "0x1234567890abcdef"

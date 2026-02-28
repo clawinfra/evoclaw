@@ -69,9 +69,7 @@ func (o *Orchestrator) ChatSync(ctx context.Context, req ChatSyncRequest) (*Chat
 	}
 
 	messages := make([]ChatMessage, 0, len(req.History)+1)
-	for _, msg := range req.History {
-		messages = append(messages, msg)
-	}
+	messages = append(messages, req.History...)
 	messages = append(messages, ChatMessage{Role: "user", Content: req.Message})
 
 	chatReq := ChatRequest{

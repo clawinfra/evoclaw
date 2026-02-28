@@ -727,7 +727,7 @@ mod tests {
     #[test]
     fn test_client_new() {
         let c = HyperliquidClient::new(create_test_config());
-        assert_eq!(c.config.wallet_address, "0x1234");
+        assert_eq!(c.config.wallet_address, "0x1234567890abcdef");
     }
     #[test]
     fn test_place_order_req() {
