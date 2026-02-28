@@ -274,7 +274,10 @@ func (c *CloudCLI) runCosts() int {
 	}
 
 	var costs cloud.CostSnapshot
-	json.NewDecoder(resp.Body).Decode(&costs)
+	if err := json.NewDecoder(resp.Body).Decode(&costs); err != nil {
+		fmt.Fprintf(os.Stderr, "Error decoding costs: %v\n", err)
+		return 1
+	}
 
 	fmt.Println("💰 E2B Credit Usage")
 	fmt.Printf("   Active sandboxes:  %d\n", costs.ActiveSandboxes)
