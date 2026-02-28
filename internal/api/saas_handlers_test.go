@@ -148,7 +148,9 @@ func TestHandleSaaSRegister_DuplicateEmail(t *testing.T) {
 	srv, mockE2B, svc := newTestServerWithSaaS(t)
 	defer mockE2B.Close()
 
-	svc.Register(saas.RegisterRequest{Email: "dupe@test.com"})
+	if _, err := svc.Register(saas.RegisterRequest{Email: "dupe@test.com"}); err != nil {
+		t.Fatalf("failed to register first user: %v", err)
+	}
 
 	body, _ := json.Marshal(saas.RegisterRequest{Email: "dupe@test.com"})
 	req := httptest.NewRequest(http.MethodPost, "/api/saas/register", bytes.NewReader(body))

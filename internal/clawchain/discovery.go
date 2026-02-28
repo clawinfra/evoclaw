@@ -303,7 +303,7 @@ func (d *Discoverer) RunOnce(ctx context.Context) (*DiscoveryResult, error) {
 	if err != nil {
 		result.Error = fmt.Sprintf("node unreachable: %v", err)
 		d.logger.Warn("clawchain discovery: node unreachable", "error", err)
-		return result, nil //nolint:nilerr — error is embedded in result
+		return result, nil // error is embedded in result.Error
 	}
 	if !reachable {
 		result.Error = "node is syncing; skipping DID check"
@@ -316,7 +316,7 @@ func (d *Discoverer) RunOnce(ctx context.Context) (*DiscoveryResult, error) {
 	if err != nil {
 		result.Error = fmt.Sprintf("resolve account: %v", err)
 		d.logger.Error("clawchain discovery: cannot resolve account bytes", "error", err)
-		return result, nil //nolint:nilerr
+		return result, nil // error embedded in result.Error
 	}
 
 	// Step 3: check on-chain DID registration.
@@ -324,7 +324,7 @@ func (d *Discoverer) RunOnce(ctx context.Context) (*DiscoveryResult, error) {
 	if err != nil {
 		result.Error = fmt.Sprintf("check DID: %v", err)
 		d.logger.Error("clawchain discovery: state query failed", "error", err)
-		return result, nil //nolint:nilerr
+		return result, nil // error embedded in result.Error
 	}
 
 	if registered {
@@ -339,7 +339,7 @@ func (d *Discoverer) RunOnce(ctx context.Context) (*DiscoveryResult, error) {
 	if err != nil {
 		result.Error = fmt.Sprintf("register DID: %v", err)
 		d.logger.Error("clawchain discovery: registration failed", "error", err)
-		return result, nil //nolint:nilerr
+		return result, nil // error embedded in result.Error
 	}
 
 	result.Registered = true

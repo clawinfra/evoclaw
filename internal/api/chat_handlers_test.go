@@ -68,16 +68,20 @@ func newTestChatServer(t *testing.T) *Server {
 	}
 
 	// Create agent in registry
-	registry.Create(config.AgentDef{
+	if _, err := registry.Create(config.AgentDef{
 		ID:    "test-agent",
 		Name:  "Test Agent",
 		Type:  "monitor",
 		Model: "test-provider/model-1",
-	})
+	}); err != nil {
+		t.Fatalf("failed to create agent: %v", err)
+	}
 
 	s := NewServer(8420, orch, registry, memory, router, logger)
 	t.Cleanup(func() {
-		orch.Stop()
+		if err := orch.Stop(); err != nil {
+			t.Logf("failed to stop orchestrator: %v", err)
+		}
 	})
 	return s
 }
@@ -294,7 +298,9 @@ func TestHandleChatHistory_WithConversationID(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.NewDecoder(w.Body).Decode(&resp)
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
 
 	if resp["message_count"].(float64) != 2 {
 		t.Errorf("expected 2 messages, got %v", resp["message_count"])

@@ -518,8 +518,14 @@ func TestRegisterDID_Success(t *testing.T) {
 	writeFakePython3(t, dir, "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab", 0)
 
 	origPath := os.Getenv("PATH")
-	os.Setenv("PATH", dir+":"+origPath)
-	defer os.Setenv("PATH", origPath)
+	if err := os.Setenv("PATH", dir+":"+origPath); err != nil {
+		t.Fatalf("failed to set PATH: %v", err)
+	}
+	defer func() {
+		if err := os.Setenv("PATH", origPath); err != nil {
+			t.Logf("failed to restore PATH: %v", err)
+		}
+	}()
 
 	d := NewDiscovererWithCaller(testCfg(), nullLogger(), &mockRPCCaller{})
 	txHash, err := d.RegisterDID(context.Background())
@@ -537,8 +543,14 @@ func TestRegisterDID_ExitError(t *testing.T) {
 	writeFakePython3(t, dir, "", 1)
 
 	origPath := os.Getenv("PATH")
-	os.Setenv("PATH", dir+":"+origPath)
-	defer os.Setenv("PATH", origPath)
+	if err := os.Setenv("PATH", dir+":"+origPath); err != nil {
+		t.Fatalf("failed to set PATH: %v", err)
+	}
+	defer func() {
+		if err := os.Setenv("PATH", origPath); err != nil {
+			t.Logf("failed to restore PATH: %v", err)
+		}
+	}()
 
 	d := NewDiscovererWithCaller(testCfg(), nullLogger(), &mockRPCCaller{})
 	_, err := d.RegisterDID(context.Background())

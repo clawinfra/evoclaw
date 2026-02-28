@@ -70,7 +70,11 @@ func (s *Server) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 		s.logger.Error("websocket accept failed", "error", err)
 		return
 	}
-	defer conn.Close(websocket.StatusNormalClosure, "session ended")
+	defer func() {
+		if err := conn.Close(websocket.StatusNormalClosure, "session ended"); err != nil {
+			s.logger.Debug("websocket close error", "error", err)
+		}
+	}()
 
 	s.logger.Info("ws terminal connected", "remote", r.RemoteAddr)
 
