@@ -3,8 +3,11 @@ package rsi
 import (
 	"context"
 	"log/slog"
+	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/clawinfra/evoclaw/internal/skillbank"
 )
 
 // Loop is the main RSI closed loop: observe → analyze → fix → verify → observe.
@@ -22,8 +25,20 @@ type Loop struct {
 }
 
 // NewLoop creates a new RSI Loop.
+// It automatically initialises a skillbank FileStore under cfg.DataDir/skillbank.jsonl
+// so that every recorded outcome is persisted as a raw trajectory for later LLM distillation.
 func NewLoop(cfg Config, logger *slog.Logger) *Loop {
 	observer := NewObserver(cfg, logger)
+
+	// Attach skillbank store — best-effort; log and continue on failure.
+	sbPath := filepath.Join(cfg.DataDir, "skillbank.jsonl")
+	if store, err := skillbank.NewFileStore(sbPath); err != nil {
+		logger.Warn("skillbank: failed to init file store, trajectory recording disabled",
+			"path", sbPath, "error", err)
+	} else {
+		observer.WithSkillStore(store)
+	}
+
 	analyzer := NewAnalyzer(observer, cfg, logger)
 	fixer := NewFixer(cfg, logger)
 

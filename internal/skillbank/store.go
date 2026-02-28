@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 // ErrNotFound is returned when a skill or mistake is not found by ID.
@@ -269,4 +270,28 @@ func (fs *FileStore) DeleteMistake(id string) error {
 	}
 	delete(fs.mistakes, id)
 	return fs.flushMistakes()
+}
+
+// SkillFromTrajectory creates a raw skill entry from a trajectory for later distillation.
+// The returned skill has Source="trajectory" and Confidence=0.5 (0.7 on success).
+// It is intended to be stored immediately and distilled into a refined skill later.
+func SkillFromTrajectory(t Trajectory) Skill {
+	source := "trajectory"
+	confidence := 0.5
+	if t.Success {
+		confidence = 0.7
+	}
+	now := time.Now()
+	return Skill{
+		ID:          fmt.Sprintf("traj-%d", now.UnixNano()),
+		Title:       fmt.Sprintf("Trajectory: %s", t.TaskDescription),
+		Principle:   "Raw trajectory — pending distillation",
+		WhenToApply: t.TaskType,
+		Category:    "trajectory",
+		TaskType:    t.TaskType,
+		Source:      source,
+		Confidence:  confidence,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
 }
