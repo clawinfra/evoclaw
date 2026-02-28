@@ -262,13 +262,10 @@ func TestManagerListAgents(t *testing.T) {
 	mgr, server := newTestManager(t)
 	defer server.Close()
 
-	sandboxes, err := mgr.ListAgents(context.Background())
+	_, err := mgr.ListAgents(context.Background())
 	if err != nil {
 		t.Fatalf("ListAgents failed: %v", err)
 	}
-
-	// The test server returns empty list
-	// Note: nil check is fine here since we're testing the behavior
 }
 
 func TestManagerGetCosts(t *testing.T) {
