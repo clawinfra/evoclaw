@@ -428,6 +428,58 @@ data/
     └── assistant-1.json
 ```
 
+## Platform Support
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| Linux | ✅ Production | Primary platform |
+| macOS | ✅ Production | Development |
+| Android | ✅ Beta | Via gomobile — see [internal/platform/android](internal/platform/android) |
+| iOS | ✅ Beta | Via gomobile — see [internal/platform/ios](internal/platform/ios) |
+| WASM | ✅ Beta | Browser/edge deployment — see [examples/wasm](examples/wasm) |
+| Windows | 🔧 Planned | |
+
+### Building for Mobile (gomobile)
+
+```bash
+# Install gomobile
+go install golang.org/x/mobile/cmd/gomobile@latest
+gomobile init
+
+# Android (produces evoclaw.aar)
+gomobile bind -target android -o evoclaw.aar github.com/clawinfra/evoclaw/internal/platform/android
+
+# iOS (produces EvoClaw.xcframework, requires macOS + Xcode)
+gomobile bind -target ios -o EvoClaw.xcframework github.com/clawinfra/evoclaw/internal/platform/ios
+```
+
+### Building for WASM (Browser/Edge)
+
+```bash
+bash scripts/build-wasm.sh
+# Output: dist/evoclaw.wasm + dist/wasm_exec.js
+# Demo: examples/wasm/index.html
+```
+
+### ClawHub Skill Marketplace
+
+EvoClaw integrates with [ClawHub](https://clawhub.com) — the skill marketplace:
+
+```go
+import "github.com/clawinfra/evoclaw/internal/clawhub"
+
+client := clawhub.NewClient("https://api.clawhub.com/v1", "your-api-key")
+
+// Search skills
+skills, _ := client.SearchSkills(ctx, "weather")
+
+// Sync all skills to local directory
+client.SyncSkills(ctx, "~/.evoclaw/skills", clawhub.SyncOptions{})
+
+// Publish a skill
+client.PublishSkill(ctx, mySkill)
+```
+
 ## 📄 License
 
 [MIT](LICENSE)

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EvoClaw WASM Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; background: #0d1117; color: #c9d1d9; }
+    h1 { color: #58a6ff; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin: 16px 0; }
+    label { display: block; margin-bottom: 4px; color: #8b949e; font-size: 0.9em; }
+    input, textarea { width: 100%; padding: 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; box-sizing: border-box; font-family: monospace; }
+    button { background: #238636; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; margin-right: 8px; margin-top: 8px; }
+    button:hover { background: #2ea043; }
+    button:disabled { background: #444; cursor: not-allowed; }
+    pre { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 12px; overflow-x: auto; font-size: 0.85em; white-space: pre-wrap; }
+    .status { padding: 6px 12px; border-radius: 4px; display: inline-block; font-size: 0.85em; margin-top: 8px; }
+    .status.loading { background: #1f2d3d; color: #58a6ff; }
+    .status.ready { background: #1a2f1e; color: #3fb950; }
+    .status.error { background: #2d1a1a; color: #f85149; }
+  </style>
+</head>
+<body>
+  <h1>🧬 EvoClaw WASM Demo</h1>
+  <p>EvoClaw agent running entirely in your browser via WebAssembly.</p>
+
+  <div class="card">
+    <h3>1. Initialize Agent</h3>
+    <div>
+      <label>Agent ID</label>
+      <input id="agentId" value="browser-agent-1" />
+    </div>
+    <div style="margin-top:8px">
+      <label>Model</label>
+      <input id="model" value="claude-3-haiku-20240307" />
+    </div>
+    <div style="margin-top:8px">
+      <label>API Key (optional for demo)</label>
+      <input id="apiKey" type="password" placeholder="sk-ant-..." />
+    </div>
+    <button id="initBtn" onclick="initAgent()">Initialize Agent</button>
+    <div id="initStatus" class="status loading" style="display:none">Loading WASM...</div>
+  </div>
+
+  <div class="card">
+    <h3>2. Send Message</h3>
+    <label>Message</label>
+    <textarea id="message" rows="3" placeholder="Hello, EvoClaw!">What can you do?</textarea>
+    <button id="sendBtn" onclick="sendMessage()" disabled>Send Message</button>
+    <pre id="response" style="display:none"></pre>
+  </div>
+
+  <div class="card">
+    <h3>Agent Status</h3>
+    <button id="statusBtn" onclick="getStatus()" disabled>Get Status</button>
+    <pre id="agentStatus" style="display:none"></pre>
+  </div>
+
+  <script src="wasm_exec.js"></script>
+  <script>
+    const go = new Go();
+    let wasmReady = false;
+
+    async function loadWASM() {
+      const statusEl = document.getElementById('initStatus');
+      statusEl.style.display = 'inline-block';
+      statusEl.textContent = 'Loading WASM...';
+      statusEl.className = 'status loading';
+
+      try {
+        const result = await WebAssembly.instantiateStreaming(fetch('evoclaw.wasm'), go.importObject);
+        go.run(result.instance);
+        wasmReady = true;
+        statusEl.textContent = 'WASM loaded ✓';
+        statusEl.className = 'status ready';
+      } catch (err) {
+        statusEl.textContent = 'Failed to load WASM: ' + err.message;
+        statusEl.className = 'status error';
+        console.error('WASM load error:', err);
+      }
+    }
+
+    function initAgent() {
+      if (!wasmReady) {
+        alert('WASM not ready yet');
+        return;
+      }
+
+      const config = {
+        agent_id: document.getElementById('agentId').value,
+        model: document.getElementById('model').value,
+        api_key: document.getElementById('apiKey').value,
+        log_level: 'info'
+      };
+
+      try {
+        const result = evoclaw.RunAgent(JSON.stringify(config));
+        const parsed = JSON.parse(result);
+        const statusEl = document.getElementById('initStatus');
+        if (parsed.error) {
+          statusEl.textContent = 'Error: ' + parsed.error;
+          statusEl.className = 'status error';
+        } else {
+          statusEl.textContent = 'Agent running ✓ (id: ' + parsed.agent_id + ')';
+          statusEl.className = 'status ready';
+          document.getElementById('sendBtn').disabled = false;
+          document.getElementById('statusBtn').disabled = false;
+        }
+      } catch (err) {
+        console.error('Init error:', err);
+      }
+    }
+
+    function sendMessage() {
+      const msg = document.getElementById('message').value;
+      try {
+        const result = evoclaw.SendMessage(msg);
+        const pre = document.getElementById('response');
+        pre.style.display = 'block';
+        pre.textContent = JSON.stringify(JSON.parse(result), null, 2);
+      } catch (err) {
+        console.error('Send error:', err);
+      }
+    }
+
+    function getStatus() {
+      try {
+        const result = evoclaw.GetStatus();
+        const pre = document.getElementById('agentStatus');
+        pre.style.display = 'block';
+        pre.textContent = JSON.stringify(JSON.parse(result), null, 2);
+      } catch (err) {
+        console.error('Status error:', err);
+      }
+    }
+
+    // Auto-load WASM on page load
+    window.addEventListener('load', loadWASM);
+  </script>
+</body>
+</html>
