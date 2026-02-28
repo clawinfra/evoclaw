@@ -428,57 +428,73 @@ data/
     └── assistant-1.json
 ```
 
-## Platform Support
+## SkillBank
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| Linux | ✅ Production | Primary platform |
-| macOS | ✅ Production | Development |
-| Android | ✅ Beta | Via gomobile — see [internal/platform/android](internal/platform/android) |
-| iOS | ✅ Beta | Via gomobile — see [internal/platform/ios](internal/platform/ios) |
-| WASM | ✅ Beta | Browser/edge deployment — see [examples/wasm](examples/wasm) |
-| Windows | 🔧 Planned | |
+SkillBank implements SKILLRL-inspired hierarchical skill learning for EvoClaw agents. Inspired by the [SKILLRL paper (arXiv:2602.08234)](https://arxiv.org/abs/2602.08234), it enables agents to distill reusable skills from past trajectories, retrieve relevant knowledge for new tasks, and recursively evolve their skill base over time.
 
-### Building for Mobile (gomobile)
+### Architecture
 
-```bash
-# Install gomobile
-go install golang.org/x/mobile/cmd/gomobile@latest
-gomobile init
-
-# Android (produces evoclaw.aar)
-gomobile bind -target android -o evoclaw.aar github.com/clawinfra/evoclaw/internal/platform/android
-
-# iOS (produces EvoClaw.xcframework, requires macOS + Xcode)
-gomobile bind -target ios -o EvoClaw.xcframework github.com/clawinfra/evoclaw/internal/platform/ios
+```
+internal/skillbank/
+├── types.go      — Core types (Skill, CommonMistake, Trajectory) + interfaces
+├── store.go      — File-backed JSONL store (thread-safe, atomic writes)
+├── distiller.go  — LLM-based skill distillation from agent trajectories
+├── retriever.go  — Keyword (TemplateRetriever) and embedding (EmbeddingRetriever) retrieval
+├── injector.go   — Formats skills for system-prompt injection
+└── updater.go    — Recursive skill evolution, pruning, and confidence tracking
 ```
 
-### Building for WASM (Browser/Edge)
+### How It Works
 
-```bash
-bash scripts/build-wasm.sh
-# Output: dist/evoclaw.wasm + dist/wasm_exec.js
-# Demo: examples/wasm/index.html
-```
+1. **Distillation** — After each task cycle, trajectories are sent to an LLM (default: `anthropic-proxy-6/glm-4.7`) which extracts reusable `Skill` objects and `CommonMistake` patterns.
 
-### ClawHub Skill Marketplace
+2. **Storage** — Skills are persisted as JSONL files on disk. Reads/writes are thread-safe via `sync.RWMutex`; writes are atomic via temp-file-then-rename.
 
-EvoClaw integrates with [ClawHub](https://clawhub.com) — the skill marketplace:
+3. **Retrieval** — Before executing a task, the agent retrieves relevant skills:
+   - `TemplateRetriever`: zero-cost keyword overlap scoring (always available)
+   - `EmbeddingRetriever`: cosine similarity via a local embedding endpoint, falls back to `TemplateRetriever` if unavailable
+
+4. **Injection** — Retrieved skills and common mistakes are formatted as a markdown block and prepended to the agent's system prompt.
+
+5. **Evolution** — The `SkillUpdater` closes the loop:
+   - Distills new skills from failure trajectories not covered by existing skills
+   - Tracks skill confidence via exponential moving average (α=0.1)
+   - Prunes stale skills (low success rate + sufficient usage) to `archived_skills.jsonl`
+
+### Quick Start
 
 ```go
-import "github.com/clawinfra/evoclaw/internal/clawhub"
+// Create store
+store, _ := skillbank.NewFileStore("data/skills.jsonl")
 
-client := clawhub.NewClient("https://api.clawhub.com/v1", "your-api-key")
+// Distill skills from trajectories
+distiller := skillbank.NewLLMDistiller(apiURL, apiKey, "")
+updater := skillbank.NewSkillUpdater(distiller, store, "data/")
 
-// Search skills
-skills, _ := client.SearchSkills(ctx, "weather")
+failures := []skillbank.Trajectory{...}
+newSkills, _ := updater.Update(ctx, failures, existingSkills)
 
-// Sync all skills to local directory
-client.SyncSkills(ctx, "~/.evoclaw/skills", clawhub.SyncOptions{})
+// Retrieve for a new task
+retriever := skillbank.NewRetriever(store, "") // keyword mode
+skills, _ := retriever.Retrieve(ctx, "handle API rate limits", 5)
 
-// Publish a skill
-client.PublishSkill(ctx, mySkill)
+// Inject into system prompt
+injector := skillbank.NewInjector()
+mistakes, _ := store.ListMistakes("")
+enrichedPrompt := injector.InjectIntoPrompt(systemPrompt, skills, mistakes)
+
+// Track outcomes
+updater.BoostSkillConfidence(skill.ID, succeeded)
+
+// Prune stale skills periodically
+pruned, _ := updater.PruneStaleSkills(ctx, 0.4, 10)
 ```
+
+### Coverage
+
+`go test ./internal/skillbank/... -cover` → **92.9%** statement coverage.
+
+---
 
 ## 📄 License
 
