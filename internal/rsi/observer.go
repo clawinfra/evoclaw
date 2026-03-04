@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/clawinfra/evoclaw/internal/skillbank"
 	"github.com/google/uuid"
 )
 
@@ -17,11 +18,12 @@ import (
 // NOTE: The canonical observability interface is interfaces.Observer (internal/interfaces/observer.go).
 // This concrete observer can be adapted to implement that interface for trait-driven composition.
 type Observer struct {
-	cfg      Config
-	logger   *slog.Logger
-	mu       sync.Mutex
-	outcomes []Outcome
-	filePath string
+	cfg        Config
+	logger     *slog.Logger
+	mu         sync.Mutex
+	outcomes   []Outcome
+	filePath   string
+	skillStore skillbank.Store // optional; nil disables trajectory recording
 }
 
 // NewObserver creates a new Observer.
@@ -31,6 +33,25 @@ func NewObserver(cfg Config, logger *slog.Logger) *Observer {
 		logger:   logger,
 		outcomes: make([]Outcome, 0, 1024),
 		filePath: filepath.Join(cfg.DataDir, "outcomes.jsonl"),
+	}
+}
+
+// WithSkillStore attaches a skillbank store to the observer so that every
+// recorded outcome is also written as a raw trajectory for future distillation.
+func (o *Observer) WithSkillStore(store skillbank.Store) *Observer {
+	o.skillStore = store
+	return o
+}
+
+// RecordTrajectory stores a raw trajectory in the skillbank for later distillation.
+// It is a best-effort call: errors are logged but do not affect normal operation.
+func (o *Observer) RecordTrajectory(t skillbank.Trajectory) {
+	if o.skillStore == nil {
+		return
+	}
+	skill := skillbank.SkillFromTrajectory(t)
+	if err := o.skillStore.Add(skill); err != nil {
+		o.logger.Warn("skillbank: failed to record trajectory", "task", t.TaskDescription, "error", err)
 	}
 }
 
@@ -61,6 +82,15 @@ func (o *Observer) Record(outcome Outcome) error {
 
 	// Check for immediate recurrence
 	o.checkRecurrence(outcome)
+
+	// Record a raw trajectory in the skillbank for later LLM distillation.
+	o.RecordTrajectory(skillbank.Trajectory{
+		TaskDescription: outcome.Notes,
+		TaskType:        outcome.TaskType,
+		Steps:           []skillbank.TrajectoryStep{},
+		Success:         outcome.Success,
+		Quality:         outcome.Quality,
+	})
 
 	return nil
 }

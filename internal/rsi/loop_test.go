@@ -1,6 +1,8 @@
 package rsi
 
 import (
+	"bytes"
+	"encoding/json"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -553,5 +555,63 @@ func TestTokenOverlap(t *testing.T) {
 	overlap2 := tokenOverlap(a, c)
 	if overlap2 > 0.3 {
 		t.Errorf("expected low overlap, got %.2f", overlap2)
+	}
+}
+
+func TestRSILoop_RecordsTrajectoryOnOutcome(t *testing.T) {
+	cfg := testConfig(t)
+	loop := NewLoop(cfg, testLogger())
+
+	// Record a successful outcome — Loop should write a trajectory to skillbank.
+	err := loop.Observer().Record(Outcome{
+		Source:   SourceEvoClaw,
+		TaskType: "agent_chat",
+		Notes:    "summarise document",
+		Success:  true,
+		Quality:  0.9,
+	})
+	if err != nil {
+		t.Fatalf("Record failed: %v", err)
+	}
+
+	// Verify the skillbank JSONL file was created and contains at least one entry.
+	sbPath := filepath.Join(cfg.DataDir, "skillbank.jsonl")
+	data, err := os.ReadFile(sbPath)
+	if err != nil {
+		t.Fatalf("skillbank file not written: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("skillbank file is empty; expected at least one trajectory entry")
+	}
+
+	// Decode and spot-check the entry.
+	type skillEntry struct {
+		ID       string  `json:"id"`
+		Category string  `json:"category"`
+		Source   string  `json:"source"`
+		TaskType string  `json:"task_type"`
+		Success  bool    `json:"success"` // not in Skill but in Trajectory
+		Confidence float64 `json:"confidence"`
+	}
+	var entry skillEntry
+	if err := json.Unmarshal(bytes.TrimRight(data, "\n"), &entry); err != nil {
+		// Try first line in case there are multiple entries.
+		lines := bytes.Split(bytes.TrimSpace(data), []byte("\n"))
+		if jsonErr := json.Unmarshal(lines[0], &entry); jsonErr != nil {
+			t.Fatalf("failed to decode skillbank entry: %v", jsonErr)
+		}
+	}
+
+	if entry.Category != "trajectory" {
+		t.Errorf("expected category=trajectory, got %q", entry.Category)
+	}
+	if entry.Source != "trajectory" {
+		t.Errorf("expected source=trajectory, got %q", entry.Source)
+	}
+	if entry.TaskType != "agent_chat" {
+		t.Errorf("expected task_type=agent_chat, got %q", entry.TaskType)
+	}
+	if entry.Confidence < 0.6 {
+		t.Errorf("successful trajectory should have confidence >= 0.7, got %.2f", entry.Confidence)
 	}
 }
