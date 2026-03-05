@@ -28,7 +28,7 @@ import (
 var webContent embed.FS
 
 var (
-	version   = "0.1.0"
+	version   = "0.6.1"
 	buildTime = "dev"
 )
 

@@ -2,7 +2,7 @@
   <h1 align="center">🧬 EvoClaw</h1>
   <p align="center"><strong>Self-Evolving Agent Framework — Edge to Cloud</strong></p>
   <p align="center">
-    <a href="https://github.com/clawinfra/evoclaw/actions/workflows/ci.yml"><img src="https://github.com/clawinfra/evoclaw/actions/workflows/ci.yml/badge.svg?branch=beta" alt="CI"></a>
+    <a href="https://github.com/clawinfra/evoclaw/actions/workflows/ci.yml"><img src="https://github.com/clawinfra/evoclaw/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
     <a href="https://github.com/clawinfra/evoclaw"><img src="https://img.shields.io/badge/Status-Beta-orange" alt="Beta"></a>
     <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.24-00ADD8?logo=go&logoColor=white" alt="Go"></a>
     <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/Rust-stable-DEA584?logo=rust&logoColor=white" alt="Rust"></a>

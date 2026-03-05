@@ -2,6 +2,29 @@
 
 All notable changes to EvoClaw will be documented in this file.
 
+## [v0.6.1] — 2026-03-05
+
+### Added
+- **feat(skillbank):** SKILLRL-inspired skillbank — Phases 1-3 (`internal/skillbank/`): FileStore (JSONL, thread-safe), distiller (LLM-based skill extraction), retriever (keyword+embedding), updater (recursive evolution, EMA confidence) — 92.9% coverage, 40+ tests (#22)
+- **feat(rsi):** Wire `skillbank.RecordTrajectory()` into RSI loop observer — every agent trajectory now feeds the skill bank for future distillation (#23)
+
+### Fixed  
+- **fix(ci):** Remove deprecated `version` field from `.golangci.yml` (golangci-lint v1.64+)
+- **fix(lint):** Resolve all errcheck violations across 42 files — `_ =` suppression pattern applied consistently
+
+### Security
+- ClawChain audit: all 1 CRITICAL + 4 HIGH + 3 MEDIUM + 3 LOW findings resolved (see claw-chain repo)
+
+## [v0.6.0] — 2026-02-28
+
+### Added
+- **feat(platform):** Phase 2 — Android, iOS, WASM platform support + ClawHub integration
+- **fix(cloud):** Check error return from json.Decode in cloud CLI
+- **fix(cloud):** Remove unused variable in cloud manager test
+- **ci:** Fix Rust test assertions and Go lint issues
+- **fix(rust):** Resolve Rust clippy errors from beta merge (OrderRequest, Signature)
+- **ci:** Fix Rust compilation errors from partial beta merge
+
 ## [v0.5.0] — 2026-02-22
 
 ### Added
