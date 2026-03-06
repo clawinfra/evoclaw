@@ -102,14 +102,14 @@ func (w *WhatsAppChannel) Start(ctx context.Context) error {
 		}
 
 		w.logger.Info("no stored session found, waiting for QR scan…")
-		fmt.Fprintln(os.Stdout, "[WhatsApp] Open WhatsApp on your phone → Linked Devices → Link a Device, then scan:")
+		_, _ = fmt.Fprintln(os.Stdout, "[WhatsApp] Open WhatsApp on your phone → Linked Devices → Link a Device, then scan:")
 
 		for evt := range qrChan {
 			switch evt.Event {
 			case "code":
 				// Print the raw WA multi-device QR string.
 				// Users can pipe to `qrencode -t ansiutf8` or use any QR library.
-				fmt.Fprintf(os.Stdout, "\n%s\n\n", evt.Code)
+				_, _ = fmt.Fprintf(os.Stdout, "\n%s\n\n", evt.Code)
 				w.logger.Info("QR code printed to stdout — scan with WhatsApp")
 			case "success":
 				w.logger.Info("QR code scanned successfully, logged in")

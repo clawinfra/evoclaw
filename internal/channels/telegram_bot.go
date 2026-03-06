@@ -382,7 +382,7 @@ func (b *TelegramBot) sendMessage(chatID, text, parseMode string) {
 		b.logger.Error("failed to send message", "error", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		b.logger.Error("telegram API error", "status", resp.StatusCode)
