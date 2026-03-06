@@ -122,7 +122,7 @@ func buildDistillationUserPrompt(conv RawConversation) string {
 		if msg.Role == "agent" || msg.Role == "assistant" {
 			role = "Agent"
 		}
-		sb.WriteString(fmt.Sprintf("%d. %s: %s\n", i+1, role, msg.Content))
+		_, _ = fmt.Fprintf(&sb, "%d. %s: %s\n", i+1, role, msg.Content)
 	}
 
 	sb.WriteString("\nExtract the memory distillation as JSON:")

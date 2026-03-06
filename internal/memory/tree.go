@@ -324,7 +324,7 @@ func (t *MemoryTree) getNodeDepth(node *TreeNode, current int) int {
 // GetTreeSummary returns a human-readable summary of the tree
 func (t *MemoryTree) GetTreeSummary() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Memory Tree (v%d, %d nodes, depth %d)\n", t.Version, t.NodeCount, t.GetDepth()))
+	_, _ = fmt.Fprintf(&sb, "Memory Tree (v%d, %d nodes, depth %d)\n", t.Version, t.NodeCount, t.GetDepth())
 	t.printNodeSummary(t.Root, 0, &sb)
 	return sb.String()
 }
