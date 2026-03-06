@@ -2,6 +2,8 @@ module github.com/clawinfra/evoclaw
 
 go 1.25.0
 
+toolchain go1.25.4
+
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/charmbracelet/bubbles v0.21.1
