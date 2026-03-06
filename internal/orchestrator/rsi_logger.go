@@ -70,7 +70,7 @@ func (l *JSONLRSILogger) LogOutcome(_ context.Context, outcome RSIOutcome) error
 	if err != nil {
 		return fmt.Errorf("open RSI outcomes file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	_, err = f.Write(append(data, '\n'))
 	return err
 }

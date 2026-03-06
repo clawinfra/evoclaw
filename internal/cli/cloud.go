@@ -130,7 +130,7 @@ func (c *CloudCLI) runSpawn(args []string) int {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return 1
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(resp.Body)
@@ -159,7 +159,7 @@ func (c *CloudCLI) runList() int {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return 1
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(resp.Body)
@@ -179,9 +179,9 @@ func (c *CloudCLI) runList() int {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "SANDBOX ID\tAGENT ID\tTEMPLATE\tSTATE\tSTARTED\tEXPIRES")
+	_, _ = fmt.Fprintln(w, "SANDBOX ID\tAGENT ID\tTEMPLATE\tSTATE\tSTARTED\tEXPIRES")
 	for _, s := range sandboxes {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			s.SandboxID,
 			s.AgentID,
 			s.TemplateID,
@@ -190,7 +190,7 @@ func (c *CloudCLI) runList() int {
 			s.EndsAt.Format("15:04:05"),
 		)
 	}
-	w.Flush()
+	_ = w.Flush()
 
 	fmt.Printf("\n%d cloud agent(s) running.\n", len(sandboxes))
 	return 0
@@ -210,7 +210,7 @@ func (c *CloudCLI) runKill(args []string) int {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return 1
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(resp.Body)
@@ -235,7 +235,7 @@ func (c *CloudCLI) runLogs(args []string) int {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return 1
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(resp.Body)
@@ -265,7 +265,7 @@ func (c *CloudCLI) runCosts() int {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return 1
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(resp.Body)

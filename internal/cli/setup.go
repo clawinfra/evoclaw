@@ -42,7 +42,7 @@ func (s *SetupCLI) Run(args []string) int {
 		s.printUsage()
 		return 0
 	default:
-		fmt.Fprintf(os.Stderr, "unknown setup command: %s\n", args[0])
+		_, _ = fmt.Fprintf(os.Stderr, "unknown setup command: %s\n", args[0])
 		s.printUsage()
 		return 1
 	}
@@ -50,7 +50,7 @@ func (s *SetupCLI) Run(args []string) int {
 
 // printUsage displays setup subcommand help.
 func (s *SetupCLI) printUsage() {
-	fmt.Fprintln(s.stdout, `Usage: evoclaw setup <command> [options]
+	_, _ = fmt.Fprintln(s.stdout, `Usage: evoclaw setup <command> [options]
 
 Initialize EvoClaw deployment components.
 
@@ -76,7 +76,7 @@ func (s *SetupCLI) runHub(args []string) int {
 
 	// Step 1: Generate config if it doesn't exist
 	if _, err := os.Stat(*configPath); os.IsNotExist(err) {
-		fmt.Fprintf(s.stdout, "📝 Generating config at %s\n", *configPath)
+		_, _ = fmt.Fprintf(s.stdout, "📝 Generating config at %s\n", *configPath)
 		cfg := config.DefaultConfig()
 		cfg.Server.Port = *port
 		cfg.Server.DataDir = *dataDir
@@ -84,37 +84,37 @@ func (s *SetupCLI) runHub(args []string) int {
 		cfg.MQTT.Host = "0.0.0.0"
 
 		if err := cfg.Save(*configPath); err != nil {
-			fmt.Fprintf(os.Stderr, "❌ Failed to save config: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "❌ Failed to save config: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(s.stdout, "   ✓ Config written\n")
+		_, _ = fmt.Fprintf(s.stdout, "   ✓ Config written\n")
 	} else {
-		fmt.Fprintf(s.stdout, "📝 Config already exists at %s\n", *configPath)
+		_, _ = fmt.Fprintf(s.stdout, "📝 Config already exists at %s\n", *configPath)
 		// Verify it's valid
 		if _, err := config.Load(*configPath); err != nil {
-			fmt.Fprintf(os.Stderr, "❌ Config is invalid: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "❌ Config is invalid: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(s.stdout, "   ✓ Config valid\n")
+		_, _ = fmt.Fprintf(s.stdout, "   ✓ Config valid\n")
 	}
 
 	// Step 2: Ensure data directory exists
 	if err := os.MkdirAll(*dataDir, 0750); err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Failed to create data directory: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "❌ Failed to create data directory: %v\n", err)
 		return 1
 	}
 
 	// Step 3: Check if MQTT broker is running
 	mqttRunning := checkPort(*mqttPort)
 	if mqttRunning {
-		fmt.Fprintf(s.stdout, "🔌 MQTT broker detected on port %d ✓\n", *mqttPort)
+		_, _ = fmt.Fprintf(s.stdout, "🔌 MQTT broker detected on port %d ✓\n", *mqttPort)
 	} else {
-		fmt.Fprintf(s.stdout, "🔌 MQTT broker not detected on port %d\n", *mqttPort)
+		_, _ = fmt.Fprintf(s.stdout, "🔌 MQTT broker not detected on port %d\n", *mqttPort)
 		started := s.tryStartMQTT(*mqttPort)
 		if started {
-			fmt.Fprintf(s.stdout, "   ✓ MQTT broker started\n")
+			_, _ = fmt.Fprintf(s.stdout, "   ✓ MQTT broker started\n")
 		} else {
-			fmt.Fprintf(s.stdout, "   ⚠ Start an MQTT broker manually (e.g., mosquitto)\n")
+			_, _ = fmt.Fprintf(s.stdout, "   ⚠ Start an MQTT broker manually (e.g., mosquitto)\n")
 		}
 	}
 
@@ -122,20 +122,20 @@ func (s *SetupCLI) runHub(args []string) int {
 	localIP := getLocalIP()
 
 	// Step 5: Print success banner
-	fmt.Fprintln(s.stdout)
-	fmt.Fprintln(s.stdout, "🧬 EvoClaw Hub Ready!")
-	fmt.Fprintln(s.stdout)
-	fmt.Fprintf(s.stdout, "  API:       http://0.0.0.0:%d\n", *port)
-	fmt.Fprintf(s.stdout, "  MQTT:      0.0.0.0:%d\n", *mqttPort)
-	fmt.Fprintf(s.stdout, "  Dashboard: http://localhost:%d\n", *port)
-	fmt.Fprintln(s.stdout)
-	fmt.Fprintln(s.stdout, "  To add an edge agent, run this on your device:")
+	_, _ = fmt.Fprintln(s.stdout)
+	_, _ = fmt.Fprintln(s.stdout, "🧬 EvoClaw Hub Ready!")
+	_, _ = fmt.Fprintln(s.stdout)
+	_, _ = fmt.Fprintf(s.stdout, "  API:       http://0.0.0.0:%d\n", *port)
+	_, _ = fmt.Fprintf(s.stdout, "  MQTT:      0.0.0.0:%d\n", *mqttPort)
+	_, _ = fmt.Fprintf(s.stdout, "  Dashboard: http://localhost:%d\n", *port)
+	_, _ = fmt.Fprintln(s.stdout)
+	_, _ = fmt.Fprintln(s.stdout, "  To add an edge agent, run this on your device:")
 	joinCmd := fmt.Sprintf("  evoclaw-agent join %s", localIP)
 	border := strings.Repeat("─", len(joinCmd)+2)
-	fmt.Fprintf(s.stdout, "  ┌%s┐\n", border)
-	fmt.Fprintf(s.stdout, "  │ %s │\n", joinCmd)
-	fmt.Fprintf(s.stdout, "  └%s┘\n", border)
-	fmt.Fprintln(s.stdout)
+	_, _ = fmt.Fprintf(s.stdout, "  ┌%s┐\n", border)
+	_, _ = fmt.Fprintf(s.stdout, "  │ %s │\n", joinCmd)
+	_, _ = fmt.Fprintf(s.stdout, "  └%s┘\n", border)
+	_, _ = fmt.Fprintln(s.stdout)
 
 	return 0
 }
@@ -148,7 +148,7 @@ func (s *SetupCLI) tryStartMQTT(port int) bool {
 			continue
 		}
 
-		fmt.Fprintf(s.stdout, "   Starting MQTT broker via %s...\n", runtime)
+		_, _ = fmt.Fprintf(s.stdout, "   Starting MQTT broker via %s...\n", runtime)
 		// #nosec G204 — runtime and port are controlled
 		cmd := exec.Command(runtime, "run", "-d",
 			"--name", "evoclaw-mqtt",
@@ -158,7 +158,7 @@ func (s *SetupCLI) tryStartMQTT(port int) bool {
 		)
 
 		if output, err := cmd.CombinedOutput(); err != nil {
-			fmt.Fprintf(s.stdout, "   ⚠ Failed to start via %s: %s\n", runtime, strings.TrimSpace(string(output)))
+			_, _ = fmt.Fprintf(s.stdout, "   ⚠ Failed to start via %s: %s\n", runtime, strings.TrimSpace(string(output)))
 			continue
 		}
 		return true
@@ -172,7 +172,7 @@ func checkPort(port int) bool {
 	if err != nil {
 		return false
 	}
-	conn.Close()
+	_ = conn.Close()
 	return true
 }
 
@@ -182,7 +182,7 @@ func getLocalIP() string {
 	if err != nil {
 		return "YOUR_SERVER_IP"
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 	return localAddr.IP.String()

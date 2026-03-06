@@ -37,7 +37,7 @@ func New(cfg Config) (*Store, error) {
 
 	// Enable WAL mode for better concurrency
 	if _, err := db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("hybrid: wal mode: %w", err)
 	}
 
@@ -57,7 +57,7 @@ func New(cfg Config) (*Store, error) {
 	}
 
 	if err := s.migrate(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("hybrid: migrate: %w", err)
 	}
 
@@ -178,7 +178,7 @@ func (s *Store) vectorSearch(ctx context.Context, query string, limit int) ([]Se
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []SearchResult
 	for rows.Next() {
