@@ -100,13 +100,18 @@ func TestTelegramSend_Success(t *testing.T) {
 				t.Errorf("unexpected path: %s", req.URL.Path)
 			}
 
-			// Check query parameters
-			chatID := req.URL.Query().Get("chat_id")
+			// New implementation uses JSON body
+			var body map[string]interface{}
+			if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode JSON body: %v", err)
+			}
+
+			chatID, _ := body["chat_id"].(string)
 			if chatID != "12345" {
 				t.Errorf("expected chat_id 12345, got %s", chatID)
 			}
 
-			text := req.URL.Query().Get("text")
+			text, _ := body["text"].(string)
 			if text != "Hello, world!" {
 				t.Errorf("expected text 'Hello, world!', got %s", text)
 			}
@@ -117,10 +122,10 @@ func TestTelegramSend_Success(t *testing.T) {
 					"message_id": 999,
 				},
 			}
-			body, _ := json.Marshal(resp)
+			respBody, _ := json.Marshal(resp)
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(bytes.NewReader(body)),
+				Body:       io.NopCloser(bytes.NewReader(respBody)),
 			}, nil
 		},
 	}
@@ -142,16 +147,21 @@ func TestTelegramSend_Success(t *testing.T) {
 func TestTelegramSend_WithReplyTo(t *testing.T) {
 	mockClient := &MockHTTPClient{
 		DoFunc: func(req *http.Request) (*http.Response, error) {
-			replyTo := req.URL.Query().Get("reply_to_message_id")
+			// New implementation uses JSON body
+			var body map[string]interface{}
+			if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode JSON body: %v", err)
+			}
+			replyTo, _ := body["reply_to_message_id"].(string)
 			if replyTo != "777" {
-				t.Errorf("expected reply_to_message_id 777, got %s", replyTo)
+				t.Errorf("expected reply_to_message_id 777, got %v", body["reply_to_message_id"])
 			}
 
 			resp := map[string]interface{}{"ok": true}
-			body, _ := json.Marshal(resp)
+			respBody, _ := json.Marshal(resp)
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(bytes.NewReader(body)),
+				Body:       io.NopCloser(bytes.NewReader(respBody)),
 			}, nil
 		},
 	}
