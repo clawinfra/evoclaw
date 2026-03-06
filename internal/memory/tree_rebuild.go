@@ -126,7 +126,7 @@ func (r *TreeRebuilder) generateRebuildPlan(ctx context.Context, treeText, warmS
 // serializeTreeState creates a text representation of the current tree
 func (r *TreeRebuilder) serializeTreeState() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Current Tree: %d nodes, depth %d\n\n", r.tree.NodeCount, r.tree.GetDepth()))
+	_, _ = fmt.Fprintf(&sb, "Current Tree: %d nodes, depth %d\n\n", r.tree.NodeCount, r.tree.GetDepth())
 	r.serializeNode(r.tree.Root, 0, &sb)
 	return sb.String()
 }
@@ -148,15 +148,15 @@ func (r *TreeRebuilder) summarizeWarmMemory() string {
 	stats := r.warm.GetStats()
 	
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Warm Memory: %d entries, %.1f KB\n\n", 
-		stats.TotalEntries, float64(stats.TotalSizeBytes)/1024.0))
+	_, _ = fmt.Fprintf(&sb, "Warm Memory: %d entries, %.1f KB\n\n",
+		stats.TotalEntries, float64(stats.TotalSizeBytes)/1024.0)
 	
 	sb.WriteString("Top categories:\n")
 	for i, cat := range stats.TopCategories {
 		if i >= 10 {
 			break
 		}
-		sb.WriteString(fmt.Sprintf("  - %s: %d entries\n", cat.Category, cat.Count))
+		_, _ = fmt.Fprintf(&sb, "  - %s: %d entries\n", cat.Category, cat.Count)
 	}
 
 	return sb.String()

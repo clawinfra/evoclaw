@@ -271,7 +271,7 @@ func (c *E2BClient) SpawnAgent(ctx context.Context, config AgentConfig) (*Sandbo
 	if err != nil {
 		return nil, fmt.Errorf("e2b api call: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, c.parseError(resp)
@@ -309,7 +309,7 @@ func (c *E2BClient) KillAgent(ctx context.Context, sandboxID string) error {
 	if err != nil {
 		return fmt.Errorf("e2b api call: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return c.parseError(resp)
@@ -336,7 +336,7 @@ func (c *E2BClient) ListAgents(ctx context.Context) ([]Sandbox, error) {
 	if err != nil {
 		return nil, fmt.Errorf("e2b api call: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, c.parseError(resp)
@@ -380,7 +380,7 @@ func (c *E2BClient) GetAgentStatus(ctx context.Context, sandboxID string) (*Stat
 	if err != nil {
 		return nil, fmt.Errorf("e2b api call: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, c.parseError(resp)
@@ -437,7 +437,7 @@ func (c *E2BClient) SendCommand(ctx context.Context, sandboxID string, cmd Comma
 	if err != nil {
 		return nil, fmt.Errorf("e2b api call: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, c.parseError(resp)
@@ -477,7 +477,7 @@ func (c *E2BClient) SetTimeout(ctx context.Context, sandboxID string, timeoutSec
 	if err != nil {
 		return fmt.Errorf("e2b api call: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return c.parseError(resp)

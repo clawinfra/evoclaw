@@ -4,6 +4,13 @@ package types
 
 import "time"
 
+// Button represents an inline keyboard button for Telegram
+type Button struct {
+	Text         string // Button label displayed to user
+	CallbackData string // Data sent back on click (for callback buttons)
+	URL          string // Optional: open URL when clicked
+}
+
 // Message represents a message from any channel
 type Message struct {
 	ID        string
@@ -14,6 +21,12 @@ type Message struct {
 	Timestamp time.Time
 	ReplyTo   string
 	Metadata  map[string]string
+
+	// Telegram-specific fields
+	Command  string   // e.g. "start" from /start@botname
+	Args     []string // command arguments after the command
+	ChatType string   // "private", "group", "supergroup", "channel"
+	ThreadID int64    // forum topic thread id (message_thread_id)
 }
 
 // Response represents an agent's response
@@ -26,6 +39,11 @@ type Response struct {
 	MessageID string
 	Model     string
 	Metadata  map[string]string
+
+	// Telegram-specific fields
+	Buttons       [][]Button // inline keyboard rows (nil = no keyboard)
+	EditMessageID int64      // if >0, edit this existing message instead of sending
+	ReplyToID     int64      // if >0, send as a reply to this message ID
 }
 
 // ToolResult represents the result of a tool execution from an edge agent

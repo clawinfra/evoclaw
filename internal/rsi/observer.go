@@ -182,7 +182,7 @@ func (o *Observer) appendToFile(outcome Outcome) error {
 	if err != nil {
 		return fmt.Errorf("open outcomes file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	data, err := json.Marshal(outcome)
 	if err != nil {

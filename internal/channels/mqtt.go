@@ -2,6 +2,8 @@ package channels
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -60,17 +62,18 @@ type EdgeAgentResponse struct {
 
 // MQTTChannel implements the Channel interface for MQTT communication
 type MQTTChannel struct {
-	broker   string
-	port     int
-	clientID string
-	username string
-	password string
-	logger   *slog.Logger
-	inbox    chan types.Message
-	client   MQTTClient
-	ctx      context.Context
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
+	broker    string
+	port      int
+	clientID  string
+	username  string
+	password  string
+	tlsConfig *tls.Config // optional TLS/mTLS configuration
+	logger    *slog.Logger
+	inbox     chan types.Message
+	client    MQTTClient
+	ctx       context.Context
+	cancel    context.CancelFunc
+	wg        sync.WaitGroup
 	// Factory function for creating MQTT client
 	clientFactory func(opts *mqtt.ClientOptions) MQTTClient
 	// Result callback for tool execution results
@@ -120,6 +123,58 @@ func NewMQTTWithClient(broker string, port int, username, password string, logge
 	}
 }
 
+// NewMQTTWithTLS creates a new MQTT channel adapter with TLS or mutual-TLS support.
+// Pass a *tls.Config built via NewMQTTTLSConfig (or your own) to enable encrypted connections.
+func NewMQTTWithTLS(broker string, port int, username, password string, tlsConfig *tls.Config, logger *slog.Logger) *MQTTChannel {
+	ch := &MQTTChannel{
+		broker:    broker,
+		port:      port,
+		clientID:  fmt.Sprintf("evoclaw-orchestrator-%d", time.Now().Unix()),
+		username:  username,
+		password:  password,
+		tlsConfig: tlsConfig,
+		logger:    logger.With("channel", "mqtt"),
+		inbox:     make(chan types.Message, 100),
+		clientFactory: func(opts *mqtt.ClientOptions) MQTTClient {
+			return &DefaultMQTTClient{client: mqtt.NewClient(opts)}
+		},
+		resultCallback:  nil,
+		edgeAgents:      make(map[string]*EdgeAgentInfo),
+		pendingRequests: make(map[string]*PendingRequest),
+	}
+	return ch
+}
+
+// NewMQTTTLSConfig builds a *tls.Config for mutual TLS from raw PEM bytes.
+//   - caCert:     PEM-encoded CA certificate (used to verify the broker)
+//   - clientCert: PEM-encoded client certificate (may be nil for server-only TLS)
+//   - clientKey:  PEM-encoded client private key  (may be nil for server-only TLS)
+func NewMQTTTLSConfig(caCert, clientCert, clientKey []byte) (*tls.Config, error) {
+	tlsCfg := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	// Add CA certificate to the pool
+	if len(caCert) > 0 {
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA certificate PEM")
+		}
+		tlsCfg.RootCAs = pool
+	}
+
+	// Add client certificate + key (mutual TLS)
+	if len(clientCert) > 0 && len(clientKey) > 0 {
+		cert, err := tls.X509KeyPair(clientCert, clientKey)
+		if err != nil {
+			return nil, fmt.Errorf("load client cert/key: %w", err)
+		}
+		tlsCfg.Certificates = []tls.Certificate{cert}
+	}
+
+	return tlsCfg, nil
+}
+
 func (m *MQTTChannel) Name() string {
 	return "mqtt"
 }
@@ -129,7 +184,16 @@ func (m *MQTTChannel) Start(ctx context.Context) error {
 
 	// Configure MQTT client
 	opts := mqtt.NewClientOptions()
-	brokerURL := fmt.Sprintf("tcp://%s:%d", m.broker, m.port)
+
+	// Use TLS scheme when a TLS config is provided
+	var brokerURL string
+	if m.tlsConfig != nil {
+		brokerURL = fmt.Sprintf("tls://%s:%d", m.broker, m.port)
+		opts.SetTLSConfig(m.tlsConfig)
+	} else {
+		brokerURL = fmt.Sprintf("tcp://%s:%d", m.broker, m.port)
+	}
+
 	opts.AddBroker(brokerURL)
 	opts.SetClientID(m.clientID)
 

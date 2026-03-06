@@ -160,7 +160,7 @@ Subcommands:
 
 // PrintHelp prints top-level help (evoclaw help).
 func PrintHelp(binaryName string) {
-	fmt.Fprintf(os.Stdout, `EvoClaw — Self-Evolving Agent Framework
+	_, _ = fmt.Fprintf(os.Stdout, `EvoClaw — Self-Evolving Agent Framework
 https://github.com/clawinfra/evoclaw
 
 USAGE:
@@ -171,13 +171,13 @@ COMMANDS:
 
 	for _, c := range commands {
 		if c.Args != "" {
-			fmt.Fprintf(os.Stdout, "  %-12s %-30s %s\n", c.Name, c.Args, c.Short)
+			_, _ = fmt.Fprintf(os.Stdout, "  %-12s %-30s %s\n", c.Name, c.Args, c.Short)
 		} else {
-			fmt.Fprintf(os.Stdout, "  %-12s %-30s %s\n", c.Name, "", c.Short)
+			_, _ = fmt.Fprintf(os.Stdout, "  %-12s %-30s %s\n", c.Name, "", c.Short)
 		}
 	}
 
-	fmt.Fprintf(os.Stdout, `
+	_, _ = fmt.Fprintf(os.Stdout, `
 GLOBAL FLAGS:
   --config <file>   Path to config file (default: evoclaw.json)
   --version         Print version information
@@ -191,24 +191,24 @@ Run '%s help <command>' for detailed help on a specific command.
 func PrintCommandHelp(binaryName, cmdName string) {
 	for _, c := range commands {
 		if c.Name == cmdName {
-			fmt.Fprintf(os.Stdout, "COMMAND: %s %s\n\n", binaryName, c.Name)
+			_, _ = fmt.Fprintf(os.Stdout, "COMMAND: %s %s\n\n", binaryName, c.Name)
 			if c.Args != "" {
-				fmt.Fprintf(os.Stdout, "USAGE:\n  %s %s %s\n\n", binaryName, c.Name, c.Args)
+				_, _ = fmt.Fprintf(os.Stdout, "USAGE:\n  %s %s %s\n\n", binaryName, c.Name, c.Args)
 			}
 			if c.Long != "" {
-				fmt.Fprintf(os.Stdout, "DESCRIPTION:\n  %s\n\n", c.Long)
+				_, _ = fmt.Fprintf(os.Stdout, "DESCRIPTION:\n  %s\n\n", c.Long)
 			}
 			if len(c.Examples) > 0 {
-				fmt.Fprintln(os.Stdout, "EXAMPLES:")
+				_, _ = fmt.Fprintln(os.Stdout, "EXAMPLES:")
 				for _, ex := range c.Examples {
-					fmt.Fprintf(os.Stdout, "  %s\n", ex)
+					_, _ = fmt.Fprintf(os.Stdout, "  %s\n", ex)
 				}
-				fmt.Fprintln(os.Stdout)
+				_, _ = fmt.Fprintln(os.Stdout)
 			}
 			return
 		}
 	}
-	fmt.Fprintf(os.Stderr, "Unknown command: %s\n\nRun '%s help' for a list of commands.\n", cmdName, binaryName)
+	_, _ = fmt.Fprintf(os.Stderr, "Unknown command: %s\n\nRun '%s help' for a list of commands.\n", cmdName, binaryName)
 	os.Exit(1)
 }
 

@@ -154,7 +154,7 @@ func buildTreeSearchUserPrompt(treeText, query string, topK int) string {
 	sb.WriteString(treeText)
 	sb.WriteString("\n\nQuery: ")
 	sb.WriteString(query)
-	sb.WriteString(fmt.Sprintf("\n\nFind the top %d most relevant nodes (JSON array):", topK))
+	_, _ = fmt.Fprintf(&sb, "\n\nFind the top %d most relevant nodes (JSON array):", topK)
 	return sb.String()
 }
 

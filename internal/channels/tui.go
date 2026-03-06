@@ -372,7 +372,7 @@ func (m tuiModel) renderSidebar() string {
 		}
 
 		name := agentLabel.Render(a.ID)
-		sb.WriteString(fmt.Sprintf("  %s %s\n", indicator, name))
+		fmt.Fprintf(&sb, "  %s %s\n", indicator, name)
 
 		// Metrics
 		sb.WriteString(metricStyle.Render(fmt.Sprintf("status: %s", a.Status)))
@@ -448,12 +448,12 @@ func (m tuiModel) renderChat() string {
 
 		if entry.isUser {
 			sender := userMsg.Render("[You]")
-			sb.WriteString(fmt.Sprintf("%s %s %s\n", timeStr, sender, chatText.Render(entry.content)))
+			fmt.Fprintf(&sb, "%s %s %s\n", timeStr, sender, chatText.Render(entry.content))
 		} else {
 			sender := agentMsg.Render(fmt.Sprintf("[%s]", entry.sender))
 			// Word-wrap long responses
 			content := entry.content
-			sb.WriteString(fmt.Sprintf("%s %s\n%s\n", timeStr, sender, chatText.Render(content)))
+			fmt.Fprintf(&sb, "%s %s\n%s\n", timeStr, sender, chatText.Render(content))
 		}
 		sb.WriteString("\n")
 	}
