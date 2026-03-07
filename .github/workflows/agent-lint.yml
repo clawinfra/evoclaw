@@ -1,0 +1,70 @@
+name: Agent Harness Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  agent-lint:
+    name: Agent architectural invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run agent lints
+        run: bash scripts/agent-lint.sh
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./... -count=1 -timeout 120s
+
+  race:
+    name: Race detector (orchestrator + skillbank)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run race detector
+        run: |
+          go test -race ./internal/orchestrator/... -timeout 60s
+          go test -race ./internal/skillbank/... -timeout 60s
+          go test -race ./internal/agents/... -timeout 60s
+
+  vet:
+    name: go vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run go vet
+        run: go vet ./...

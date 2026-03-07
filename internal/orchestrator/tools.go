@@ -96,6 +96,11 @@ func (tm *ToolManager) GenerateSchemas() ([]ToolSchema, error) {
 	// Discover all skills
 	skillDirs, err := os.ReadDir(tm.skillsPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// Skills directory doesn't exist yet — return empty schema set (not an error)
+			tm.cache["all"] = []ToolSchema{}
+			return []ToolSchema{}, nil
+		}
 		return nil, fmt.Errorf("read skills directory: %w", err)
 	}
 
