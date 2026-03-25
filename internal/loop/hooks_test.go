@@ -15,14 +15,6 @@ func freshState(id string) AgentState {
 	return AgentState{ID: id}
 }
 
-// editCall builds a write_file ToolCall for path. The seq parameter is
-// included in the arguments so that successive calls are distinguishable
-// for the consecutive-identical-call signal (otherwise tests that drive
-// many edits to the same file trigger the wrong signal).
-func editCall(path string) ToolCall {
-	return editCallSeq(path, 0)
-}
-
 // editCallSeq builds a write_file ToolCall with a unique seq counter in
 // the arguments. Use this when consecutive identical-call detection would
 // fire before the edit-threshold signal.
