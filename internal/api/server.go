@@ -37,6 +37,7 @@ type Server struct {
 	wsTimeout   time.Duration         // timeout for WS chat responses (default 30 s)
 	cloudMgr    *cloud.Manager        // E2B cloud sandbox manager
 	saasSvc     *saas.Service         // Multi-tenant SaaS service
+	startedAt   time.Time             // server start time, for uptime reporting
 }
 
 // NewServer creates a new API server
@@ -72,6 +73,7 @@ func NewServer(
 		httpChannel: httpChannel,
 		wsChannel:   wsChannel,
 		wsTimeout:   30 * time.Second,
+		startedAt:   time.Now(),
 	}
 }
 
@@ -324,7 +326,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	status := map[string]interface{}{
 		"version":    "0.1.0",
-		"uptime":     time.Since(time.Now()), // TODO: track actual uptime
+		"uptime":     time.Since(s.startedAt).Seconds(),
 		"agents":     len(agentList),
 		"models":     len(s.router.ListModels()),
 		"memory":     memStats,
