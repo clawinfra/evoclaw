@@ -1,0 +1,32 @@
+{
+  "name": "evoclaw-synthetic-nsm-retrieval",
+  "description": "Small synthetic network-and-service-management retrieval set for reproducing EvoClaw's memory comparison. Multi-hop queries require connecting facts spread across two documents. This is self-generated synthetic data (as in the paper); a public-benchmark run (HotpotQA/MuSiQue) is a documented extension in README.md.",
+  "documents": [
+    {"id": "d01", "title": "Edge node telemetry", "text": "Edge service node ne-7 reports CPU temperature and memory pressure every 30 seconds over MQTT to the orchestrator."},
+    {"id": "d02", "title": "Orchestrator alerting", "text": "The orchestrator raises a thermal alert when an edge node's reported CPU temperature exceeds 80 degrees Celsius for three consecutive samples."},
+    {"id": "d03", "title": "Model router fallback", "text": "The model router marks a model Degraded after three consecutive failures and fails over to the next healthy model in the fallback chain."},
+    {"id": "d04", "title": "Router cooldown", "text": "A Degraded model returns to Healthy after a cooldown of five minutes with no further failures, restoring it to the preferred routing slot."},
+    {"id": "d05", "title": "Genome hot-reload", "text": "Editing genome.toml triggers a hot-reload: the new genome is parsed, validated, and applied while in-flight skill operations quiesce, with no restart."},
+    {"id": "d06", "title": "Genome constraints", "text": "Genome constraints such as max_loss_usd and blocked_actions are inviolable walls that the evolution engine can never mutate."},
+    {"id": "d07", "title": "Tiered memory hot tier", "text": "Hot memory holds the agent's active working context in a compact JSON object capped at five kilobytes, rewritten after every conversation."},
+    {"id": "d08", "title": "Tiered memory warm tier", "text": "Warm memory stores distilled facts with a relevance score and a thirty-day decay half-life; entries below threshold are archived to the cold tier."},
+    {"id": "d09", "title": "Evolution rollback", "text": "After a skill mutation the guarded loop evaluates the candidate and rolls the genome back to the pre-mutation snapshot if fitness regresses beyond the tolerance."},
+    {"id": "d10", "title": "Circuit breaker guard", "text": "The evolution firewall opens a circuit breaker when a mutation drops fitness by more than thirty percent, forcing a rollback regardless of the tolerance."},
+    {"id": "d11", "title": "MQTT topics", "text": "Edge agents communicate on per-node MQTT topics under evoclaw/agents with configurable quality-of-service levels."},
+    {"id": "d12", "title": "Cold tier storage", "text": "Cold memory is the permanent archive in Turso cloud storage, keyed by service identifier and timestamp, queryable but never bulk-loaded into context."},
+    {"id": "d13", "title": "Skill parameters", "text": "The FundingArbitrage trading skill exposes funding_threshold and position_size_usd as evolvable numeric parameters."},
+    {"id": "d14", "title": "Fitness weighting", "text": "The trading fitness score combines a Sharpe component at forty percent, win rate at thirty percent, PnL at twenty percent, and a drawdown penalty at ten percent."}
+  ],
+  "queries": [
+    {"id": "q1", "hop": "single", "question": "How often does edge node ne-7 report telemetry?", "gold_docs": ["d01"]},
+    {"id": "q2", "hop": "single", "question": "When does a Degraded model return to Healthy?", "gold_docs": ["d04"]},
+    {"id": "q3", "hop": "single", "question": "What is the storage cap on the hot memory tier?", "gold_docs": ["d07"]},
+    {"id": "q4", "hop": "single", "question": "Which genome fields are inviolable walls?", "gold_docs": ["d06"]},
+    {"id": "q5", "hop": "multi", "question": "At what temperature does ne-7 telemetry trigger a thermal alert?", "gold_docs": ["d01", "d02"]},
+    {"id": "q6", "hop": "multi", "question": "After how many failures does the router fail over, and how long until the model recovers?", "gold_docs": ["d03", "d04"]},
+    {"id": "q7", "hop": "multi", "question": "What causes a mutated genome to be restored to its earlier snapshot?", "gold_docs": ["d09", "d10"]},
+    {"id": "q8", "hop": "multi", "question": "Where do distilled warm-tier facts go once they decay below threshold?", "gold_docs": ["d08", "d12"]},
+    {"id": "q9", "hop": "single", "question": "Which parameters of the FundingArbitrage skill can evolve?", "gold_docs": ["d13"]},
+    {"id": "q10", "hop": "multi", "question": "How is trading fitness weighted and which skill parameters feed it?", "gold_docs": ["d13", "d14"]}
+  ]
+}

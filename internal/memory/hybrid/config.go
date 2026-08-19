@@ -25,7 +25,7 @@ func DefaultConfig() Config {
 		DBPath:            "hybrid_search.db",
 		VectorWeight:      0.7,
 		KeywordWeight:     0.3,
-		EmbeddingProvider: "none",
+		EmbeddingProvider: "local",
 		ChunkSize:         512,
 		ChunkOverlap:      50,
 		CacheSize:         128,

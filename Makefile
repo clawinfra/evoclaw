@@ -23,7 +23,10 @@ else ifdef DOCKER_COMPOSE
   COMPOSE := docker compose
   RUNTIME := docker
 else
-  COMPOSE := $(error No container compose tool found. Install podman-compose or docker compose.)
+  # Deferred (recursive '=') so the error fires only when a compose target is
+  # actually run, not at parse time. This lets non-container targets (e.g.
+  # repro-evolution, repro-memory) run on machines without podman/docker.
+  COMPOSE = $(error No container compose tool found. Install podman-compose or docker compose.)
   RUNTIME := none
 endif
 
@@ -33,7 +36,7 @@ PROJECT           ?= evoclaw
 
 .PHONY: help up up-docker up-dev down build logs status \
         pod-up pod-down clean shell-orchestrator shell-agent \
-        build-orchestrator build-agent repro-evolution
+        build-orchestrator build-agent repro-evolution repro-memory
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -43,6 +46,9 @@ help: ## Show this help
 
 repro-evolution: ## Reproduce the guarded adaptation loop (Algorithm 1) end to end
 	go run ./cmd/evolve-demo
+
+repro-memory: ## Reproduce the memory-retrieval comparison on the committed dataset
+	go run ./cmd/memory-bench -k 5 -dataset experiments/memory/dataset.json
 
 # ── Compose-based targets ───────────────────────────────────────
 
