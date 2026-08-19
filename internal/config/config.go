@@ -295,6 +295,10 @@ type EvolutionConfig struct {
 	MinSamplesForEval int `json:"minSamplesForEval"`
 	// Maximum strategy mutation rate (0.0 - 1.0)
 	MaxMutationRate float64 `json:"maxMutationRate"`
+	// Fitness regression tolerance (delta) for the guarded adaptation loop.
+	// A mutated candidate is accepted iff its fitness >= incumbent - RegressionTolerance;
+	// otherwise the genome is rolled back. See Algorithm 1 (Evolution Loop with Rollback).
+	RegressionTolerance float64 `json:"regressionTolerance"`
 }
 
 type AgentDef struct {
@@ -393,9 +397,10 @@ func DefaultConfig() *Config {
 		},
 		Evolution: EvolutionConfig{
 			Enabled:           true,
-			EvalIntervalSec:   3600, // every hour
-			MinSamplesForEval: 10,
-			MaxMutationRate:   0.2,
+			EvalIntervalSec:     3600, // every hour
+			MinSamplesForEval:   10,
+			MaxMutationRate:     0.2,
+			RegressionTolerance: 0.05, // accept a candidate unless fitness drops by > 0.05
 		},
 		Models: ModelsConfig{
 			Routing: ModelRouting{
