@@ -156,6 +156,21 @@ type Orchestrator struct {
 	// Security policy for workspace sandboxing
 	securityPolicy *security.SecurityPolicy
 	reporter       AgentReporter
+	// pendingSkillTrials tracks in-flight guarded mutations awaiting a fitness
+	// verdict, keyed by agentID + "\x00" + skillName (see the guarded adaptation
+	// loop in evaluateAgents / evolveSkill / resolveSkillTrial).
+	pendingSkillTrials map[string]*skillTrial
+	trialsMu           sync.Mutex
+}
+
+// skillTrial records the state of a mutated skill candidate that is being trialed
+// before it is accepted or rolled back — Phase 1 of Algorithm 1 (Evolution Loop
+// with Rollback). The verdict is issued once the agent accumulates at least
+// MinSamplesForEval new actions after the mutation.
+type skillTrial struct {
+	preFitness   float64
+	startActions int64
+	startedAt    time.Time
 }
 
 // New creates a new Orchestrator
@@ -173,6 +188,7 @@ func New(cfg *config.Config, logger *slog.Logger) *Orchestrator {
 		cancel:             cancel,
 		resultRegistry:     make(map[string]chan *ToolResult),
 		edgeResultRegistry: make(map[string]chan map[string]interface{}),
+		pendingSkillTrials: make(map[string]*skillTrial),
 	}
 }
 
@@ -1314,6 +1330,24 @@ func (o *Orchestrator) evaluateAgents() {
 			}
 
 			if skillEvo, ok := o.evolution.(SkillEvolver); ok {
+				trialKey := agentID + "\x00" + skillName
+
+				// Phase 2 of Algorithm 1: if a candidate is on trial, evaluate it
+				// and accept-or-rollback once its trial window has elapsed.
+				o.trialsMu.Lock()
+				trial, onTrial := o.pendingSkillTrials[trialKey]
+				o.trialsMu.Unlock()
+				if onTrial {
+					if metrics.TotalActions-trial.startActions < int64(o.cfg.Evolution.MinSamplesForEval) {
+						continue // still gathering post-mutation trial samples
+					}
+					o.resolveSkillTrial(agent, skillName, trial)
+					o.trialsMu.Lock()
+					delete(o.pendingSkillTrials, trialKey)
+					o.trialsMu.Unlock()
+					continue
+				}
+
 				fitness, err := skillEvo.EvaluateSkill(agentID, skillName, evalMetrics)
 				if err != nil {
 					o.logger.Error("skill evaluation failed",
@@ -1351,11 +1385,8 @@ func (o *Orchestrator) evaluateAgents() {
 						"threshold", minFitness,
 					)
 
-					agent.mu.Lock()
-					agent.Status = "evolving"
-					agent.mu.Unlock()
-
-					go o.evolveSkill(agent, skillName, fitness)
+					// Phase 1 of Algorithm 1: mutate the candidate and open a trial.
+					go o.evolveSkill(agent, skillName, fitness, metrics.TotalActions)
 				}
 			} else {
 				// Fallback to legacy agent-level evolution
@@ -1414,13 +1445,20 @@ func (o *Orchestrator) getSkillMetrics(agent *AgentState, skillName string) map[
 	return evalMetrics
 }
 
-// evolveSkill performs evolution on a specific skill
-func (o *Orchestrator) evolveSkill(agent *AgentState, skillName string, currentFitness float64) {
+// evolveSkill mutates a skill and opens a guarded trial for the candidate —
+// Phase 1 of Algorithm 1 (Evolution Loop with Rollback). The candidate is later
+// accepted or rolled back in resolveSkillTrial, once the agent has gathered
+// MinSamplesForEval new actions under the mutated parameters.
+func (o *Orchestrator) evolveSkill(agent *AgentState, skillName string, currentFitness float64, startActions int64) {
 	defer func() {
 		agent.mu.Lock()
 		agent.Status = "idle"
 		agent.mu.Unlock()
 	}()
+
+	agent.mu.Lock()
+	agent.Status = "evolving"
+	agent.mu.Unlock()
 
 	o.logger.Info("starting skill evolution",
 		"agent", agent.ID,
@@ -1442,9 +1480,20 @@ func (o *Orchestrator) evolveSkill(agent *AgentState, skillName string, currentF
 			return
 		}
 
-		o.logger.Info("skill evolved successfully",
+		// Open the trial: record the incumbent fitness so a later evaluation
+		// cycle can accept the candidate or roll it back (Algorithm 1, Phase 2).
+		o.trialsMu.Lock()
+		o.pendingSkillTrials[agent.ID+"\x00"+skillName] = &skillTrial{
+			preFitness:   currentFitness,
+			startActions: startActions,
+			startedAt:    time.Now(),
+		}
+		o.trialsMu.Unlock()
+
+		o.logger.Info("skill candidate on trial (awaiting fitness verdict)",
 			"agent", agent.ID,
 			"skill", skillName,
+			"preFitness", currentFitness,
 		)
 
 		// Sync evolution event to cloud
@@ -1471,6 +1520,59 @@ func (o *Orchestrator) evolveSkill(agent *AgentState, skillName string, currentF
 				}
 			}()
 		}
+	}
+}
+
+// resolveSkillTrial issues the accept/reject verdict for a skill candidate whose
+// trial window has completed — Phase 2 of Algorithm 1 (Evolution Loop with
+// Rollback). It measures the candidate's fitness from the agent's current
+// metrics and asks the evolution engine to accept the candidate (if its fitness
+// stays within the configured regression tolerance) or roll the genome back to
+// the pre-mutation snapshot.
+func (o *Orchestrator) resolveSkillTrial(agent *AgentState, skillName string, trial *skillTrial) {
+	// The engine must support the guarded accept/rollback rule; if it does not,
+	// there is nothing to resolve and we simply drop the trial.
+	type guardedEvolver interface {
+		AcceptOrRollbackSkill(agentID, skillName string, preFitness, delta float64, trialMetrics map[string]float64) (bool, float64, error)
+	}
+	ge, ok := o.evolution.(guardedEvolver)
+	if !ok {
+		return
+	}
+
+	agent.mu.RLock()
+	trialActions := agent.Metrics.TotalActions - trial.startActions
+	agent.mu.RUnlock()
+
+	trialMetrics := o.getSkillMetrics(agent, skillName)
+	delta := o.cfg.Evolution.RegressionTolerance
+
+	accepted, postFitness, err := ge.AcceptOrRollbackSkill(agent.ID, skillName, trial.preFitness, delta, trialMetrics)
+	if err != nil {
+		o.logger.Error("skill trial resolution failed",
+			"agent", agent.ID,
+			"skill", skillName,
+			"error", err,
+		)
+		return
+	}
+
+	if accepted {
+		o.logger.Info("skill candidate ACCEPTED",
+			"agent", agent.ID,
+			"skill", skillName,
+			"preFitness", trial.preFitness,
+			"postFitness", postFitness,
+			"trialActions", trialActions,
+		)
+	} else {
+		o.logger.Warn("skill candidate ROLLED BACK",
+			"agent", agent.ID,
+			"skill", skillName,
+			"preFitness", trial.preFitness,
+			"postFitness", postFitness,
+			"trialActions", trialActions,
+		)
 	}
 }
 

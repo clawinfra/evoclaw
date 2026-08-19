@@ -33,11 +33,16 @@ PROJECT           ?= evoclaw
 
 .PHONY: help up up-docker up-dev down build logs status \
         pod-up pod-down clean shell-orchestrator shell-agent \
-        build-orchestrator build-agent
+        build-orchestrator build-agent repro-evolution
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# ── Reproduction targets ────────────────────────────────────────
+
+repro-evolution: ## Reproduce the guarded adaptation loop (Algorithm 1) end to end
+	go run ./cmd/evolve-demo
 
 # ── Compose-based targets ───────────────────────────────────────
 

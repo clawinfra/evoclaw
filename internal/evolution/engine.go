@@ -1046,3 +1046,164 @@ func (e *Engine) GetBehaviorHistory(agentID string) ([]genome.BehaviorFeedback, 
 
 	return feedback, nil
 }
+
+// ================================
+// Guarded Adaptation Loop (Algorithm 1: Evolution Loop with Rollback)
+// ================================
+
+// AdaptationOutcome captures the result of one guarded adaptation step —
+// a candidate mutation, a fitness trial, and an accept-or-rollback decision.
+// It is the per-iteration record of the paper's Algorithm 1.
+type AdaptationOutcome struct {
+	AgentID     string    `json:"agentId"`
+	SkillName   string    `json:"skillName"`
+	Accepted    bool      `json:"accepted"`
+	Decision    string    `json:"decision"` // "accept" or "rollback"
+	PreFitness  float64   `json:"preFitness"`
+	PostFitness float64   `json:"postFitness"`
+	Delta       float64   `json:"delta"`
+	Reason      string    `json:"reason"`
+	Timestamp   time.Time `json:"timestamp"`
+}
+
+// TryEvolveSkill runs one complete guarded adaptation step for a single skill,
+// composing the existing evolution primitives into the end-to-end loop described
+// by Algorithm 1 (Evolution Loop with Rollback):
+//
+//  1. record the incumbent skill fitness (baseline f_g);
+//  2. mutate the skill, which also snapshots the incumbent genome;
+//  3. evaluate the candidate over trialMetrics (f_g');
+//  4. accept iff f_g' >= f_g - delta (and the circuit breaker has not tripped),
+//     otherwise roll the genome back to the pre-mutation snapshot.
+//
+// It returns a fully-populated AdaptationOutcome. This is the single execution
+// path exercised end-to-end by the orchestrator's runtime trial resolution and
+// by the `make repro-evolution` demo.
+func (e *Engine) TryEvolveSkill(agentID, skillName string, mutationRate, delta float64, trialMetrics map[string]float64) (AdaptationOutcome, error) {
+	g, err := e.GetGenome(agentID)
+	if err != nil {
+		return AdaptationOutcome{}, fmt.Errorf("get genome: %w", err)
+	}
+	skill, ok := g.Skills[skillName]
+	if !ok {
+		return AdaptationOutcome{}, fmt.Errorf("skill not found: %s", skillName)
+	}
+	preFitness := skill.Fitness
+
+	// Mutate the candidate (MutateSkill snapshots the incumbent genome first).
+	if err := e.MutateSkill(agentID, skillName, mutationRate); err != nil {
+		return AdaptationOutcome{}, fmt.Errorf("mutate skill: %w", err)
+	}
+
+	// Evaluate the candidate over the trial window and accept or roll back.
+	accepted, postFitness, err := e.AcceptOrRollbackSkill(agentID, skillName, preFitness, delta, trialMetrics)
+	if err != nil {
+		return AdaptationOutcome{}, err
+	}
+
+	outcome := AdaptationOutcome{
+		AgentID:     agentID,
+		SkillName:   skillName,
+		Accepted:    accepted,
+		PreFitness:  preFitness,
+		PostFitness: postFitness,
+		Delta:       delta,
+		Timestamp:   time.Now(),
+	}
+	if accepted {
+		outcome.Decision = "accept"
+		outcome.Reason = "candidate fitness within regression tolerance"
+	} else {
+		outcome.Decision = "rollback"
+		outcome.Reason = "candidate regressed beyond tolerance; incumbent restored"
+	}
+	return outcome, nil
+}
+
+// AcceptOrRollbackSkill applies the accept/reject rule of Algorithm 1 to a skill
+// candidate that has already been mutated. Given the incumbent's pre-mutation
+// fitness and a regression tolerance delta, it measures the candidate's fitness
+// from trialMetrics and ACCEPTS iff f' >= preFitness - delta and the firewall
+// circuit breaker has not tripped; otherwise it ROLLS BACK the genome to the most
+// recent pre-mutation snapshot. It returns whether the candidate was accepted and
+// the candidate's measured fitness, and appends the decision to the adaptation log.
+func (e *Engine) AcceptOrRollbackSkill(agentID, skillName string, preFitness, delta float64, trialMetrics map[string]float64) (bool, float64, error) {
+	postFitness := computeFitness(trialMetrics)
+
+	// Fitness-based acceptance: accept iff f' >= f - delta (Algorithm 1, line 14).
+	accepted := postFitness >= preFitness-delta
+
+	// Circuit-breaker guard: a catastrophic drop forces rollback regardless of delta,
+	// and records the result so repeated regressions open the breaker.
+	if err := e.Firewall.PostMutationCheck(agentID, preFitness, postFitness); err != nil {
+		accepted = false
+	}
+
+	if accepted {
+		// Persist the candidate and mark it verified (VBR).
+		if g, err := e.GetGenome(agentID); err == nil {
+			if sk, ok := g.Skills[skillName]; ok {
+				sk.Fitness = postFitness
+				sk.Verified = true
+				g.Skills[skillName] = sk
+				if uerr := e.UpdateGenome(agentID, g); uerr != nil {
+					return false, postFitness, fmt.Errorf("persist accepted candidate: %w", uerr)
+				}
+			}
+		}
+		e.logAdaptation(agentID, skillName, true, preFitness, postFitness, delta)
+		return true, postFitness, nil
+	}
+
+	// Rollback: restore the last-good genome snapshot taken before the mutation.
+	if restored, err := e.Firewall.Snapshots.Rollback(agentID); err == nil {
+		if uerr := e.UpdateGenome(agentID, restored); uerr != nil {
+			return false, postFitness, fmt.Errorf("rollback restore: %w", uerr)
+		}
+	} else {
+		// No genome snapshot available — fall back to strategy-level revert if present.
+		_ = e.Revert(agentID)
+	}
+	e.logAdaptation(agentID, skillName, false, preFitness, postFitness, delta)
+	return false, postFitness, nil
+}
+
+// logAdaptation appends one accept/rollback decision to adaptation-log.jsonl in the
+// engine's data directory, providing a durable, machine-readable change history of
+// the guarded adaptation loop (one JSON object per line).
+func (e *Engine) logAdaptation(agentID, skillName string, accepted bool, pre, post, delta float64) {
+	decision := "rollback"
+	if accepted {
+		decision = "accept"
+	}
+	e.logger.Info("adaptation decision",
+		"agent", agentID,
+		"skill", skillName,
+		"decision", decision,
+		"preFitness", pre,
+		"postFitness", post,
+		"delta", delta,
+	)
+
+	rec := AdaptationOutcome{
+		AgentID:     agentID,
+		SkillName:   skillName,
+		Accepted:    accepted,
+		Decision:    decision,
+		PreFitness:  pre,
+		PostFitness: post,
+		Delta:       delta,
+		Timestamp:   time.Now(),
+	}
+	data, err := json.Marshal(rec)
+	if err != nil {
+		return
+	}
+	path := filepath.Join(e.dataDir, "adaptation-log.jsonl")
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0640)
+	if err != nil {
+		return
+	}
+	defer func() { _ = f.Close() }()
+	_, _ = f.Write(append(data, '\n'))
+}
