@@ -267,6 +267,13 @@ func (e *Engine) ShouldEvolve(agentID string, minFitness float64) bool {
 	return s.Fitness < minFitness
 }
 
+// Fitness scores a metrics map with the same weighted function the evolution
+// engine uses internally. Exported for reproducible experiments and external
+// scoring; the engine itself uses the unexported computeFitness.
+func Fitness(metrics map[string]float64) float64 {
+	return computeFitness(metrics)
+}
+
 // computeFitness calculates a fitness score from metrics
 func computeFitness(metrics map[string]float64) float64 {
 	// Weighted combination of metrics

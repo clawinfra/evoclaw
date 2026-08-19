@@ -36,7 +36,7 @@ PROJECT           ?= evoclaw
 
 .PHONY: help up up-docker up-dev down build logs status \
         pod-up pod-down clean shell-orchestrator shell-agent \
-        build-orchestrator build-agent repro-evolution repro-memory
+        build-orchestrator build-agent repro-evolution repro-memory repro-adaptation
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -49,6 +49,9 @@ repro-evolution: ## Reproduce the guarded adaptation loop (Algorithm 1) end to e
 
 repro-memory: ## Reproduce the memory-retrieval comparison on the committed dataset
 	go run ./cmd/memory-bench -k 5 -dataset experiments/memory/dataset.json
+
+repro-adaptation: ## Reproduce the controlled adaptation study (guarded vs greedy vs static)
+	go run ./cmd/adapt-study
 
 # ── Compose-based targets ───────────────────────────────────────
 
