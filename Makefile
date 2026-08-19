@@ -23,7 +23,10 @@ else ifdef DOCKER_COMPOSE
   COMPOSE := docker compose
   RUNTIME := docker
 else
-  COMPOSE := $(error No container compose tool found. Install podman-compose or docker compose.)
+  # Deferred (recursive '=') so the error fires only when a compose target is
+  # actually run, not at parse time. This lets non-container targets (e.g.
+  # repro-evolution, repro-memory) run on machines without podman/docker.
+  COMPOSE = $(error No container compose tool found. Install podman-compose or docker compose.)
   RUNTIME := none
 endif
 
