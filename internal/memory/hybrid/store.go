@@ -48,12 +48,16 @@ func New(cfg Config) (*Store, error) {
 		cfg:   cfg,
 	}
 
-	// Select embedding provider
+	// Select embedding provider. "local" enables the dependency-free feature-hashing
+	// embedder so the vector-similarity path is functional offline; "none" (or "")
+	// disables vector search (keyword-only).
 	switch cfg.EmbeddingProvider {
 	case "none", "":
 		s.embedder = &NoopEmbedder{}
+	case "local":
+		s.embedder = NewLocalHashEmbedder(0)
 	default:
-		s.embedder = &NoopEmbedder{}
+		s.embedder = NewLocalHashEmbedder(0)
 	}
 
 	if err := s.migrate(); err != nil {
@@ -163,6 +167,24 @@ func (s *Store) Search(ctx context.Context, query string, limit int) ([]SearchRe
 
 	// Merge
 	return MergeResults(kwResults, vecResults, s.cfg.KeywordWeight, s.cfg.VectorWeight), nil
+}
+
+// SearchKeyword performs keyword-only (FTS5) retrieval. Exposed for benchmarking
+// and for callers that deliberately want lexical matching without the vector path.
+func (s *Store) SearchKeyword(_ context.Context, query string, limit int) ([]SearchResult, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	return s.fts.Search(query, limit)
+}
+
+// SearchVector performs vector-only (cosine-similarity) retrieval. Returns no
+// results when the configured embedder is a no-op. Exposed for benchmarking.
+func (s *Store) SearchVector(ctx context.Context, query string, limit int) ([]SearchResult, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	return s.vectorSearch(ctx, query, limit)
 }
 
 // vectorSearch finds chunks by cosine similarity to the query embedding.
